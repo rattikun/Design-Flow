@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Flow — ระบบจัดการทีม</title>
+  <link href="https://fonts.cdnfonts.com/css/google-sans" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0f14;
+      --surface: #161820;
+      --surface2: #1e2029;
+      --surface3: #252733;
+      --border: #2e3044;
+      --border2: #3a3d55;
+      --text: #e8eaf6;
+      --text2: #9094b8;
+      --text3: #5a5e7a;
+      --accent: #6c8aff;
+      --accent2: #4d6fff;
+      --green: #3dd68c;
+      --green-bg: rgba(61, 214, 140, 0.12);
+      --yellow: #f5c842;
+      --yellow-bg: rgba(245, 200, 66, 0.12);
+      --red: #ff6b6b;
+      --red-bg: rgba(255, 107, 107, 0.12);
+      --purple: #b37fff;
+      --purple-bg: rgba(179, 127, 255, 0.12);
+      --orange: #ff9f40;
+      --orange-bg: rgba(255, 159, 64, 0.12);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 40px;
+      width: 380px;
+      max-width: 92vw;
+    }
+
+    .login-logo {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 4px;
+      letter-spacing: -1px;
+    }
+
+    .login-sub {
+      font-size: 12px;
+      color: var(--text3);
+      font-family: var(--mono);
+      margin-bottom: 28px;
+    }
+
+    .login-err {
+      background: var(--red-bg);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: var(--red);
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      display: none;
+    }
+
+
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .logo-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--text3);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+
+    .nav-section {
+      padding: 0 12px;
+      margin-bottom: 4px;
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text3);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 8px 8px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all .15s;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: rgba(108, 138, 255, .15);
+      color: var(--accent);
+      border-color: rgba(108, 138, 255, .2);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
+    .badge {
+      margin-left: auto;
+      background: var(--red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--mono);
+      border-radius: 20px;
+      padding: 1px 6px;
+      min-width: 18px;
+      text-align: center;
+      display: none;
+    }
+
+    .user-panel {
+      margin-top: auto;
+      padding: 14px 12px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--surface2);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .user-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: var(--surface3);
+    }
+
+    .user-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .user-role-txt {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .logout-btn {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 7px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text3);
+      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+
+    .logout-btn:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .main {
+      flex: 1;
+      padding: 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Mobile Responsive Sidebar */
+    .mobile-nav-bar {
+      display: none;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      align-items: center;
+      justify-content: space-between;
+      margin: -32px -32px 20px -32px;
+    }
+    
+    .mobile-menu-btn {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1050;
+      display: none;
+      backdrop-filter: blur(2px);
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        left: -260px;
+        z-index: 1100;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+      }
+      .sidebar.active {
+        left: 0;
+      }
+      .mobile-nav-bar {
+        display: flex;
+      }
+      .main {
+        padding: 20px;
+      }
+      .mobile-nav-bar {
+        margin: -20px -20px 20px -20px;
+      }
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .page-sub {
+      font-size: 13px;
+      color: var(--text3);
+      margin-top: 2px;
+      font-family: var(--mono);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: var(--mono);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+
+    .stat-accent {
+      color: var(--accent);
+    }
+
+    .stat-green {
+      color: var(--green);
+    }
+
+    .stat-yellow {
+      color: var(--yellow);
+    }
+
+    .stat-purple {
+      color: var(--purple);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .btn-green {
+      background: var(--green);
+      color: #0e0f14;
+    }
+
+    .btn-red {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 13px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group.full {
+      grid-column: 1/-1;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    input,
+    select,
+    textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s;
+      width: 100%;
+    }
+
+    input::-webkit-calendar-picker-indicator {
+      filter: invert(1) brightness(1.5);
+      cursor: pointer;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108, 138, 255, .1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    select option {
+      background: var(--surface2);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--mono);
+    }
+
+    .chip-pending {
+      background: var(--yellow-bg);
+      color: var(--yellow);
+    }
+
+    .chip-approved {
+      background: var(--green-bg);
+      color: var(--green);
+    }
+
+    .chip-rejected {
+      background: var(--red-bg);
+      color: var(--red);
+    }
+
+    .chip-escalated {
+      background: var(--purple-bg);
+      color: var(--purple);
+    }
+
+    .chip-pm {
+      background: var(--orange-bg);
+      color: var(--orange);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text2);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    td.wrap-text {
+      white-space: normal;
+      min-width: 200px;
+      line-height: 1.4;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, .02);
+    }
+
+    td .name {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    td .meta {
+      font-size: 12px;
+      color: var(--text3);
+      font-family: var(--mono);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface2);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      color: var(--text3);
+      transition: all .15s;
+      border: none;
+      background: transparent;
+      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+    }
+
+    .tab.active {
+      background: var(--surface3);
+      color: var(--text);
+    }
+
+    .info-box {
+      background: rgba(108, 138, 255, .08);
+      border: 1px solid rgba(108, 138, 255, .2);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 16px;
+    }
+
+    .warning-box {
+      background: var(--yellow-bg);
+      border: 1px solid rgba(245, 200, 66, .25);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--yellow);
+      margin-bottom: 16px;
+    }
+
+    .danger-box {
+      background: var(--red-bg);
+      border: 1px solid rgba(255, 107, 107, .25);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--red);
+    }
+
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+
+    .flow-step {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .flow-step.done {
+      background: var(--green-bg);
+      color: var(--green);
+    }
+
+    .flow-step.active-step {
+      background: rgba(108, 138, 255, .15);
+      color: var(--accent);
+      border: 1px solid rgba(108, 138, 255, .3);
+    }
+
+    .flow-step.pending-step {
+      background: var(--surface3);
+      color: var(--text3);
+    }
+
+    .flow-arrow {
+      color: var(--text3);
+    }
+
+    .balance-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .balance-table th {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .balance-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .balance-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .balance-table tr:hover td {
+      background: rgba(255, 255, 255, .02);
+    }
+
+    .bar-track {
+      background: var(--surface3);
+      border-radius: 20px;
+      height: 8px;
+      overflow: hidden;
+      min-width: 80px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 20px;
+      transition: width .4s ease;
+    }
+
+    .bar-ok {
+      background: var(--green);
+    }
+
+    .bar-warn {
+      background: var(--yellow);
+    }
+
+    .bar-danger {
+      background: var(--red);
+    }
+
+    .notify-badge {
+      background: var(--surface3);
+      color: var(--text3);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-family: var(--mono);
+    }
+
+    .quota-bar {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .quota-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: var(--text3);
+      transition: all .2s;
+    }
+
+    .quota-dot.used {
+      background: var(--green-bg);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .reward-tag {
+      background: var(--yellow-bg);
+      color: var(--yellow);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--mono);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .excard {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .excard::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+    }
+
+    .excard.solo::before {
+      background: var(--green);
+    }
+
+    .excard.group::before {
+      background: var(--purple);
+    }
+
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .lb-rank {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: var(--text3);
+      width: 28px;
+      text-align: center;
+    }
+
+    .lb-rank.gold {
+      color: #ffd700;
+    }
+
+    .lb-rank.silver {
+      color: #c0c0c0;
+    }
+
+    .lb-rank.bronze {
+      color: #cd7f32;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 28px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+      animation: slideUp .25s ease;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      color: var(--text3);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+
+    .modal-close:hover {
+      background: var(--red-bg);
+      color: var(--red);
+      border-color: var(--red);
+      transform: rotate(90deg);
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      font-size: 14px;
+      color: var(--text);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
+      z-index: 1000;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all .3s;
+      max-width: 320px;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-logo">&#x2B21; Design Flow</div>
+      <div class="login-sub">// ระบบจัดการทีม — กรุณาเข้าสู่ระบบ</div>
+      <div class="login-err" id="login-err">อีเมลหรือรหัสผ่านไม่ถูกต้อง</div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>อีเมล</label>
+        <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group" style="margin-bottom:20px;">
+        <label>รหัสผ่าน</label>
+        <input type="password" id="login-pass"
+          placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;"
+        onclick="doLogin()">เข้าสู่ระบบ</button>
+
+    </div>
+  </div>
+
+  <div class="app" id="main-app" style="display:none;">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-title">&#x2B21; Design Flow</div>
+        <div class="logo-sub">v2.0 — ระบบจัดการทีม</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">ภาพรวม</div>
+        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"><i class="fa-solid fa-font-awesome"></i></span> แดชบอร์ด
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">ระบบลา</div>
+        <div class="nav-item" onclick="openLeaveModal()"><span class="nav-icon"><i
+              class="fa-solid fa-circle-plus"></i></span> ยื่นใบลา</div>
+        <div class="nav-item" id="nav-leave-review" onclick="showPage('leave-review')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-signature"></i></span> รีวิวการลา<span class="badge"
+            id="badge-review">0</span></div>
+        <div class="nav-item" id="nav-leave-pm" onclick="showPage('leave-pm')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติ (PM)<span class="badge"
+            id="badge-pm">0</span></div>
+        <div class="nav-item" onclick="showPage('leave-history')"><span class="nav-icon"><i
+              class="fa-solid fa-clock-rotate-left"></i></span> ประวัติการลา
+        </div>
+        <div class="nav-item" id="nav-balance" onclick="showPage('leave-balance')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-people-line"></i></span> วันลาของทีม</div>
+        <div class="nav-item" id="nav-my-balance" onclick="showPage('my-balance')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-address-card"></i></span> วันลาของฉัน</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">ออกกำลังกาย</div>
+        <div class="nav-item" onclick="showPage('exercise-log')"><span class="nav-icon"><i
+              class="fa-solid fa-football"></i></span>
+          แดชบอร์ดออกกำลังกาย</div>
+        <div class="nav-item" onclick="showPage('exercise-share')"><span class="nav-icon"><i class="fa-solid fa-people-pulling"></i></span> แชร์กิจกรรม
+        </div>
+        <div class="nav-item" id="nav-ex-review" onclick="showPage('exercise-review')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติออกกำลังกาย<span class="badge"
+            id="badge-ex">0</span></div>
+        <div class="nav-item" id="nav-leaderboard" onclick="showPage('leaderboard')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-ranking-star"></i></span> Leaderboard</div>
+      </div>
+      <div class="nav-section" id="nav-sec-members" style="display:none;">
+        <div class="nav-label">จัดการทีม</div>
+        <div class="nav-item" onclick="showPage('members')"><span class="nav-icon"><i
+              class="fa-solid fa-users"></i></span> สมาชิกทีม</div>
+      </div>
+      <div class="user-panel">
+        <div class="user-info">
+          <div class="user-avatar" id="sb-avatar">?</div>
+          <div style="flex:1; overflow:hidden;">
+            <div style="display:flex; align-items:baseline; gap:4px; overflow:hidden;">
+              <div class="user-name" id="sb-nickname"
+                style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
+              <div class="user-role-txt" id="sb-role" style="white-space:nowrap; opacity:0.7; font-size:10px;">—</div>
+            </div>
+            <div id="sb-fullname"
+              style="color:var(--text3); font-size:11px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              —</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+      </div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <main class="main">
+      <div class="mobile-nav-bar">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">
+          <i class="fa-solid fa-bars"></i>
+          <span style="font-size: 16px; font-weight: 700; color: var(--accent);">Design Flow</span>
+        </button>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.0</div>
+      </div>
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page active">
+        <div class="page-header">
+          <div>
+            <div class="page-title">แดชบอร์ด</div>
+            <div class="page-sub" id="week-label"></div>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value stat-yellow" id="d-pending">0</div>
+            <div class="stat-label">&#x1F4CB; รอรีวิวการลา</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-green" id="d-approved">0</div>
+            <div class="stat-label">&#x2705; อนุมัติแล้ว</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-accent" id="d-exweek">0</div>
+            <div class="stat-label">&#x1F4AA; ออกกำลังกายสัปดาห์นี้</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-purple" id="d-members">0</div>
+            <div class="stat-label">&#x1F465; สมาชิกทั้งหมด</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">&#x2726; การลาล่าสุด</div>
+          <div id="d-leaves">
+            <div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">&#x2B1F; ออกกำลังกายล่าสุด</div>
+          <div id="d-exs">
+            <div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEMBERS -->
+      <div id="page-members" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">สมาชิกทีม</div>
+            <div class="page-sub">// จัดการบัญชีผู้ใช้</div>
+          </div>
+          <button class="btn btn-primary" onclick="openAddMember()">&#xFF0B; เพิ่มสมาชิก</button>
+        </div>
+        <div id="team-filter-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div class="card">
+          <div class="card-title">&#x25C9; รายชื่อสมาชิก</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ชื่อ / อีเมล</th>
+                  <th>Role</th>
+                  <th>ทีม</th>
+                  <th>เพิ่มโดย</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="members-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- LEAVE REVIEW -->
+      <div id="page-leave-review" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">รีวิวการลา</div>
+            <div class="page-sub">// สำหรับหัวหน้าทีม</div>
+          </div>
+        </div>
+        <div class="info-box">&#x1F4CB; ลา &le;3วัน&nbsp;→&nbsp;พิจารณาได้เลย &nbsp;|&nbsp; ลา &gt;3วัน
+          (ป่วย/กิจ)&nbsp;→&nbsp;ส่ง PM อัตโนมัติ &#x26A1;</div>
+        <div id="leave-review-list"></div>
+      </div>
+
+      <!-- LEAVE PM -->
+      <div id="page-leave-pm" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">อนุมัติการลา (PM)</div>
+            <div class="page-sub">// รายการที่ส่งต่อมา</div>
+          </div>
+        </div>
+        <div id="leave-pm-list"></div>
+      </div>
+
+      <!-- LEAVE HISTORY -->
+      <div id="page-leave-history" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">ประวัติการลา</div>
+            <div class="page-sub">// ทุกรายการในระบบ</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tabs">
+            <button class="tab active" onclick="filterHist('all',this)">ทั้งหมด</button>
+            <button class="tab" onclick="filterHist('pending',this)">รอดำเนินการ</button>
+            <button class="tab" onclick="filterHist('approved',this)">อนุมัติ</button>
+            <button class="tab" onclick="filterHist('rejected',this)">ปฏิเสธ</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ชื่อ</th>
+                  <th>ประเภท</th>
+                  <th>วันที่</th>
+                  <th>สถานะ</th>
+                  <th>Flow</th>
+                </tr>
+              </thead>
+              <tbody id="hist-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEAVE BALANCE -->
+      <div id="page-leave-balance" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">วันลาของทีม</div>
+            <div class="page-sub">// ปี <span id="bal-year"></span></div>
+          </div>
+          <div id="pm-reset-wrap" style="display:none;"><button class="btn btn-ghost btn-sm"
+              onclick="confirmReset()">&#x1F504; รีเซตประจำปี</button></div>
+        </div>
+        <div id="bal-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div id="bal-nodata" class="card" style="display:none;"></div>
+        <div id="bal-overview"></div>
+        <div
+          style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:none;"
+          id="bal-detail-label">&#x25C9; รายละเอียดรายคน</div>
+        <div id="bal-content"></div>
+      </div>
+
+      <!-- MY BALANCE (member view) -->
+      <div id="page-my-balance" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">วันลาของฉัน</div>
+            <div class="page-sub" id="my-bal-sub">// ปี <span id="my-bal-year"></span></div>
+          </div>
+          <button class="btn btn-primary" onclick="openLeaveModal()"><i class="fa-solid fa-circle-plus"
+              style="margin-right:6px;"></i> ยื่นใบลา</button>
+        </div>
+
+        <!-- Summary chips -->
+        <div id="my-bal-chips" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"></div>
+
+        <!-- Main balance table -->
+        <div class="card">
+          <div class="card-title">&#x25C8; สรุปวันลาคงเหลือ</div>
+          <div class="table-wrap">
+            <table class="balance-table">
+              <thead>
+                <tr>
+                  <th>ประเภทการลา</th>
+                  <th>โควต้า/ปี</th>
+                  <th>ใช้ไปแล้ว</th>
+                  <th>คงเหลือ</th>
+                  <th>การใช้งาน</th>
+                </tr>
+              </thead>
+              <tbody id="my-bal-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent leave history for this user -->
+        <div class="card">
+          <div class="card-title">&#x25CC; ประวัติการลาของฉัน</div>
+          <div id="my-leave-hist"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE LOG -->
+      <div id="page-exercise-log" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">แดชบอร์ดออกกำลังกาย</div>
+            <div class="page-sub">// เดี่ยว ฿100 • กลุ่มออก ฿500 • กลุ่มกิน ฿300 • ตัดรอบทุก 18</div>
+          </div>
+          <button class="btn btn-primary" onclick="openExModal()"><i class="fa-solid fa-circle-plus"
+              style="margin-right:6px;"></i> ยื่นเบิกใหม่</button>
+        </div>
+        <div class="card">
+          <div class="card-title">&#x2B1F; โควต้าของฉัน</div>
+          <div id="quota-display"></div>
+        </div>
+
+        <!-- NEW: Exercise History Section -->
+        <div class="card" style="margin-top:16px;">
+          <div
+            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div class="card-title" style="margin-bottom:0;">🏃 ประวัติกิจกรรมของฉัน</div>
+            <select id="ex-history-month" onchange="renderExHistory()"
+              style="width:auto;font-size:13px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
+            </select>
+          </div>
+          <div id="ex-history-list"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE SHARE -->
+      <div id="page-exercise-share" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">แชร์กิจกรรมกลุ่ม</div>
+            <div class="page-sub">// เพิ่ม/ลบชื่อตัวเองได้ — ล็อกเมื่อครบ 3 คน</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">&#x2B1F; ของฉัน — มีชื่อฉันในคำขอ</div>
+          <div id="ex-share-mine"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">&#x2B22; ของทีม — กิจกรรมกลุ่มทั้งหมด</div>
+          <div id="ex-share-others"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE REVIEW -->
+      <div id="page-exercise-review" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">ข้อมูลและอนุมัติออกกำลังกาย</div>
+            <div class="page-sub">// สรุปภาพรวมสำหรับ PM</div>
+          </div>
+        </div>
+
+        <div class="card" style="border-left:4px solid var(--orange);">
+          <div class="card-title">&#x2B20; คำขอรออนุมัติ (Pending)</div>
+          <div id="ex-review-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">💰 สรุปยอดเงินรางวัลเดือนนี้ (ภาพรวมบริษัท)</div>
+          <div id="ex-review-summary"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">&#x2B22; แชร์กิจกรรมกลุ่มทั้งหมด</div>
+          <div id="ex-review-share"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">&#x2B1F; ประวัติคำขอทั้งหมด (History)</div>
+          <div id="ex-review-history"></div>
+        </div>
+      </div>
+
+      <!-- LEADERBOARD -->
+      <div id="page-leaderboard" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Leaderboard</div>
+            <div class="page-sub">// จัดอันดับออกกำลังกาย</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+          <div class="card">
+            <div class="card-title">&#x1F3C3; เดี่ยว — สะสมเงิน</div>
+            <div id="lb-solo"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">&#x1F93C; กลุ่มออกกำลังกาย — สะสมเงิน</div>
+            <div id="lb-group-ex"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">&#x1F37D;&#xFE0F; กลุ่มกินข้าว — สะสมเงิน</div>
+            <div id="lb-group-eat"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: Leave Form -->
+  <div class="modal-overlay" id="modal-leave">
+    <div class="modal" style="max-width: 600px;">
+      <button class="modal-close" onclick="closeModal('modal-leave')">✕</button>
+      <div class="modal-title"><i class="fa-solid fa-circle-plus"
+          style="margin-right:8px; color:var(--accent);"></i>ยื่นใบลา</div>
+      <div class="info-box">&#x1F4CB; ลา &le;3วัน&nbsp;→&nbsp;หัวหน้า &nbsp;|&nbsp; ลา &gt;3วัน
+        (ป่วย/กิจ)&nbsp;→&nbsp;PM &#x26A1; &nbsp;|&nbsp; ต้องลาล่วงหน้า 7 วัน <em>ยกเว้นลาป่วย</em></div>
+
+      <div class="form-grid">
+        <div class="form-group"><label>ชื่อผู้ยื่นลา</label><input type="text" id="leave-name" readonly
+            style="opacity:.7;" /></div>
+        <div class="form-group"><label>ประเภทการลา</label>
+          <select id="leave-type" onchange="onLeaveChange()">
+            <option value="sick">&#x1F912; ลาป่วย (30 วัน/ปี)</option>
+            <option value="personal">&#x1F4CB; ลากิจ (3 วัน/ปี)</option>
+            <option value="vacation">&#x1F3D6; ลาพักร้อน (7 วัน/ปี)</option>
+            <option value="dental">&#x1F9B7; ลาทำฟัน (2 วัน + ส่งบิล)</option>
+            <option value="birthday">&#x1F382; ลาวันเกิด (1 วัน/ปี)</option>
+            <option value="funeral">&#x1F56F; ลาฌาปนกิจ (7 วัน/ปี)</option>
+            <option value="maternity">&#x1F931; ลาคลอด (98 วัน/ปี)</option>
+            <option value="training">&#x1F4DA; ลาฝึกอบรม (แจ้ง/อนุมัติ)</option>
+            <option value="sterilize">&#x2695;&#xFE0F; ลาทำหมัน (แจ้ง/อนุมัติ)</option>
+            <option value="ordain">&#x1F64F; ลาบวช (แจ้ง/อนุมัติ)</option>
+            <option value="other">&#x1F4CC; อื่นๆ</option>
+          </select>
+        </div>
+        <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start"
+            onchange="onLeaveChange()" /></div>
+        <div class="form-group"><label>วันที่สิ้นสุด</label><input type="date" id="leave-end"
+            onchange="onLeaveChange()" /></div>
+        <div class="form-group" id="leave-period-group">
+          <label>ช่วงเวลา</label>
+          <select id="leave-period" onchange="onLeaveChange()">
+            <option value="full">เต็มวัน</option>
+            <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
+            <option value="afternoon">ครึ่งวันบ่าย (0.5 วัน)</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>หมายเหตุ / เหตุผล <span
+              style="color:var(--red);">*จำเป็น</span></label><textarea id="leave-reason"
+            placeholder="กรุณาระบุเหตุผลการลา..." required></textarea></div>
+        <div class="form-group full" id="doc-group" style="display:none;">
+          <label>แนบเอกสาร <span style="color:var(--red);">*จำเป็น</span></label>
+          <div id="doc-box"
+            style="border:2px dashed var(--border2);border-radius:var(--radius-sm);padding:20px;text-align:center;cursor:pointer;background:var(--surface2);"
+            onclick="document.getElementById('leave-doc').click()">
+            <div style="font-size:22px;" id="doc-icon">&#x1F4CE;</div>
+            <div id="doc-text" style="font-size:13px;color:var(--text3);margin-top:4px;">คลิกแนบใบรับรองแพทย์ / เอกสาร
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono);">PDF, JPG, PNG</div>
+          </div>
+          <input type="file" id="leave-doc" accept=".pdf,.jpg,.jpeg,.png" style="display:none;"
+            onchange="handleDoc(this)" />
+        </div>
+      </div>
+      <div id="leave-hints" style="margin-top:12px;"></div>
+
+      <div id="add-for-member-section"
+        style="display:none; margin-top:16px; padding:16px; background:var(--surface3); border-radius:var(--radius-sm); border:1px solid var(--border2);">
+        <div
+          style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+          &#x270E; เพิ่มวันลาให้สมาชิก (หัวหน้า / PM)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>เลือกสมาชิก</label>
+            <select id="for-member-select" onchange="onLeaveChange()">
+              <option value="">— ยื่นให้ตัวเอง —</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:8px;">✓ ไม่มีข้อกำหนดลาล่วงหน้า 7 วัน
+          เมื่อยื่นให้สมาชิก</div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="submitLeave()"><i class="fa-solid fa-circle-plus"
+            style="margin-right:6px;"></i> ยื่นใบลา</button>
+        <button class="btn btn-ghost" onclick="clearLeaveForm()">ล้างฟอร์ม</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Add Member -->
+  <div class="modal-overlay" id="modal-add">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
+      <div class="modal-title">&#xFF0B; เพิ่มสมาชิกใหม่</div>
+      <div class="form-grid">
+        <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="new-name" placeholder="ชื่อจริง" />
+        </div>
+        <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="new-nickname" placeholder="ชื่อเล่น" />
+        </div>
+        <div class="form-group"><label>วันเกิด</label><input type="date" id="new-birth" /></div>
+        <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
+            placeholder="member@company.com" /></div>
+        <div class="form-group"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="new-pass"
+            placeholder="••••••" /></div>
+        <div class="form-group"><label>Role</label>
+          <select id="new-role">
+            <option value="junior">Junior</option>
+            <option value="senior">Senior</option>
+            <option value="lead">Team Lead</option>
+            <option value="pm">Project Manager</option>
+          </select>
+        </div>
+        <div class="form-group"><label>ทีม</label>
+          <select id="new-dept">
+            <option value="">— ไม่ระบุ —</option>
+            <option value="UXUI">UXUI</option>
+            <option value="Media">Media</option>
+            <option value="Art">Art</option>
+          </select>
+        </div>
+        <div class="form-group"><label>พื้นที่</label>
+          <select id="new-loc">
+            <option value="bkk">กรุงเทพ</option>
+            <option value="province">ต่างจังหวัด</option>
+          </select>
+        </div>
+      </div>
+      <div id="add-err" class="danger-box" style="display:none;margin-top:12px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-add')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="addMember()">เพิ่มสมาชิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Edit Member -->
+  <div class="modal-overlay" id="modal-edit">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+      <div class="modal-title">&#x270E; แก้ไขสมาชิก</div>
+      <input type="hidden" id="edit-key" />
+      <div class="form-grid">
+        <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="edit-name" /></div>
+        <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="edit-nickname" /></div>
+        <div class="form-group"><label>วันเกิด</label><input type="date" id="edit-birth" /></div>
+        <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
+            style="opacity:.6;" /></div>
+        <div class="form-group"><label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label><input type="password" id="edit-pass"
+            placeholder="เว้นว่างถ้าไม่เปลี่ยน" /></div>
+        <div class="form-group"><label>Role</label>
+          <select id="edit-role">
+            <option value="junior">Junior</option>
+            <option value="senior">Senior</option>
+            <option value="lead">Team Lead</option>
+            <option value="pm">Project Manager</option>
+          </select>
+        </div>
+        <div class="form-group"><label>ทีม</label>
+          <select id="edit-dept">
+            <option value="">— ไม่ระบุ —</option>
+            <option value="UXUI">UXUI</option>
+            <option value="Media">Media</option>
+            <option value="Art">Art</option>
+          </select>
+        </div>
+        <div class="form-group"><label>พื้นที่</label>
+          <select id="edit-loc">
+            <option value="bkk">กรุงเทพ</option>
+            <option value="province">ต่างจังหวัด</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions" id="edit-modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-edit')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveMember()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Confirm -->
+  <div class="modal-overlay" id="modal-confirm" style="z-index: 3000;">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+      <div class="modal-title" id="conf-title">ยืนยัน</div>
+      <div id="conf-body" style="color:var(--text2);font-size:14px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">ยกเลิก</button>
+        <button class="btn btn-red" id="conf-ok">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Exercise Detail -->
+  <div class="modal-overlay" id="modal-ex-detail">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modal-ex-detail')">✕</button>
+      <div class="modal-title">&#x1F50D; รายละเอียดคำขอ</div>
+      <div id="ex-detail-body" style="font-size:14px;color:var(--text);margin-bottom:16px;line-height:1.5;"></div>
+      <div class="modal-actions" id="ex-detail-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-ex-detail')">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Exercise Form -->
+  <div class="modal-overlay" id="modal-ex-form">
+    <div class="modal" style="width:100%;max-width:640px;max-height:90vh;overflow-y:auto;">
+      <button class="modal-close" onclick="closeModal('modal-ex-form')">✕</button>
+      <div class="modal-title"><i class="fa-solid fa-circle-plus"
+          style="margin-right:8px; color:var(--accent);"></i>ยื่นเบิกใหม่</div>
+      <div class="form-grid">
+        <div class="form-group"><label>ชื่อผู้บันทึก</label><input type="text" id="ex-name" readonly
+            style="opacity:.7;" /></div>
+        <div class="form-group"><label>ประเภท</label>
+          <select id="ex-type" onchange="updateExType()">
+            <option value="solo">🏃 เดี่ยว (฿100)</option>
+            <option value="group_ex">🤸 กลุ่มออกกำลังกาย (฿500)</option>
+            <option value="group_eat">🍽️ กลุ่มกินข้าว (฿300)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>กิจกรรม</label><input type="text" id="ex-act"
+            placeholder="วิ่ง 5km / ว่ายน้ำ / โยคะ" oninput="clearExErr()" /></div>
+        <div class="form-group"><label>วันที่</label><input type="date" id="ex-date"
+            onchange="updateQuota();clearExErr()" /></div>
+        <div class="form-group full"><label>หมายเหตุ</label><input type="text" id="ex-note"
+            placeholder="รายละเอียดเพิ่มเติม..." /></div>
+        <div class="form-group full" id="ex-group-members" style="display:none;margin-top:8px;">
+          <label>สมาชิกในกลุ่ม <span style="color:var(--accent);">*ไม่ต้องใส่ชื่อตัวเอง ระบบจะเพิ่มให้เอง
+              (ต้องมีสมาชิกในระบบที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้ อย่างน้อย 3 คน รวมตัวเอง)</span></label>
+          <div id="ex-member-list" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>
+          </div>
+          <div
+            style="background:var(--surface3);padding:12px;border-radius:var(--radius-sm);border:1px dashed var(--border2);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกในระบบ
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+              <select id="ex-sys-member" style="flex:1;min-width:180px;">
+                <option value="">— เลือกสมาชิกในระบบ —</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="addExSysMember()">เพิ่ม</button>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกนอกระบบ
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="text" id="ex-out-name" placeholder="ชื่อนามสกุล" style="flex:1;min-width:120px;" />
+              <input type="text" id="ex-out-dept" placeholder="แผนก/ตำแหน่ง" style="flex:1;min-width:100px;" />
+              <button class="btn btn-ghost btn-sm" onclick="addExOutMember()">เพิ่ม</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group full" id="ex-doc-group" style="margin-top:8px;">
+          <label>แนบหลักฐาน (ไฟล์ หรือ ลิงก์) <span style="color:var(--red);">*จำเป็น</span></label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <input type="text" id="ex-link" placeholder="วางลิงก์หลักฐาน..." style="flex:1;min-width:200px;" />
+            <span style="align-self:center;font-size:12px;color:var(--text3);">หรือ</span>
+            <div id="ex-doc-box"
+              style="flex:1;min-width:200px;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:8px 12px;text-align:center;cursor:pointer;background:var(--surface2);"
+              onclick="document.getElementById('ex-doc').click()">
+              <span id="ex-doc-text" style="font-size:13px;color:var(--text3);">คลิกแนบไฟล์รูปภาพ/เอกสาร</span>
+            </div>
+            <input type="file" id="ex-doc" accept=".pdf,.jpg,.jpeg,.png" style="display:none;"
+              onchange="handleExDoc(this)" />
+          </div>
+        </div>
+      </div>
+      <div id="ex-warn" class="warning-box" style="display:none;margin-top:12px;"></div>
+      <div id="ex-err" class="danger-box" style="display:none;margin-top:12px;"></div>
+      <div id="ex-success" class="info-box"
+        style="display:none;margin-top:12px;background:var(--green-bg);border-color:var(--green);color:var(--green);">
+      </div>
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn btn-ghost" onclick="closeModal('modal-ex-form')">ยกเลิก</button>
+        <button id="btn-submit-ex" class="btn btn-primary" onclick="submitEx()"><i class="fa-solid fa-circle-plus"
+            style="margin-right:6px;"></i> ยื่นเบิกใหม่</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="api.js"></script>
+  <script src="team-manager.js"></script>
+</body>
+
+</html>
