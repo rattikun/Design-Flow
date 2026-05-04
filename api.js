@@ -4,6 +4,8 @@
  */
 
 const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.app/';
+// [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
 
 const API_STATE = {
   online: true,
@@ -26,27 +28,41 @@ async function api(action, payload = {}) {
       const res = await fetch(`${baseUrl}/users.json`);
       const usersObj = await res.json();
       const usersArr = Object.values(usersObj || {});
-      
+
       console.log(`[api:login] Total users in DB: ${usersArr.length}`);
-      
+
       const user = usersArr.find(u => u.email.toLowerCase() === payload.email.toLowerCase());
-      
+
       // Check pass hash
       const isAdminPass = payload.passHash === hp('admin123');
       if (user && (user.pass === payload.passHash || isAdminPass)) {
         console.log(`[api:login] Success: ${payload.email}`);
-        return { 
-          ok: true, 
+        return {
+          ok: true,
           user: user,
           users: usersArr,
-          leaves: [], 
+          leaves: [],
           exercises: [],
           quotas: []
         };
       }
-      
+
       console.warn(`[api:login] Failed: ${payload.email} (User found: ${!!user})`);
       return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
+    }
+
+    // 2. FILE UPLOAD (Google Drive via Apps Script)
+    if (action === 'uploadFile') {
+      if (!APPS_SCRIPT_URL) {
+        throw new Error('กรุณากำหนด APPS_SCRIPT_URL ใน api.js เพื่อใช้งานระบบอัปโหลดไฟล์');
+      }
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('การอัปโหลดไฟล์ล้มเหลว (Apps Script Error)');
+      return await res.json();
     }
 
     // 2. ADD USER
@@ -94,16 +110,16 @@ async function api(action, payload = {}) {
       getExs: 'exercises',
       getQuotas: 'quotas'
     };
-    
+
     const path = pathMap[action] || action;
     const response = await fetch(`${baseUrl}/${path}.json`);
     const data = await response.json();
-    
+
     // Firebase returns objects, we need arrays for the existing logic
     const arrayData = Object.values(data || {});
-    
+
     const result = { ok: true };
-    result[path] = arrayData; 
+    result[path] = arrayData;
     return result;
 
   } catch (err) {
@@ -230,12 +246,12 @@ function mapLeaveFromAPI(l) {
 
 function mapExFromAPI(e) {
   let participants = [];
-  try { 
+  try {
     if (typeof e.participants === 'string') participants = JSON.parse(e.participants);
     else if (Array.isArray(e.members)) participants = e.members;
     else if (Array.isArray(e.participants)) participants = e.participants;
   } catch { participants = []; }
-  
+
   return {
     id: e.id,
     email: e.email,
@@ -247,7 +263,9 @@ function mapExFromAPI(e) {
     status: e.status || 'pending',
     submittedAt: e.submitted_at || e.submittedAt || new Date().toISOString(),
     approvedBy: e.approved_by || e.approvedBy || '',
-    dept: e.dept
+    dept: e.dept,
+    proofDoc: e.proof_doc || e.proofDoc || null,
+    proofLink: e.proof_link || e.proofLink || ''
   };
 }
 

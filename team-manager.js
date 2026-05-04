@@ -340,24 +340,76 @@ function onLeaveChange() {
   if (type === 'sick') hs.push('<span style="color:var(--accent);">💊 ลาป่วย — ไม่ต้องลาล่วงหน้า</span>');
   if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
   if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
-  if (needDoc) hs.push('<span style="color:var(--red);">📄 ต้องแนบใบรับรองแพทย์/เอกสาร</span>');
+  if (needDoc) hs.push('<span style="color:var(--red);">📄 ต้องใส่ลิงก์หลักฐาน / ใบรับรองแพทย์</span>');
   if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
   if (type === 'dental') hs.push('<span style="color:var(--accent);">🦷 หัวหน้าพิจารณาเสมอ</span>');
   hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:13px;margin-bottom:6px;">' + h + '</div>').join('');
 }
-function handleDoc(input) {
+async function handleDoc(input) {
   const f = input.files[0]; if (!f) return;
-  document.getElementById('doc-text').textContent = '✅ ' + f.name;
-  document.getElementById('doc-text').style.color = 'var(--green)';
-  document.getElementById('doc-icon').textContent = '📄';
-  document.getElementById('doc-box').style.borderColor = 'var(--green)';
+  const label = document.getElementById('doc-text'), box = document.getElementById('doc-box'), icon = document.getElementById('doc-icon');
+  
+  label.textContent = '⏳ กำลังอัปโหลด...';
+  label.style.color = 'var(--accent)';
+  box.style.borderColor = 'var(--accent)';
+
+  // แสดง Progress Bar แบบจำลอง
+  const progContainer = document.getElementById('leave-upload-progress-container');
+  const progBar = document.getElementById('leave-upload-progress-bar');
+  const progText = document.getElementById('leave-upload-progress-text');
+  progContainer.style.display = 'block';
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    if (progress < 90) {
+      progress += Math.random() * 10;
+      if (progress > 90) progress = 90;
+      progBar.style.width = progress + '%';
+      progText.textContent = Math.round(progress) + '%';
+    }
+  }, 300);
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const res = await api('uploadFile', {
+        action: 'uploadFile',
+        fileName: f.name,
+        mimeType: f.type,
+        base64: e.target.result
+      });
+      if (res.ok && res.url) {
+        clearInterval(interval);
+        progBar.style.width = '100%';
+        progText.textContent = '100%';
+        
+        label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
+        label.style.color = 'var(--green)';
+        box.style.borderColor = 'var(--green)';
+        icon.textContent = '📄';
+        input.dataset.url = res.url;
+        toast('✅ อัปโหลดไฟล์ไปที่ Google Drive เรียบร้อย');
+      } else {
+        throw new Error(res.error || 'Upload failed');
+      }
+    } catch (err) {
+      clearInterval(interval);
+      label.textContent = '❌ อัปโหลดล้มเหลว';
+      label.style.color = 'var(--red)';
+      box.style.borderColor = 'var(--red)';
+      toast('❌ ไม่สามารถอัปโหลดได้: ' + err.message);
+    } finally {
+      setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
+    }
+  };
+  reader.readAsDataURL(f);
 }
 function submitLeave() {
   const type = document.getElementById('leave-type').value;
   const start = document.getElementById('leave-start').value;
   const period = document.getElementById('leave-period').value;
   const reason = document.getElementById('leave-reason').value.trim();
-  const doc = document.getElementById('leave-doc').files[0];
+  const link = document.getElementById('leave-link').value.trim();
   const forMemberEmail = (document.getElementById('for-member-select')?.value || '');
   const isHalf = period !== 'full';
   const end = isHalf ? start : document.getElementById('leave-end').value;
@@ -372,7 +424,7 @@ function submitLeave() {
     const da = Math.ceil((new Date(start) - t) / 864e5);
     if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
   }
-  if (RDOC.includes(type) && diff >= 3 && !doc) { toast('⚠️ กรุณาแนบใบรับรองแพทย์/เอกสาร'); return; }
+  if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
   let targetEmail = cu.email, targetName = cu.name;
   if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.name; } }
   const isPM = cu.role === 'pm';
@@ -382,7 +434,7 @@ function submitLeave() {
   else if (isLead) initialStatus = 'pending_pm';
 
   const ls = getLeaves();
-  ls.unshift({ id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!doc, docName: doc?.name || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' });
+  ls.unshift({ id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' });
   saveLeaves(ls); updateBadges(); updateDashboard(); clearLeaveForm(); renderMyBal(); closeModal('modal-leave');
   const who = forMemberEmail ? ' (ให้ ' + targetName + ')' : '';
   let msg = '✅ ยื่นใบลา' + (isHalf ? 'ครึ่งวัน' : ' ' + diff + ' วัน') + who + ' เรียบร้อย';
@@ -392,15 +444,13 @@ function submitLeave() {
   toast(msg);
 }
 function clearLeaveForm() {
-  document.getElementById('leave-reason').value = '';
-  document.getElementById('leave-doc').value = '';
+  ['leave-reason', 'leave-link', 'leave-start', 'leave-end'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   document.getElementById('leave-period').value = 'full';
   document.getElementById('leave-end').disabled = false;
   if (document.getElementById('for-member-select')) document.getElementById('for-member-select').value = '';
-  document.getElementById('doc-text').textContent = 'คลิกแนบใบรับรองแพทย์ / เอกสาร';
-  document.getElementById('doc-text').style.color = 'var(--text3)';
-  document.getElementById('doc-icon').textContent = '📎';
-  document.getElementById('doc-box').style.borderColor = 'var(--border2)';
   document.getElementById('doc-group').style.display = 'none';
   document.getElementById('leave-hints').innerHTML = '';
 }
@@ -419,7 +469,7 @@ function renderLR() {
           <div style="font-size:16px;font-weight:700;color:var(--text);">${r.name} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
           <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} <strong style="color:var(--yellow);">(${dLabel})</strong>${r.addedBy ? ` <span style="color:var(--purple);font-size:11px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}</div>
           <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
-          ${r.hasDoc ? `<div style="margin-top:6px;"><span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span></div>` : ''}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
         </div>
         <span class="chip chip-pending">รอพิจารณา</span>
       </div>
@@ -465,7 +515,7 @@ function renderLP() {
           <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
           ${r.autoEscalated ? '<div style="font-size:12px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
           ${r.leadNote ? `<div style="font-size:12px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
-          ${r.hasDoc ? `<div style="margin-top:6px;"><span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span></div>` : ''}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
         </div>
         <span class="chip ${r.autoEscalated ? 'chip-pm' : 'chip-escalated'}">${r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า'}</span>
       </div>
@@ -502,7 +552,7 @@ function renderHist(f) {
   tb.innerHTML = data.map(r => {
     const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
     return `<tr>
-      <td><div class="name">${r.name}</div>${r.hasDoc ? '<span style="background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;">📄</span>' : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:10px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${r.name}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:10px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:11px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td>${ch[r.status] || ''}</td>
@@ -694,11 +744,73 @@ function renderExMembers() {
   if (!exMembers.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>'; return; }
   el.innerHTML = exMembers.map(m => '<span class="chip" style="background:var(--surface3);border:1px solid var(--border);padding-right:6px;margin-bottom:4px;">' + (m.type === 'sys' ? '👤' : '👤(นอก) ') + m.name + ' <button onclick="removeExMember(\'' + m.id + '\')" style="background:none;border:none;color:var(--red);margin-left:6px;cursor:pointer;">✕</button></span>').join('');
 }
-function handleExDoc(input) {
+async function handleExDoc(input) {
   const f = input.files[0]; if (!f) return;
-  document.getElementById('ex-doc-text').textContent = '✅ ' + f.name;
-  document.getElementById('ex-doc-text').style.color = 'var(--green)';
-  document.getElementById('ex-doc-box').style.borderColor = 'var(--green)';
+  const label = document.getElementById('ex-doc-text'), box = document.getElementById('ex-doc-box');
+  
+  const maxSize = 35 * 1024 * 1024; // 35MB
+  if (f.size > maxSize) {
+    toast('⚠️ ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB)');
+    input.value = '';
+    label.textContent = 'คลิกแนบไฟล์วิดีโอ (VDO) ไม่เกิน 35MB';
+    label.style.color = 'var(--text3)';
+    box.style.borderColor = 'var(--border2)';
+    return;
+  }
+
+  label.textContent = '⏳ กำลังอัปโหลดวิดีโอ...';
+  label.style.color = 'var(--accent)';
+  box.style.borderColor = 'var(--accent)';
+
+  // แสดง Progress Bar แบบจำลอง
+  const progContainer = document.getElementById('ex-upload-progress-container');
+  const progBar = document.getElementById('ex-upload-progress-bar');
+  const progText = document.getElementById('ex-upload-progress-text');
+  progContainer.style.display = 'block';
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    if (progress < 90) {
+      progress += Math.random() * 10;
+      if (progress > 90) progress = 90;
+      progBar.style.width = progress + '%';
+      progText.textContent = Math.round(progress) + '%';
+    }
+  }, 400);
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const res = await api('uploadFile', {
+        action: 'uploadFile',
+        fileName: f.name,
+        mimeType: f.type,
+        base64: e.target.result
+      });
+      if (res.ok && res.url) {
+        clearInterval(interval);
+        progBar.style.width = '100%';
+        progText.textContent = '100%';
+        
+        label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
+        label.style.color = 'var(--green)';
+        box.style.borderColor = 'var(--green)';
+        input.dataset.url = res.url;
+        toast('✅ อัปโหลดวิดีโอไปที่ Google Drive เรียบร้อย');
+      } else {
+        throw new Error(res.error || 'Upload failed');
+      }
+    } catch (err) {
+      clearInterval(interval);
+      label.textContent = '❌ อัปโหลดล้มเหลว';
+      label.style.color = 'var(--red)';
+      box.style.borderColor = 'var(--red)';
+      toast('❌ ไม่สามารถอัปโหลดวิดีโอได้: ' + err.message);
+    } finally {
+      setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
+    }
+  };
+  reader.readAsDataURL(f);
 }
 // week starts Sunday, cuts on Saturday
 function wkKey(d) { const dt = new Date(d), s = new Date(dt); s.setDate(dt.getDate() - dt.getDay()); return s.toISOString().split('T')[0]; }
@@ -899,7 +1011,7 @@ function submitEx() {
 }
 
 function doSubmitEx(data) {
-  const { exType, act, date, note, link, doc, isGrp } = data;
+  const { exType, act, date, note, link, isGrp } = data;
   const es = getExs();
   es.unshift({
     id: eid++,
@@ -913,16 +1025,14 @@ function doSubmitEx(data) {
     status: 'pending',
     submittedAt: new Date().toISOString(),
     members: isGrp ? [...exMembers] : [],
-    proofDoc: doc?.name || null,
+    proofDoc: link,
     proofLink: link
   });
   saveExs(es); updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
   if (isGrp) { exMembers = []; renderExMembers(); }
-  ['ex-act', 'ex-note', 'ex-link'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('ex-doc').value = '';
-  document.getElementById('ex-doc-text').textContent = 'คลิกแนบไฟล์รูปภาพ/เอกสาร';
-  document.getElementById('ex-doc-text').style.color = 'var(--text3)';
-  document.getElementById('ex-doc-box').style.borderColor = 'var(--border2)';
+  ['ex-act', 'ex-note', 'ex-link'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   toast('✅ ยื่นคำขอเรียบร้อยแล้ว');
   closeModal('modal-ex-form');
 }
@@ -963,7 +1073,7 @@ function renderExR() {
           <div style="font-size:16px;font-weight:600;color:var(--text);">${e.name} <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">${e.email}</span></div>
           <div style="font-size:13px;color:var(--text3);">${e.activity} • ${e.duration ? e.duration + ' นาที • ' : ''}${e.date}</div>
           ${e.note ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;">${e.note}</div>` : ''}
-          ${(e.proofDoc || e.proofLink) ? `<div style="font-size:12px;margin-top:6px;"><a href="${e.proofLink || '#'}" target="_blank" style="background:var(--surface3);padding:3px 8px;border-radius:20px;color:var(--accent);text-decoration:none;">📄 ${e.proofDoc || e.proofLink}</a></div>` : ''}
+          ${(e.proofDoc || e.proofLink) ? `<div style="font-size:12px;margin-top:6px;"><a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="background:var(--surface3);padding:3px 8px;border-radius:20px;color:var(--accent);text-decoration:none;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
           ${allMembers.length > 1 ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">${allMembers.map(m => `<span style="font-size:11px;background:var(--surface3);color:var(--text2);padding:2px 6px;border-radius:4px;">${m.kind === 'submitter' || m.kind === 'sys' ? '👤' : '👤(นอก) '} ${m.name}${m.dept ? ` (${m.dept})` : ''}</span>`).join('')}</div>` : ''}
         </div>
         <div style="background:${rbg};color:${tcolor};font-weight:700;font-family:var(--mono);padding:4px 12px;border-radius:20px;font-size:13px;border:1px solid ${tcolor}40;">+฿${totalReward}</div>
@@ -1200,7 +1310,7 @@ function viewExDetail(id) {
     <div style="margin-bottom:8px;"><b>สถานะ:</b> ${e.status === 'approved' ? '✅ อนุมัติ' : e.status === 'rejected' ? '✕ ปฏิเสธ' : '⏳ รออนุมัติ'}</div>
     <div style="margin-bottom:8px;"><b>รางวัลรวม (ประเมิน):</b> ฿${totalReward}</div>
     ${e.note ? `<div style="margin-bottom:8px;"><b>หมายเหตุ:</b> ${e.note}</div>` : ''}
-    ${(e.proofDoc || e.proofLink) ? `<div style="margin-bottom:8px;"><b>หลักฐาน:</b> <a href="${e.proofLink || '#'}" target="_blank" style="color:var(--accent);text-decoration:underline;">${e.proofDoc || e.proofLink}</a></div>` : ''}
+    ${(e.proofDoc || e.proofLink) ? `<div style="margin-bottom:8px;"><b>หลักฐาน:</b> <a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="color:var(--accent);text-decoration:underline;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
     ${allMembers.length > 1 ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"><b>สมาชิกในกลุ่ม (${count} คน):</b><ul style="margin-top:6px;padding-left:20px;">${allMembers.map(m => `<li>${m.name} ${m.dept ? `(${m.dept})` : ''} ${m.kind === 'submitter' ? '⭐' : m.kind === 'sys' ? '👤' : '👤(นอก)'}</li>`).join('')}</ul></div>` : ''}
   `;
   document.getElementById('ex-detail-body').innerHTML = html;

@@ -279,7 +279,7 @@
       justify-content: space-between;
       margin: -32px -32px 20px -32px;
     }
-    
+
     .mobile-menu-btn {
       background: transparent;
       border: none;
@@ -290,16 +290,16 @@
       align-items: center;
       gap: 10px;
     }
-    
+
     .sidebar-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0, 0, 0, 0.5);
       z-index: 1050;
       display: none;
       backdrop-filter: blur(2px);
     }
-    
+
     .sidebar-overlay.active {
       display: block;
     }
@@ -310,17 +310,21 @@
         left: -260px;
         z-index: 1100;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
       }
+
       .sidebar.active {
         left: 0;
       }
+
       .mobile-nav-bar {
         display: flex;
       }
+
       .main {
         padding: 20px;
       }
+
       .mobile-nav-bar {
         margin: -20px -20px 20px -20px;
       }
@@ -968,7 +972,7 @@
       font-size: 14px;
       color: var(--text);
       box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
-      z-index: 1000;
+      z-index: 3000;
       transform: translateY(20px);
       opacity: 0;
       transition: all .3s;
@@ -1023,11 +1027,12 @@
     <aside class="sidebar">
       <div class="logo">
         <div class="logo-title">&#x2B21; Design Flow</div>
-        <div class="logo-sub">v2.0 — ระบบจัดการทีม</div>
+        <div class="logo-sub">v2.1 — ระบบจัดการทีม</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ภาพรวม</div>
-        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"><i class="fa-solid fa-font-awesome"></i></span> แดชบอร์ด
+        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"><i
+              class="fa-solid fa-font-awesome"></i></span> แดชบอร์ด
         </div>
       </div>
 
@@ -1054,7 +1059,8 @@
         <div class="nav-item" onclick="showPage('exercise-log')"><span class="nav-icon"><i
               class="fa-solid fa-football"></i></span>
           แดชบอร์ดออกกำลังกาย</div>
-        <div class="nav-item" onclick="showPage('exercise-share')"><span class="nav-icon"><i class="fa-solid fa-people-pulling"></i></span> แชร์กิจกรรม
+        <div class="nav-item" onclick="showPage('exercise-share')"><span class="nav-icon"><i
+              class="fa-solid fa-people-pulling"></i></span> แชร์กิจกรรม
         </div>
         <div class="nav-item" id="nav-ex-review" onclick="showPage('exercise-review')" style="display:none;"><span
             class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติออกกำลังกาย<span class="badge"
@@ -1092,7 +1098,7 @@
           <i class="fa-solid fa-bars"></i>
           <span style="font-size: 16px; font-weight: 700; color: var(--accent);">Design Flow</span>
         </button>
-        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.0</div>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.1</div>
       </div>
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page active">
@@ -1423,18 +1429,12 @@
         <div class="form-group full"><label>หมายเหตุ / เหตุผล <span
               style="color:var(--red);">*จำเป็น</span></label><textarea id="leave-reason"
             placeholder="กรุณาระบุเหตุผลการลา..." required></textarea></div>
-        <div class="form-group full" id="doc-group" style="display:none;">
-          <label>แนบเอกสาร <span style="color:var(--red);">*จำเป็น</span></label>
-          <div id="doc-box"
-            style="border:2px dashed var(--border2);border-radius:var(--radius-sm);padding:20px;text-align:center;cursor:pointer;background:var(--surface2);"
-            onclick="document.getElementById('leave-doc').click()">
-            <div style="font-size:22px;" id="doc-icon">&#x1F4CE;</div>
-            <div id="doc-text" style="font-size:13px;color:var(--text3);margin-top:4px;">คลิกแนบใบรับรองแพทย์ / เอกสาร
-            </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono);">PDF, JPG, PNG</div>
-          </div>
-          <input type="file" id="leave-doc" accept=".pdf,.jpg,.jpeg,.png" style="display:none;"
-            onchange="handleDoc(this)" />
+        <div id="doc-group">
+          <label>ลิงก์หลักฐาน / เอกสาร <span style="color:var(--red);">*จำเป็น</span></label>
+          <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
+            style="width:100%;" />
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">* กรุณาอัปโหลดไฟล์ขึ้น Google Drive
+            แล้วนำลิงก์มาวาง</div>
         </div>
       </div>
       <div id="leave-hints" style="margin-top:12px;"></div>
@@ -1627,18 +1627,13 @@
           </div>
         </div>
         <div class="form-group full" id="ex-doc-group" style="margin-top:8px;">
-          <label>แนบหลักฐาน (ไฟล์ หรือ ลิงก์) <span style="color:var(--red);">*จำเป็น</span></label>
+          <label>ลิงก์วิดีโอหลักฐาน (VDO) <span style="color:var(--red);">*จำเป็น</span></label>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <input type="text" id="ex-link" placeholder="วางลิงก์หลักฐาน..." style="flex:1;min-width:200px;" />
-            <span style="align-self:center;font-size:12px;color:var(--text3);">หรือ</span>
-            <div id="ex-doc-box"
-              style="flex:1;min-width:200px;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:8px 12px;text-align:center;cursor:pointer;background:var(--surface2);"
-              onclick="document.getElementById('ex-doc').click()">
-              <span id="ex-doc-text" style="font-size:13px;color:var(--text3);">คลิกแนบไฟล์รูปภาพ/เอกสาร</span>
-            </div>
-            <input type="file" id="ex-doc" accept=".pdf,.jpg,.jpeg,.png" style="display:none;"
-              onchange="handleExDoc(this)" />
+            <input type="text" id="ex-link" placeholder="วางลิงก์วิดีโอหลักฐาน (Google Drive, YouTube ฯลฯ)..."
+              style="flex:1;min-width:200px;" />
           </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">* เนื่องจากระบบอัปโหลดขัดข้องชั่วคราว
+            กรุณาอัปโหลดวิดีโอขึ้น Google Drive แล้วนำลิงก์มาวางแทนค่ะ</div>
         </div>
       </div>
       <div id="ex-warn" class="warning-box" style="display:none;margin-top:12px;"></div>

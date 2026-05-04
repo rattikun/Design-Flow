@@ -50,7 +50,8 @@ function route_(action, p) {
       case 'updateEx':      return jsonOut_(updateEx_(p));
       case 'getQuotas':     return jsonOut_({ ok: true, quotas: sheetToObjects_('Quotas') });
       case 'updateQuota':   return jsonOut_(updateQuota_(p));
-      case 'ping':          return jsonOut_({ ok: true, time: new Date() });
+      case 'ping':          return jsonOut_({ ok: true, message: 'Pong! เชื่อมต่อสำเร็จ' });
+      case 'uploadFile':    return jsonOut_(uploadFile_(p));
       default:              return jsonOut_({ ok: false, error: 'Unknown action: ' + action });
     }
   } catch (err) {
@@ -225,6 +226,45 @@ function updateQuota_(p) {
   const newRow = headers.map(h => p[h] !== undefined ? p[h] : (h === 'year' ? new Date().getFullYear() : 0));
   sh.appendRow(newRow);
   return { ok: true };
+}
+
+// ── Upload ─────────────────────────────────────
+function uploadFile_(p) {
+  try {
+    const rootFolderId = '1y5xheQbCr_szEOhKZQdur3sAV2546SbZ';
+    const rootFolder = DriveApp.getFolderById(rootFolderId);
+    
+    // จัดโฟลเดอร์แบบง่ายก่อนเพื่อทดสอบ
+    const now = new Date();
+    const year = now.getFullYear().toString();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    
+    const yearFolder = getOrCreateSubFolder_(rootFolder, year);
+    const monthFolder = getOrCreateSubFolder_(yearFolder, month);
+
+    // ลบส่วนของ Data URL prefix ออก (ถ้ามี)
+    let content = p.base64;
+    if (content.indexOf(',') > -1) content = content.split(',')[1];
+    
+    const blob = Utilities.newBlob(Utilities.base64Decode(content), p.mimeType, p.fileName);
+    const file = monthFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    return { 
+      ok: true, 
+      url: file.getUrl(), 
+      fileName: p.fileName
+    };
+  } catch (err) {
+    console.error('Upload Error:', err);
+    return { ok: false, error: err.toString() };
+  }
+}
+
+function getOrCreateSubFolder_(parentFolder, name) {
+  const folders = parentFolder.getFoldersByName(name);
+  if (folders.hasNext()) return folders.next();
+  return parentFolder.createFolder(name);
 }
 
 // ── Helpers ───────────────────────────────────
