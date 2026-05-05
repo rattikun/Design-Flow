@@ -95,6 +95,7 @@ async function doLogin() {
         errEl.style.display = 'none';
         LS.set('tf_sess', email);
         await bootstrap();
+        initIDs();
         launchApp();
         return;
       }
@@ -140,6 +141,7 @@ async function tryRestore() {
   if (typeof bootstrap === 'function') {
     bootstrap().then(res => {
       if (res.ok) {
+        initIDs(); // Update eid/lid from fresh data
         // refresh visible page หลัง sync เสร็จ
         const active = document.querySelector('.page.active');
         if (active) {
@@ -149,6 +151,11 @@ async function tryRestore() {
       }
     });
   }
+}
+function initIDs() {
+  const es = getExs(); if (es.length) eid = Math.max(...es.map(x => x.id || 0)) + 1;
+  const ls = getLeaves(); if (ls.length) lid = Math.max(...ls.map(x => x.id || 0)) + 1;
+  console.log('[initIDs] eid:', eid, 'lid:', lid);
 }
 function launchApp() {
   document.getElementById('login-screen').style.display = 'none';
@@ -487,8 +494,14 @@ function submitLeave() {
   else if (isLead) initialStatus = 'pending_pm';
 
   const ls = getLeaves();
-  ls.unshift({ id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' });
-  saveLeaves(ls); updateBadges(); updateDashboard(); clearLeaveForm(); renderMyBal(); closeModal('modal-leave');
+  const newLeave = { id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
+  ls.unshift(newLeave);
+  saveLeaves(ls); 
+  
+  // SYNC TO API
+  apiSync('addLeave', newLeave);
+
+  updateBadges(); updateDashboard(); clearLeaveForm(); renderMyBal(); closeModal('modal-leave');
   const who = forMemberEmail ? ' (ให้ ' + targetName + ')' : '';
   let msg = '✅ ยื่นใบลา' + (isHalf ? 'ครึ่งวัน' : ' ' + diff + ' วัน') + who + ' เรียบร้อย';
   if (isPM) msg = '✅ บันทึกใบลา' + (isHalf ? 'ครึ่งวัน' : ' ' + diff + ' วัน') + 'เรียบร้อย (อนุมัติอัตโนมัติ)';
@@ -550,7 +563,9 @@ function lAct(id, action) {
     r.status = 'rejected';
     toast('✕ ปฏิเสธ ' + r.name);
   }
-  saveLeaves(ls); updateBadges(); updateDashboard(); renderLR();
+  saveLeaves(ls); 
+  apiSync('updateLeave', r);
+  updateBadges(); updateDashboard(); renderLR();
 }
 
 // ══ LEAVE PM ═════════════════════════════
@@ -587,8 +602,13 @@ function renderLP() {
 }
 function pAct(id, action) {
   const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
-  ls[idx].pmNote = document.getElementById('pn-' + id)?.value || ''; ls[idx].pmAction = action; ls[idx].status = action === 'approve' ? 'approved' : 'rejected';
-  saveLeaves(ls); toast(action === 'approve' ? '✅ PM อนุมัติ ' + ls[idx].name : '✕ PM ปฏิเสธ ' + ls[idx].name);
+  const r = ls[idx];
+  r.pmNote = document.getElementById('pn-' + id)?.value || ''; 
+  r.pmAction = action; 
+  r.status = action === 'approve' ? 'approved' : 'rejected';
+  saveLeaves(ls); 
+  apiSync('updateLeave', r);
+  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ปฏิเสธ ' + r.name);
   updateBadges(); updateDashboard(); renderLP();
 }
 
@@ -692,7 +712,9 @@ function renderBalTable(email, isPM) {
 function saveQ(email, type) {
   const k = 'qi-' + email.replace(/[@.]/g, '-') + '-' + type; const v = parseInt(document.getElementById(k)?.value);
   if (isNaN(v) || v < 0) { toast('⚠️ กรอกตัวเลขที่ถูกต้อง'); return; }
-  const q = getQs(); if (!q[email]) q[email] = {}; q[email][type] = v; saveQs(q);
+  const q = getQs(); if (!q[email]) q[email] = {}; q[email][type] = v; 
+  saveQs(q);
+  apiSync('updateQuotas', { email, data: q[email] });
   toast('✅ บันทึกโควต้า ' + LT[type] + ' = ' + v + ' วัน'); renderBal();
 }
 function confirmReset() {
@@ -847,7 +869,12 @@ function quarterKey(d) {
 }
 function isGroupEx(t) { return t === 'group_ex' || t === 'group_eat'; }
 function getExType(e) { if (e.exType) return e.exType; return e.type === 'group' ? 'group_ex' : 'solo'; }
-function isUserInvolved(e, email) { return e.email === email || (e.members || []).some(m => m.type === 'sys' && m.email === email); }
+function isUserInvolved(e, email) { 
+  if (!e || !email) return false;
+  const target = email.toLowerCase();
+  const creator = (e.email || '').toLowerCase();
+  return creator === target || (e.members || []).some(m => m.type === 'sys' && (m.email || '').toLowerCase() === target); 
+}
 
 function updateExType() {
   const exType = document.getElementById('ex-type').value;
@@ -1094,7 +1121,7 @@ function submitEx() {
 function doSubmitEx(data) {
   const { exType, act, date, note, link, isGrp } = data;
   const es = getExs();
-  es.unshift({
+  const newEx = {
     id: eid++,
     name: cu.name,
     email: cu.email,
@@ -1108,8 +1135,14 @@ function doSubmitEx(data) {
     members: isGrp ? [...exMembers] : [],
     proofDoc: link,
     proofLink: link
-  });
-  saveExs(es); updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
+  };
+  es.unshift(newEx);
+  saveExs(es); 
+  
+  // SYNC TO API
+  apiSync('addEx', newEx);
+
+  updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
   if (isGrp) { exMembers = []; renderExMembers(); }
   ['ex-act', 'ex-note', 'ex-link'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
@@ -1149,6 +1182,7 @@ function renderExR() {
         ${isGroupEx(et) ? `<span style="font-size:10px;background:var(--surface3);color:var(--text3);padding:2px 8px;border-radius:20px;font-family:var(--mono);">${count} คน</span>` : ''}
         ${statusBadge}
       </div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
         <div>
           <div style="font-size:16px;font-weight:600;color:var(--text);">${uName(e.email, e.name)} <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">${e.email}</span></div>
@@ -1159,35 +1193,78 @@ function renderExR() {
         </div>
         <div style="background:${rbg};color:${tcolor};font-weight:700;font-family:var(--mono);padding:4px 12px;border-radius:20px;font-size:13px;border:1px solid ${tcolor}40;">+฿${totalReward}</div>
       </div>
-      ${showAction ? `<div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn btn-green btn-sm" onclick="apprEx(${e.id})">✅ อนุมัติ</button>
-        <button class="btn btn-red btn-sm" onclick="rejEx(${e.id})">✕ ไม่อนุมัติ</button>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${showAction ? `
+          <button class="btn btn-green btn-sm" onclick="apprEx(${e.id})">✅ อนุมัติ</button>
+          <button class="btn btn-red btn-sm" onclick="rejEx(${e.id})">✕ ไม่อนุมัติ</button>
+        ` : ''}
+        ${isGroupEx(et) && !isUserInvolved(e, cu.email) && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved')) ? `
+          <button class="btn btn-primary btn-sm" onclick="joinExGroup(${e.id})">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>
+        ` : ''}
+        ${isGroupEx(et) && isUserInvolved(e, cu.email) && e.email !== cu.email && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved')) ? `
+          <button class="btn btn-red btn-sm" onclick="leaveExGroup(${e.id})">✕ ถอนตัวออกจากกลุ่ม</button>
+        ` : ''}
         <button class="btn btn-ghost btn-sm" onclick="viewExDetail(${e.id})">🔍 ดูรายละเอียด</button>
-      </div>`: `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="viewExDetail(${e.id})">🔍 ดูรายละเอียด</button></div>`}
+      </div>
     </div>`;
   };
 
-  // 1. Pending List
+  // 1. Pending List (Split into Solo and Group)
   const pending = sorted.filter(e => e.status === 'pending');
-  elList.innerHTML = pending.length ? pending.map(e => renderExCard(e, true)).join('') : '<div style="color:var(--text3);text-align:center;padding:10px;font-size:13px;">ไม่มีคำขอรออนุมัติ 🎉</div>';
+  const pendingSolo = pending.filter(e => !isGroupEx(getExType(e)));
+  const pendingGroup = pending.filter(e => isGroupEx(getExType(e)));
 
-  // 2. Summary
+  let listHtml = '';
+  if (pendingGroup.length) {
+    listHtml += `
+      <div style="margin-bottom:24px;">
+        <div style="font-size:14px;font-weight:800;color:var(--purple);margin-bottom:12px;display:flex;align-items:center;gap:10px;background:var(--purple-bg);padding:8px 16px;border-radius:12px;border:1px solid rgba(191,123,255,0.2);">
+          <span>🏋️ แบบกลุ่ม</span>
+          <span style="background:var(--purple);color:white;font-size:11px;padding:2px 8px;border-radius:20px;">${pendingGroup.length} รายการ</span>
+        </div>
+        ${pendingGroup.map(e => renderExCard(e, true)).join('')}
+      </div>`;
+  }
+  if (pendingSolo.length) {
+    listHtml += `
+      <div style="margin-bottom:24px;">
+        <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:10px;background:var(--green-bg);padding:8px 16px;border-radius:12px;border:1px solid rgba(61,214,140,0.2);">
+          <span>🏃 แบบเดี่ยว</span>
+          <span style="background:var(--green);color:white;font-size:11px;padding:2px 8px;border-radius:20px;">${pendingSolo.length} รายการ</span>
+        </div>
+        ${pendingSolo.map(e => renderExCard(e, true)).join('')}
+      </div>`;
+  }
+  
+  elList.innerHTML = listHtml || '<div style="color:var(--text3);text-align:center;padding:10px;font-size:13px;">ไม่มีคำขอรออนุมัติ 🎉</div>';
+
+  // 2. Summary (Total Only)
   const today = new Date().toISOString().split('T')[0];
   const mk = monthKey(today);
   const allMo = all.filter(e => e.status !== 'rejected' && monthKey(e.date) === mk);
-  let totalMoney = 0;
-  allMo.forEach(e => {
-    const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
-    totalMoney += (EX_REWARD[getExType(e)] || 100) * count;
-  });
-  elSum.innerHTML = `<div style="font-size:28px;font-weight:800;font-family:var(--mono);color:var(--green);">฿${totalMoney}</div><div style="font-size:12px;color:var(--text3);">ยอดเงินรางวัลรวมทั้งหมดของบริษัทในเดือนนี้ (คำนวณจากทุกรายการที่ไม่ถูกปฏิเสธ)</div>`;
+  const totalMoney = allMo.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).filter(m => m.type === 'sys').length), 0);
+  const [y, mm] = mk.split('-');
+  const rangeLabel = `${fmt(new Date(y, parseInt(mm) - 1, 19))} - ${fmt(new Date(y, parseInt(mm), 18))}`;
+
+  elSum.innerHTML = `<div style="font-size:28px;font-weight:800;font-family:var(--mono);color:var(--green);">฿${totalMoney.toLocaleString()}</div><div style="font-size:12px;color:var(--text3);">ยอดเงินรางวัลรวมทั้งหมดของบริษัทในเดือนนี้ (${rangeLabel})</div>`;
 
   // 3. Share Activities (All group ex)
   const shares = sorted.filter(e => isGroupEx(getExType(e)));
   elShare.innerHTML = shares.length ? shares.map(e => renderExCard(e, false)).join('') : '<div style="color:var(--text3);font-size:13px;">ไม่มีกิจกรรมกลุ่ม</div>';
 
-  // 4. History (All requests)
-  elHist.innerHTML = sorted.length ? sorted.map(e => renderExCard(e, false)).join('') : '<div style="color:var(--text3);font-size:13px;">ไม่มีประวัติคำขอ</div>';
+  // 4. History (All requests - Split into Solo and Group)
+  const histSolo = sorted.filter(e => !isGroupEx(getExType(e)));
+  const histGroup = sorted.filter(e => isGroupEx(getExType(e)));
+
+  let histHtml = '';
+  if (histGroup.length) {
+    histHtml += `<div style="margin-bottom:16px;"><div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:10px;">🏋️ ประวัติแบบกลุ่ม</div>${histGroup.map(e => renderExCard(e, false)).join('')}</div>`;
+  }
+  if (histSolo.length) {
+    histHtml += `<div style="margin-bottom:16px;"><div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px;">🏃 ประวัติแบบเดี่ยว</div>${histSolo.map(e => renderExCard(e, false)).join('')}</div>`;
+  }
+
+  elHist.innerHTML = histHtml || '<div style="color:var(--text3);font-size:13px;">ไม่มีประวัติคำขอ</div>';
 }
 function apprEx(id) {
   if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
@@ -1207,10 +1284,19 @@ function apprEx(id) {
       return;
     }
   }
-  es[i].status = 'approved'; saveExs(es);
+  es[i].status = 'approved'; 
+  saveExs(es);
+  apiSync('updateEx', es[i]);
   toast('✅ อนุมัติแล้ว'); updateDashboard(); updateLB(); updateQuota(); renderExR();
 }
-function rejEx(id) { if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; } const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return; es[i].status = 'rejected'; saveExs(es); toast('✕ ไม่อนุมัติ'); renderExR(); }
+function rejEx(id) { 
+  if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; } 
+  const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return; 
+  es[i].status = 'rejected'; 
+  saveExs(es); 
+  apiSync('updateEx', es[i]);
+  toast('✕ ไม่อนุมัติ'); renderExR(); 
+}
 
 // ══ EXERCISE SHARE ═══════════════════════
 function renderExShare() {
@@ -1254,6 +1340,7 @@ function renderExShare() {
       ${e.note ? `<div style="font-size:12px;color:var(--text3);margin-top:8px;">📝 ${e.note}</div>` : ''}
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved ? `<button class="btn btn-primary btn-sm" onclick="joinExGroup(${e.id})">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>` : ''}
+        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter ? `<button class="btn btn-red btn-sm" onclick="leaveExGroup(${e.id})">✕ ถอนตัวออกจากกลุ่ม</button>` : ''}
         <button class="btn btn-ghost btn-sm" onclick="viewExDetail(${e.id})">🔍 ดูรายละเอียด</button>
       </div>
     </div>`;
@@ -1269,7 +1356,7 @@ function joinExGroup(id) {
   const e = es[i];
   if (e.status !== 'pending' && !(cu.role === 'pm' && e.status === 'approved')) { toast('⚠️ คำขอนี้ถูก' + (e.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ') + 'แล้ว'); return; }
 
-  if (e.email === cu.email || (e.members || []).some(m => m.type === 'sys' && m.email === cu.email)) { toast('⚠️ คุณมีชื่ออยู่ในคำขอนี้แล้ว'); return; }
+  if (isUserInvolved(e, cu.email)) { toast('⚠️ คุณมีชื่ออยู่ในคำขอนี้แล้ว'); return; }
   const mk = monthKey(e.date);
   const wk = wkKey(e.date);
   const wkGrp = es.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
@@ -1278,7 +1365,9 @@ function joinExGroup(id) {
   if (moGrp >= 4) { toast('⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้ของคุณเต็มแล้ว (4/4)'); return; }
   e.members = e.members || [];
   e.members.push({ id: 'sys_' + cu.email + '_' + Date.now(), type: 'sys', email: cu.email, name: cu.name });
-  saveExs(es); renderExShare(); updateQuota(); updateLB();
+  saveExs(es); 
+  apiSync('updateEx', es[i]);
+  renderExShare(); updateQuota(); updateLB(); updateDashboard(); updateBadges();
   toast('✅ เพิ่มชื่อคุณเข้ากลุ่มเรียบร้อย');
 }
 function leaveExGroup(id) {
@@ -1288,12 +1377,16 @@ function leaveExGroup(id) {
   if (e.status !== 'pending' && !(cu.role === 'pm' && e.status === 'approved')) { toast('⚠️ คำขอนี้ถูก' + (e.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ') + 'แล้ว'); return; }
 
   const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
-  if (count <= 3) { toast('⚠️ ไม่สามารถลบชื่อได้ ต้องมีสมาชิกในกลุ่มมากกว่า 3 คนขึ้นไป'); return; }
+  if (count <= 3) { toast('⚠️ ไม่สามารถลบชื่อได้ ต้องมีสมาชิกในกลุ่มอย่างน้อย 3 คน'); return; }
 
-  if (!(e.members || []).some(m => m.type === 'sys' && m.email === cu.email)) { toast('⚠️ คุณไม่ได้อยู่ในคำขอนี้'); return; }
-  e.members = (e.members || []).filter(m => !(m.type === 'sys' && m.email === cu.email));
-  saveExs(es); renderExShare(); updateQuota();
-  toast('✅ ลบชื่อคุณออกจากกลุ่มแล้ว');
+  const oldMembers = e.members || [];
+  e.members = oldMembers.filter(m => !(m.type === 'sys' && m.email === cu.email));
+  if (e.members.length === oldMembers.length) { toast('⚠️ ไม่พบชื่อคุณในกลุ่มนี้'); return; }
+
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  renderExShare(); updateQuota(); updateLB(); updateDashboard(); updateBadges();
+  toast('✕ ถอนตัวออกจากกลุ่มเรียบร้อย');
 }
 
 // ══ LEADERBOARD ══════════════════════════
@@ -1321,6 +1414,75 @@ function updateLB() {
   document.getElementById('lb-group-ex').innerHTML = gxr.length ? gxr.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--purple);font-family:var(--mono);">฿' + (r[1] * 500) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
   const ger = Object.entries(gem).sort((a, b) => b[1] - a[1]);
   document.getElementById('lb-group-eat').innerHTML = ger.length ? ger.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--orange);font-family:var(--mono);">฿' + (r[1] * 300) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
+
+  // --- ADD SUMMARY TABLE ---
+  const today = new Date().toISOString().split('T')[0];
+  const mk = monthKey(today);
+  const allMo = a.filter(e => monthKey(e.date) === mk);
+  const [y, mm] = mk.split('-');
+  const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
+  const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
+  const users = getUsers().sort((a,b) => a.name.localeCompare(b.name, 'th'));
+  const userStats = users.map(u => {
+    const uExs = allMo.filter(e => isUserInvolved(e, u.email));
+    let sC = 0, sA = 0, gexC = 0, gexA = 0, geC = 0, geA = 0;
+    uExs.forEach(e => {
+      const et = getExType(e);
+      const isAppr = e.status === 'approved';
+      if (et === 'solo') { sC++; if (isAppr) sA++; }
+      else if (et === 'group_ex') { gexC++; if (isAppr) gexA++; }
+      else if (et === 'group_eat') { geC++; if (isAppr) geA++; }
+    });
+    return {
+      name: u.name, nick: u.nickname || u.name.split(' ')[0],
+      sC, sR: sC * 100, sAR: sA * 100,
+      gexC, gexR: gexC * 500, gexAR: gexA * 500,
+      geC, geR: geC * 300, geAR: geA * 300,
+      total: (sC * 100) + (gexC * 500) + (geC * 300),
+      totalA: (sA * 100) + (gexA * 500) + (geA * 300)
+    };
+  });
+
+  const summaryEl = document.getElementById('lb-summary-table');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text3);">รอบการคำนวณเงินรางวัล: ${rangeLabel} <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
+      <div class="table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <table class="balance-table" style="font-size:11px;">
+          <thead style="background:var(--surface3);">
+            <tr>
+              <th rowspan="2" style="text-align:left;font-size:12px;">ชื่อ-นามสกุล</th>
+              <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);">แบบเดี่ยว (100)</th>
+              <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);">แบบกลุ่มออก (500)</th>
+              <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);">แบบกลุ่มกิน (300)</th>
+              <th rowspan="2" style="background:var(--surface2);font-weight:800;font-size:12px;">รวม (อนุมัติ)</th>
+            </tr>
+            <tr style="font-size:9px;">
+              <th style="background:rgba(61,214,140,0.05);">ครั้ง</th><th style="background:rgba(61,214,140,0.05);">เงิน</th>
+              <th style="background:rgba(191,123,255,0.05);">ครั้ง</th><th style="background:rgba(191,123,255,0.05);">เงิน</th>
+              <th style="background:rgba(255,171,0,0.05);">ครั้ง</th><th style="background:rgba(255,171,0,0.05);">เงิน</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${userStats.map(s => `
+              <tr style="${s.total > 0 ? 'background:rgba(255,255,255,0.02);' : 'opacity:0.5;'}">
+                <td style="text-align:left;">
+                  <div style="font-weight:600;">${s.name}</div>
+                  <div style="font-size:10px;color:var(--text3);">*${s.nick}*</div>
+                </td>
+                <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR} <span style="opacity:0.6;font-size:9px;">(${s.sAR})</span></td>
+                <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR} <span style="opacity:0.6;font-size:9px;">(${s.gexAR})</span></td>
+                <td>${s.geC}</td><td style="color:var(--orange);font-family:var(--mono);">฿${s.geR} <span style="opacity:0.6;font-size:9px;">(${s.geAR})</span></td>
+                <td style="font-weight:800;background:rgba(255,255,255,0.03);font-family:var(--mono);font-size:12px;">
+                  ฿${s.total.toLocaleString()}
+                  <div style="font-size:10px;color:var(--green);opacity:0.8;">(฿${s.totalA.toLocaleString()})</div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
 }
 
 // ══ DASHBOARD ════════════════════════════
@@ -1401,6 +1563,17 @@ function viewExDetail(id) {
   const canDelete = e.email === cu.email || cu.role === 'lead' || cu.role === 'pm';
   const actionsEl = document.getElementById('ex-detail-actions');
   actionsEl.innerHTML = '';
+  
+  // Join/Leave Button logic
+  const et2 = getExType(e);
+  if (isGroupEx(et2) && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved'))) {
+    if (!isUserInvolved(e, cu.email)) {
+      actionsEl.innerHTML += `<button class="btn btn-primary" onclick="joinExGroup(${e.id});closeModal('modal-ex-detail')">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>`;
+    } else if (e.email !== cu.email) {
+      actionsEl.innerHTML += `<button class="btn btn-red" onclick="leaveExGroup(${e.id});closeModal('modal-ex-detail')">✕ ถอนตัวออกจากกลุ่ม</button>`;
+    }
+  }
+
   if (canDelete) {
     actionsEl.innerHTML += `<button class="btn btn-red" onclick="deleteEx(${e.id})">🗑️ ลบคำขอ</button>`;
   }
@@ -1414,6 +1587,7 @@ function deleteEx(id) {
   const es = getExs();
   const newEs = es.filter(e => e.id !== id);
   saveExs(newEs);
+  apiSync('deleteEx', { id });
   closeModal('modal-ex-detail');
   toast('🗑️ ลบคำขอเรียบร้อย');
   updateDashboard();
@@ -1532,6 +1706,9 @@ function renderExHistory() {
                     <span style="font-size:20px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
                     <span style="font-size:15px;font-weight:700;color:var(--text);">${e.activity}</span>
                     <span style="font-size:10px;font-weight:700;${tagStyle}padding:3px 10px;border-radius:6px;text-transform:uppercase;">${EX_LABEL[et]}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                    <span style="opacity:0.7;">👤</span> ${e.email === cu.email ? 'คุณเป็นผู้ยื่น' : `เข้าร่วมกลุ่มของ: ${uName(e.email, e.name)}`}
                   </div>
                   <div style="font-size:12px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;">
                     <span style="opacity:0.7;">📅</span> ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}

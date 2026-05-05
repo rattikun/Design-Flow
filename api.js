@@ -74,42 +74,99 @@ async function api(action, payload = {}) {
       return await res.json();
     }
 
-    // 2. ADD USER
-    if (action === 'addUser') {
-      const res = await fetch(`${baseUrl}/users.json`, {
+    // 4. EXERCISES
+    if (action === 'addEx') {
+      const res = await fetch(`${baseUrl}/exercises.json`, {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('Failed to add user to Firebase');
-      const data = await res.json();
-      return { ok: true, data };
+      return { ok: res.ok };
     }
 
-    // 2.1 UPDATE USER
-    if (action === 'updateUser') {
-      const res = await fetch(`${baseUrl}/users.json`);
-      const usersObj = await res.json();
-      const key = Object.keys(usersObj || {}).find(k => usersObj[k].email.toLowerCase() === payload.email.toLowerCase());
+    if (action === 'updateEx') {
+      const res = await fetch(`${baseUrl}/exercises.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
       if (key) {
-        await fetch(`${baseUrl}/users/${key}.json`, {
+        const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, {
           method: 'PATCH',
           body: JSON.stringify(payload)
         });
-        return { ok: true };
+        return { ok: res2.ok };
       }
-      return { ok: false, error: 'User not found in DB' };
+      return { ok: false, error: 'Exercise not found' };
     }
 
-    // 2.2 DELETE USER
-    if (action === 'deleteUser') {
-      const res = await fetch(`${baseUrl}/users.json`);
-      const usersObj = await res.json();
-      const key = Object.keys(usersObj || {}).find(k => usersObj[k].email.toLowerCase() === payload.email.toLowerCase());
+    if (action === 'deleteEx') {
+      const res = await fetch(`${baseUrl}/exercises.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
       if (key) {
-        await fetch(`${baseUrl}/users/${key}.json`, { method: 'DELETE' });
-        return { ok: true };
+        const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, { method: 'DELETE' });
+        return { ok: res2.ok };
       }
-      return { ok: true }; // Consider deleted if not found
+      return { ok: true };
+    }
+
+    // 5. LEAVES
+    if (action === 'addLeave') {
+      const res = await fetch(`${baseUrl}/leaves.json`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return { ok: res.ok };
+    }
+
+    if (action === 'updateLeave') {
+      const res = await fetch(`${baseUrl}/leaves.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
+      if (key) {
+        const res2 = await fetch(`${baseUrl}/leaves/${key}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        return { ok: res2.ok };
+      }
+      return { ok: false, error: 'Leave not found' };
+    }
+
+    if (action === 'deleteLeave') {
+      const res = await fetch(`${baseUrl}/leaves.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
+      if (key) {
+        const res2 = await fetch(`${baseUrl}/leaves/${key}.json`, { method: 'DELETE' });
+        return { ok: res2.ok };
+      }
+      return { ok: true };
+    }
+
+    // 6. QUOTAS
+    if (action === 'updateQuotas') {
+      // payload: { email: '...', data: { sick: 1, ... } }
+      const res = await fetch(`${baseUrl}/quotas.json`);
+      const allQ = await res.json();
+      const key = Object.keys(allQ || {}).find(k => allQ[k].email === payload.email);
+      
+      const updateData = { email: payload.email };
+      Object.keys(payload.data).forEach(k => {
+        updateData[k + '_used'] = payload.data[k];
+      });
+
+      if (key) {
+        const res2 = await fetch(`${baseUrl}/quotas/${key}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify(updateData)
+        });
+        return { ok: res2.ok };
+      } else {
+        const res2 = await fetch(`${baseUrl}/quotas.json`, {
+          method: 'POST',
+          body: JSON.stringify(updateData)
+        });
+        return { ok: res2.ok };
+      }
     }
 
     // 3. READ DATA (Bootstrap & Others)
