@@ -1142,13 +1142,20 @@ function doSubmitEx(data) {
   // SYNC TO API
   apiSync('addEx', newEx);
 
-  updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
+  // Close modals FIRST to ensure popup always closes
+  closeModal('modal-confirm');
+  closeModal('modal-ex-form');
+
+  // Then update UI (wrapped in try-catch to prevent silent failures)
+  try {
+    updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
+  } catch (e) { console.error('UI update error after submitEx:', e); }
+  
   if (isGrp) { exMembers = []; renderExMembers(); }
   ['ex-act', 'ex-note', 'ex-link'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   toast('✅ ยื่นคำขอเรียบร้อยแล้ว');
-  closeModal('modal-ex-form');
 }
 function renderExR() {
   if (cu.role !== 'pm') {
@@ -1238,7 +1245,8 @@ function renderExR() {
   
   elList.innerHTML = listHtml || '<div style="color:var(--text3);text-align:center;padding:10px;font-size:13px;">ไม่มีคำขอรออนุมัติ 🎉</div>';
 
-  // 2. Summary (Total Only)
+  // 2. Summary (Total Only - Including Pending)
+  const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
   const today = new Date().toISOString().split('T')[0];
   const mk = monthKey(today);
   const allMo = all.filter(e => e.status !== 'rejected' && monthKey(e.date) === mk);
@@ -1416,6 +1424,7 @@ function updateLB() {
   document.getElementById('lb-group-eat').innerHTML = ger.length ? ger.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--orange);font-family:var(--mono);">฿' + (r[1] * 300) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
 
   // --- ADD SUMMARY TABLE ---
+  const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
   const today = new Date().toISOString().split('T')[0];
   const mk = monthKey(today);
   const allMo = a.filter(e => monthKey(e.date) === mk);
