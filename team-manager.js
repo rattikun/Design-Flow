@@ -25,6 +25,15 @@ const saveQs = q => LS.set('tf_qs', q);
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
+function uName(email, fallback) {
+  const u = (getUsers() || []).find(x => x.email.toLowerCase() === (email || '').toLowerCase());
+  if (u) {
+    const nick = u.nickname || u.name.split(' ')[0];
+    return nick + (u.dept ? ` (${u.dept})` : '');
+  }
+  return fallback || email;
+}
+
 function initUsers() {
   const u = [
     { email: 'pm@team.com', name: 'คุณ PM', role: 'pm', dept: 'Management', pass: hp('admin123'), addedBy: 'system', addedAt: new Date().toISOString() },
@@ -61,41 +70,56 @@ async function doLogin() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-err');
+  
+  if (!email || !pass) {
+    errEl.textContent = 'กรุณากรอกอีเมลและรหัสผ่าน';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  ensureDefaultAccounts();
 
   // Step 1: ลอง validate กับ API (source of truth)
   if (typeof api === 'function') {
-    const res = await api('login', { email, passHash: hp(pass) });
-    if (res.ok && res.user) {
-      // API ตอบ ok → เก็บ user, bootstrap, แล้วเข้าระบบ
-      const u = mapUserFromAPI(res.user);
-      // ใส่ pass hash กลับ (API ไม่ส่งกลับ) เพื่อ session restore ใช้
-      u.pass = hp(pass);
-      cu = u;
-      // Update LS users cache (เผื่อมีคนใหม่)
-      const users = getUsers();
-      const idx = users.findIndex(x => x.email.toLowerCase() === email);
-      if (idx >= 0) users[idx] = u; else users.push(u);
-      saveUsers(users);
-      errEl.style.display = 'none';
-      LS.set('tf_sess', email);
-      // bootstrap data จาก Sheet ก่อน launch
-      await bootstrap();
-      launchApp();
-      return;
+    try {
+      const res = await api('login', { email, passHash: hp(pass) });
+      if (res.ok && res.user) {
+        // API ตอบ ok → เก็บ user, bootstrap, แล้วเข้าระบบ
+        const u = mapUserFromAPI(res.user);
+        u.pass = hp(pass);
+        cu = u;
+        const users = getUsers();
+        const idx = users.findIndex(x => x.email.toLowerCase() === email);
+        if (idx >= 0) users[idx] = u; else users.push(u);
+        saveUsers(users);
+        errEl.style.display = 'none';
+        LS.set('tf_sess', email);
+        await bootstrap();
+        launchApp();
+        return;
+      }
+      
+      if (res._network) {
+        console.warn('[doLogin] Network error, trying LS fallback...');
+      } else {
+        console.warn('[doLogin] API rejected, trying LS fallback...');
+      }
+    } catch (e) {
+      console.error('[doLogin] API Error:', e);
     }
-    if (!res._network) {
-      // API ตอบกลับมาว่า invalid → fail แน่นอน
-      errEl.style.display = 'block';
-      return;
-    }
-    // network error → fall through ไป LS fallback
-    console.warn('[doLogin] API offline, falling back to LS');
   }
 
-  // Step 2: Fallback — LS-only login (offline mode)
+  // Step 2: Fallback — LS-only login (offline mode / local accounts)
   const u = getUsers().find(u => u.email.toLowerCase() === email && u.pass === hp(pass));
-  if (!u) { errEl.style.display = 'block'; return; }
-  errEl.style.display = 'none'; cu = u; LS.set('tf_sess', email); launchApp();
+  if (!u) {
+    errEl.textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  cu = u;
+  LS.set('tf_sess', email);
+  launchApp();
 }
 function resetAndLogin() { localStorage.clear(); location.reload(); }
 function doLogout() {
@@ -211,7 +235,7 @@ function setupLeaveFormForRole() {
   if (isMgr) {
     const sel = document.getElementById('for-member-select');
     const members = cu.role === 'pm' ? getUsers().filter(u => ['junior', 'senior', 'lead'].includes(u.role)) : getMyTeamMembers();
-    sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + u.name + ' (' + u.email + ')</option>').join('');
+    sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
   }
 }
@@ -224,7 +248,7 @@ function renderMembers() {
   const canE = cu.role === 'lead' || cu.role === 'pm';
   document.getElementById('members-tbody').innerHTML = users.map(u => `
     <tr>
-      <td><div class="name">${u.name}${u.nickname ? ` (${u.nickname})` : ''}</div><div class="meta">${u.email}</div></td>
+      <td><div class="name">${uName(u.email, u.name)}</div><div class="meta">${u.name} • ${u.email}</div></td>
       <td><span class="chip" style="background:${u.role === 'pm' ? 'var(--orange-bg)' : u.role === 'lead' ? 'var(--yellow-bg)' : 'var(--purple-bg)'};color:${RC[u.role]};">${RL[u.role]}</span></td>
       <td><span style="color:var(--text2);font-size:13px;">${u.dept || '—'}</span></td>
       <td><span style="font-size:12px;font-weight:600;color:${(u.locationType || 'bkk') === 'bkk' ? 'var(--accent)' : 'var(--orange)'};">${(u.locationType || 'bkk') === 'bkk' ? 'กรุงเทพ' : 'ต่างจังหวัด'}</span></td>
@@ -495,7 +519,7 @@ function renderLR() {
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:16px;font-weight:700;color:var(--text);">${r.name} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
           <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} <strong style="color:var(--yellow);">(${dLabel})</strong>${r.addedBy ? ` <span style="color:var(--purple);font-size:11px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}</div>
           <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
           ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
@@ -539,7 +563,7 @@ function renderLP() {
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:16px;font-weight:700;color:var(--text);">${r.name} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
           <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} <strong style="color:var(--yellow);">(${dLabel})</strong>${r.addedBy ? ` <span style="color:var(--purple);font-size:11px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}</div>
           <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
           ${r.autoEscalated ? '<div style="font-size:12px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
@@ -581,7 +605,7 @@ function renderHist(f) {
   tb.innerHTML = data.map(r => {
     const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
     return `<tr>
-      <td><div class="name">${r.name}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:10px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:10px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:11px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td>${ch[r.status] || ''}</td>
@@ -641,7 +665,7 @@ function renderBalOverview(members, isPM) {
       const rem = Math.max(0, effQ - used), c = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
       return '<td style="text-align:center;font-family:var(--mono);font-size:13px;"><span style="font-weight:700;color:' + c + ';">' + rem + '</span><span style="color:var(--text3);font-size:11px;">/' + effQ + '</span></td>';
     }).join('');
-    return '<tr><td><div class="name">' + u.name + '</div><div class="meta">' + u.dept + '</div></td>' + cells + '</tr>';
+    return '<tr><td><div class="name">' + uName(u.email, u.name) + '</div><div class="meta">' + u.email + '</div></td>' + cells + '</tr>';
   }).join('');
   const ths = fixedTypes.map(t => '<th style="text-align:center;white-space:nowrap;">' + LT[t].replace(/^\S+\s/, '') + '</th>').join('');
   document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:12px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
@@ -663,7 +687,7 @@ function renderBalTable(email, isPM) {
       return '<tr><td>' + LT[type] + ' <span style="font-size:11px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + (pend ? '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td>—</td><td>—</td></tr>';
     }
   }).join('');
-  cont.innerHTML = (isPM ? '<div class="info-box" style="margin-bottom:16px;">✎ PM สามารถแก้ไขโควต้าได้โดยตรง</div>' : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;font-family:var(--mono);">// แสดงผลเท่านั้น</div>') + '<div class="card"><div class="card-title">◈ รายละเอียดวันลาของ ' + user.name + '</div><div class="table-wrap"><table class="balance-table"><thead><tr><th>ประเภท</th><th>โควต้า' + (isPM ? ' (แก้ได้)' : '') + '</th><th>ใช้แล้ว</th><th>คงเหลือ</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  cont.innerHTML = (isPM ? '<div class="info-box" style="margin-bottom:16px;">✎ PM สามารถแก้ไขโควต้าได้โดยตรง</div>' : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;font-family:var(--mono);">// แสดงผลเท่านั้น</div>') + '<div class="card"><div class="card-title">◈ รายละเอียดวันลาของ ' + uName(user.email, user.name) + '</div><div class="table-wrap"><table class="balance-table"><thead><tr><th>ประเภท</th><th>โควต้า' + (isPM ? ' (แก้ได้)' : '') + '</th><th>ใช้แล้ว</th><th>คงเหลือ</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 function saveQ(email, type) {
   const k = 'qi-' + email.replace(/[@.]/g, '-') + '-' + type; const v = parseInt(document.getElementById(k)?.value);
@@ -724,8 +748,8 @@ function updateExSysMemberSelect() {
   const mk = monthKey(today);
   const es = getExs();
 
-  // Sort by name
-  let available = allUsers.filter(u => u.email !== cu.email).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  // Sort by name, filter out current user and already-selected members
+  let available = allUsers.filter(u => u.email !== cu.email && !exMembers.some(m => m.email === u.email)).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
     const uMoGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
@@ -769,6 +793,7 @@ function removeExMember(id) {
 }
 function renderExMembers() {
   const el = document.getElementById('ex-member-list'); if (!el) return;
+  updateExSysMemberSelect();
   if (!exMembers.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>'; return; }
   el.innerHTML = exMembers.map(m => {
     const label = m.displayName || m.name;
@@ -776,12 +801,50 @@ function renderExMembers() {
   }).join('');
 }
 // handleExDoc is deprecated as we moved to link-only submission
-function handleExDoc(input) {}
+function toLocalDateString(d) {
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  const y = dt.getFullYear(), m = String(dt.getMonth() + 1).padStart(2, '0'), d2 = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d2}`;
+}
 // week starts Sunday, cuts on Saturday
-function wkKey(d) { const dt = new Date(d), s = new Date(dt); s.setDate(dt.getDate() - dt.getDay()); return s.toISOString().split('T')[0]; }
+function wkKey(d) {
+  if (!d) return '';
+  let dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  // If input is YYYY-MM-DD string, new Date(d) might be UTC. 
+  // Let's ensure we treat it as local if it's just a date.
+  if (typeof d === 'string' && d.length === 10) {
+    const [y, m, d1] = d.split('-').map(Number);
+    dt = new Date(y, m - 1, d1);
+  }
+  const s = new Date(dt);
+  s.setDate(dt.getDate() - dt.getDay());
+  return toLocalDateString(s);
+}
 // monthly cycle cuts on 18th: day 1-18 belongs to prev period
-function monthKey(d) { const dt = new Date(d); const day = dt.getDate(), m = dt.getMonth(), y = dt.getFullYear(); if (day <= 18) { return m === 0 ? `${y - 1}-12` : `${y}-${String(m).padStart(2, '0')}`; } return `${y}-${String(m + 1).padStart(2, '0')}`; }
-function quarterKey(d) { const [y, m] = monthKey(d).split('-').map(Number); return `${y}-Q${Math.ceil(m / 3)}`; }
+// monthly cycle starts on 19th: 19th onwards belongs to the same month, up to 18th of next month
+function monthKey(d) {
+  if (!d) return '';
+  let dt = new Date(d);
+  if (typeof d === 'string' && d.length === 10) {
+    const [y, m, d1] = d.split('-').map(Number);
+    dt = new Date(y, m - 1, d1);
+  }
+  if (isNaN(dt.getTime())) return '';
+  const day = dt.getDate(), m = dt.getMonth(), y = dt.getFullYear();
+  if (day >= 19) {
+    return `${y}-${String(m + 1).padStart(2, '0')}`;
+  } else {
+    return m === 0 ? `${y - 1}-12` : `${y}-${String(m).padStart(2, '0')}`;
+  }
+}
+function quarterKey(d) {
+  const mk = monthKey(d);
+  if (!mk) return '';
+  const [y, m] = mk.split('-').map(Number);
+  return `${y}-Q${Math.ceil(m / 3)}`;
+}
 function isGroupEx(t) { return t === 'group_ex' || t === 'group_eat'; }
 function getExType(e) { if (e.exType) return e.exType; return e.type === 'group' ? 'group_ex' : 'solo'; }
 function isUserInvolved(e, email) { return e.email === email || (e.members || []).some(m => m.type === 'sys' && m.email === email); }
@@ -793,23 +856,66 @@ function updateExType() {
   clearExErr();
   updateQuota();
 }
+let quotaViewDate = new Date().toISOString().split('T')[0];
+function setQuotaDate(d) {
+  quotaViewDate = d;
+  updateQuota();
+}
+
 function updateQuota() {
   const loc = cu.locationType || 'bkk';
   const isBkk = loc === 'bkk';
-  const today = new Date().toISOString().split('T')[0];
-  const wk = wkKey(today), mk = monthKey(today), qk = quarterKey(today);
+  const vDate = quotaViewDate;
+  let wk = wkKey(vDate);
+  const mk = monthKey(vDate), qk = quarterKey(vDate);
   const [moY, moM] = mk.split('-').map(Number);
   const moName = new Date(moY, moM - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
   const exType = document.getElementById('ex-type')?.value || 'solo';
   const all = getExs();
   const wkLimit = isBkk ? 2 : 3, moLimit = isBkk ? 8 : 12;
+  
+  // Stats for the viewed week/month
   const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
   const moSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && monthKey(e.date) === mk).length;
   const wkGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && wkKey(e.date) === wk).length;
   const moGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && monthKey(e.date) === mk).length;
   const qGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && quarterKey(e.date) === qk).length;
+  
   const colaThresh = isBkk ? 6 : 1, colaOk = qGrp >= colaThresh;
   const locLabel = isBkk ? 'กทม.' : 'ตจว.';
+
+  // Build Month Options (Last 6 to Next 2)
+  const monthOpts = [];
+  const now = new Date();
+  for (let i = -6; i <= 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 20);
+    const mKey = monthKey(d);
+    if (!monthOpts.includes(mKey)) monthOpts.push(mKey);
+  }
+
+  // Build Week Options for selected month
+  const weekOpts = [];
+  const [y, m] = mk.split('-').map(Number);
+  // Period for Month M: M-19 to (M+1)-18
+  const dStart = new Date(y, m - 1, 19), dEnd = new Date(y, m, 18);
+  let curr = new Date(dStart);
+  while (curr <= dEnd) {
+    const wKey = wkKey(curr);
+    if (!weekOpts.includes(wKey)) weekOpts.push(wKey);
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  // Ensure wk is within the current month's weekOpts
+  wk = wkKey(vDate);
+  if (!weekOpts.includes(wk)) {
+    wk = weekOpts[0];
+  }
+
+  const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  const moRange = `${fmt(dStart)} - ${fmt(dEnd)}`;
+
+  const curWkNum = weekOpts.indexOf(wk) + 1;
+  const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
   const segBar = (used, max, color) => `
     <div style="display:flex;align-items:center;gap:6px;flex:1;">
       <div style="display:flex;gap:3px;flex:1;height:8px;">
@@ -841,14 +947,16 @@ function updateQuota() {
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
     <!-- CARD 1: SOLO -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;">
-      <div style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:16px;">แบบเดี่ยว (${locLabel})</div>
-      <div style="display:flex;gap:20px;">
-        <div style="flex:1;">
-          <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">รายสัปดาห์ (สัปดาห์ที่ ${Math.ceil((new Date(today).getDate() + new Date(new Date(today).getFullYear(), new Date(today).getMonth(), 1).getDay()) / 7)})</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
+      </div>
+      <div style="display:flex;gap:32px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
           ${segBar(wkSolo, wkLimit, 'var(--green)')}
         </div>
-        <div style="flex:1.5;">
-          <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">รายเดือน (${moName})</div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
           ${segBar(moSolo, moLimit, 'var(--green)')}
         </div>
       </div>
@@ -857,14 +965,16 @@ function updateQuota() {
     <!-- CARD 2: GROUP -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:16px;">แบบกลุ่ม (${locLabel})</div>
-        <div style="display:flex;gap:20px;">
-          <div style="flex:1;">
-            <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">รายสัปดาห์ (สัปดาห์ที่ ${Math.ceil((new Date(today).getDate() + new Date(new Date(today).getFullYear(), new Date(today).getMonth(), 1).getDay()) / 7)})</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
+        </div>
+        <div style="display:flex;gap:32px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
             ${segBar(wkGrp, 1, 'var(--green)')}
           </div>
-          <div style="flex:1.5;">
-            <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">รายเดือน (${moName})</div>
+          <div style="flex:1;min-width:200px;">
+            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
             ${segBar(moGrp, 4, 'var(--green)')}
           </div>
         </div>
@@ -898,6 +1008,14 @@ function updateQuota() {
     else if (moGrp >= 4) { warn.textContent = '⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้เต็มแล้ว (4 ครั้ง)'; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
     else { warn.style.display = 'none'; if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   }
+
+  // Update top page label to show what's being viewed
+  const wLabel = document.getElementById('week-label');
+  if (wLabel) {
+    const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
+    wLabel.innerHTML = `<span style="color:var(--accent);font-weight:700;">📂 กำลังดู:</span> ${moName} — สัปดาห์ที่ ${weekOpts.indexOf(wk) + 1} <span style="opacity:0.7;font-size:12px;">(${fmt(ws)} - ${fmt(we)})</span>`;
+  }
+
   // Re-enable button if monthly is not full
   if (exType === 'solo' && moSolo < moLimit) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   if (exType !== 'solo' && moGrp < 4) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
@@ -1033,11 +1151,11 @@ function renderExR() {
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
         <div>
-          <div style="font-size:16px;font-weight:600;color:var(--text);">${e.name} <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">${e.email}</span></div>
+          <div style="font-size:16px;font-weight:600;color:var(--text);">${uName(e.email, e.name)} <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">${e.email}</span></div>
           <div style="font-size:13px;color:var(--text3);">${e.activity} • ${e.duration ? e.duration + ' นาที • ' : ''}${e.date}</div>
           ${e.note ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;">${e.note}</div>` : ''}
           ${(e.proofDoc || e.proofLink) ? `<div style="font-size:12px;margin-top:6px;"><a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="background:var(--surface3);padding:3px 8px;border-radius:20px;color:var(--accent);text-decoration:none;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
-          ${allMembers.length > 1 ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">${allMembers.map(m => `<span style="font-size:11px;background:var(--surface3);color:var(--text2);padding:2px 6px;border-radius:4px;">${m.kind === 'submitter' || m.kind === 'sys' ? '👤' : '👤(นอก) '} ${m.name}${m.dept ? ` (${m.dept})` : ''}</span>`).join('')}</div>` : ''}
+          ${allMembers.length > 1 ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">${allMembers.map(m => `<span style="font-size:11px;background:var(--surface3);color:var(--text2);padding:2px 6px;border-radius:4px;">${m.kind === 'submitter' || m.kind === 'sys' ? '👤' : '👤(นอก) '} ${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)}</span>`).join('')}</div>` : ''}
         </div>
         <div style="background:${rbg};color:${tcolor};font-weight:700;font-family:var(--mono);padding:4px 12px;border-radius:20px;font-size:13px;border:1px solid ${tcolor}40;">+฿${totalReward}</div>
       </div>
@@ -1085,7 +1203,7 @@ function apprEx(id) {
     if (newMems.length < 3) {
       const notNew = allPartic.filter(email => isInOther(email));
       const names = notNew.map(em => { const u = getUsers().find(x => x.email === em); return u ? u.name : em; });
-      toast(`⚠️ ต้องมีสมาชิกใหม่ (ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้) อย่างน้อย 3 คน — ทำไปแล้ว: ${names.join(', ')}`);
+      toast(`⚠️ จำเป็นต้องมีสมาชิกเพิ่มอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้ — สมาชิกที่ทำไปแล้ว: ${names.join(', ')}`);
       return;
     }
   }
@@ -1122,7 +1240,7 @@ function renderExShare() {
       const fg = isMe ? '#fff' : isSubmitter ? 'var(--accent)' : 'var(--text2)';
       const icon = isSubmitter ? '⭐' : m.kind === 'sys' ? '👤' : '👥';
       const showRm = (!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3;
-      return `<span style="font-size:12px;background:${bg};color:${fg};padding:4px 10px;border-radius:14px;display:inline-flex;align-items:center;gap:4px;">${icon} ${m.name}${m.dept ? ' (' + m.dept + ')' : ''}${showRm ? ` <button onclick="leaveExGroup(${e.id})" style="background:rgba(0,0,0,.25);border:none;color:#fff;cursor:pointer;font-size:11px;padding:0 5px;border-radius:8px;margin-left:2px;">✕</button>` : ''}</span>`;
+      return `<span style="font-size:12px;background:${bg};color:${fg};padding:4px 10px;border-radius:14px;display:inline-flex;align-items:center;gap:4px;">${icon} ${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)}${showRm ? ` <button onclick="leaveExGroup(${e.id})" style="background:rgba(0,0,0,.25);border:none;color:#fff;cursor:pointer;font-size:11px;padding:0 5px;border-radius:8px;margin-left:2px;">✕</button>` : ''}</span>`;
     }).join(' ');
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
@@ -1185,12 +1303,14 @@ function updateLB() {
   a.forEach(e => {
     const et = getExType(e);
     if (et === 'solo') {
-      sm[e.name] = (sm[e.name] || 0) + 1;
+      const label = uName(e.email, e.name);
+      sm[label] = (sm[label] || 0) + 1;
     } else {
-      const partic = [{ name: e.name }, ...(e.members || []).filter(m => m.type === 'sys')];
+      const partic = [{ email: e.email, name: e.name, type: 'sys' }, ...(e.members || []).filter(m => m.type === 'sys')];
       partic.forEach(p => {
-        if (et === 'group_ex') gxm[p.name] = (gxm[p.name] || 0) + 1;
-        else if (et === 'group_eat') gem[p.name] = (gem[p.name] || 0) + 1;
+        const label = uName(p.email, p.name);
+        if (et === 'group_ex') gxm[label] = (gxm[label] || 0) + 1;
+        else if (et === 'group_eat') gem[label] = (gem[label] || 0) + 1;
       });
     }
   });
@@ -1215,8 +1335,8 @@ function updateDashboard() {
   const memberCount = ve ? ve.size : getUsers().length;
   document.getElementById('d-members').textContent = memberCount;
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:600;color:var(--text);">' + r.name + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
-  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(' + e.id + ')"><div><div style="font-weight:600;color:var(--text);">' + e.name + ' — ' + e.activity + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;" onclick="event.stopPropagation();viewExDetail(' + e.id + ')">🔍</button></div></div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
+  document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:600;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
+  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(' + e.id + ')"><div><div style="font-weight:600;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;" onclick="event.stopPropagation();viewExDetail(' + e.id + ')">🔍</button></div></div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -1267,14 +1387,14 @@ function viewExDetail(id) {
   const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
 
   let html = `
-    <div style="margin-bottom:8px;"><b>ผู้ยื่น:</b> ${e.name} (${e.email})</div>
+    <div style="margin-bottom:8px;"><b>ผู้ยื่น:</b> ${uName(e.email, e.name)} (${e.email})</div>
     <div style="margin-bottom:8px;"><b>กิจกรรม:</b> ${e.activity} ${e.duration ? `(${e.duration} นาที)` : ''}</div>
     <div style="margin-bottom:8px;"><b>วันที่:</b> ${e.date}</div>
     <div style="margin-bottom:8px;"><b>สถานะ:</b> ${e.status === 'approved' ? '✅ อนุมัติ' : e.status === 'rejected' ? '✕ ปฏิเสธ' : '⏳ รออนุมัติ'}</div>
     <div style="margin-bottom:8px;"><b>รางวัลรวม (ประเมิน):</b> ฿${totalReward}</div>
     ${e.note ? `<div style="margin-bottom:8px;"><b>หมายเหตุ:</b> ${e.note}</div>` : ''}
     ${(e.proofDoc || e.proofLink) ? `<div style="margin-bottom:8px;"><b>หลักฐาน:</b> <a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="color:var(--accent);text-decoration:underline;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
-    ${allMembers.length > 1 ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"><b>สมาชิกในกลุ่ม (${count} คน):</b><ul style="margin-top:6px;padding-left:20px;">${allMembers.map(m => `<li>${m.name} ${m.dept ? `(${m.dept})` : ''} ${m.kind === 'submitter' ? '⭐' : m.kind === 'sys' ? '👤' : '👤(นอก)'}</li>`).join('')}</ul></div>` : ''}
+    ${allMembers.length > 1 ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"><b>สมาชิกในกลุ่ม (${count} คน):</b><ul style="margin-top:6px;padding-left:20px;">${allMembers.map(m => `<li>${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)} ${m.kind === 'submitter' ? '⭐' : m.kind === 'sys' ? '👤' : '👤(นอก)'}</li>`).join('')}</ul></div>` : ''}
   `;
   document.getElementById('ex-detail-body').innerHTML = html;
 
@@ -1309,7 +1429,14 @@ function deleteEx(id) {
 window.onload = tryRestore;
 
 function getExWkLabel(dateStr) {
-  const d = new Date(dateStr), day = d.getDay();
+  let d;
+  if (typeof dateStr === 'string' && dateStr.length === 10) {
+    const [y, m, d1] = dateStr.split('-').map(Number);
+    d = new Date(y, m - 1, d1);
+  } else {
+    d = new Date(dateStr);
+  }
+  const day = d.getDay();
   const s = new Date(d); s.setDate(d.getDate() - day);
   const e = new Date(s); e.setDate(s.getDate() + 6);
   const opt = { day: 'numeric', month: 'short' };
@@ -1339,6 +1466,17 @@ function renderExHistory() {
   const selMonth = elMonth.value;
   const filtered = all.filter(e => monthKey(e.date) === selMonth).sort((a, b) => b.date.localeCompare(a.date));
 
+  // Generate weekOpts for this specific month to determine week numbers
+  const [y, m] = selMonth.split('-').map(Number);
+  const dStart = new Date(y, m - 1, 19), dEnd = new Date(y, m, 18);
+  const weekOpts = [];
+  let curr = new Date(dStart);
+  while (curr <= dEnd) {
+    const wKey = wkKey(curr);
+    if (!weekOpts.includes(wKey)) weekOpts.push(wKey);
+    curr.setDate(curr.getDate() + 1);
+  }
+
   if (!filtered.length) {
     elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:14px;">ยังไม่มีกิจกรรมในเดือนนี้</div>';
     return;
@@ -1356,40 +1494,59 @@ function renderExHistory() {
 
   elList.innerHTML = sortedWeeks.map(wk => {
     const items = groups[wk];
-    const wkLabel = getExWkLabel(wk);
+    const wkNum = weekOpts.indexOf(wk) + 1;
+    const wkLabel = `สัปดาห์ที่ ${wkNum} (${getExWkLabel(wk).replace('สัปดาห์ ', '')})`;
+
+    const wkSolo = items.filter(e => getExType(e) === 'solo' && e.status !== 'rejected').length;
+    const wkGrp = items.filter(e => isGroupEx(getExType(e)) && e.status !== 'rejected').length;
+
+    const soloStatus = wkSolo >= 2 ? '<span style="color:var(--green);">แบบเดี่ยว ครบ</span>' : `<span style="color:var(--text3);">แบบเดี่ยว ${wkSolo}/2</span>`;
+    const grpStatus = wkGrp >= 1 ? '<span style="color:var(--purple);">แบบกลุ่ม ครบ</span>' : `<span style="color:var(--text3);">แบบกลุ่ม ${wkGrp}/1</span>`;
+
     return `
-      <div style="margin-bottom:24px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;height:1px;background:var(--border);"></div>
-          <span>${wkLabel}</span>
-          <div style="flex:1;height:1px;background:var(--border);"></div>
+      <div style="margin-bottom:32px;background:rgba(255,255,255,0.015);border:1px solid var(--border);border-radius:16px;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+           <div style="font-size:16px;font-weight:800;color:var(--accent);">${wkLabel}</div>
+           <div style="display:flex;gap:12px;font-size:12px;font-weight:600;background:var(--surface3);padding:6px 16px;border-radius:24px;border:1px solid var(--border);">
+             ${soloStatus}
+             <div style="width:1px;height:12px;background:var(--border);align-self:center;"></div>
+             ${grpStatus}
+           </div>
         </div>
-        ${items.map(e => {
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${items.map(e => {
       const et = getExType(e);
       const isGrp = isGroupEx(et);
       const st = { pending: '<span class="chip chip-pending">รออนุมัติ</span>', approved: '<span class="chip chip-approved">อนุมัติแล้ว</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' }[e.status] || '';
+      
+      let tagStyle = 'background:var(--surface3);color:var(--text3);';
+      if (et === 'solo') tagStyle = 'background:rgba(61,214,140,.15);color:var(--green);border:1px solid rgba(61,214,140,.2);';
+      else if (et === 'group_ex') tagStyle = 'background:rgba(191,123,255,.15);color:var(--purple);border:1px solid rgba(191,123,255,.2);';
+      else if (et === 'group_eat') tagStyle = 'background:rgba(255,171,0,.15);color:var(--orange);border:1px solid rgba(255,171,0,.2);';
+
       return `
-            <div class="card" style="margin-bottom:8px;background:var(--surface2);border-color:var(--border);padding:12px 16px;cursor:pointer;" onclick="viewExDetail(${e.id})">
+            <div class="card" style="margin-bottom:0;background:var(--surface2);border-color:var(--border);padding:14px 18px;cursor:pointer;transition:transform 0.1s;" onclick="viewExDetail(${e.id})" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                 <div style="flex:1;">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                    <span style="font-size:18px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
-                    <span style="font-size:14px;font-weight:700;color:var(--text);">${e.activity}</span>
-                    <span style="font-size:11px;color:var(--text3);background:var(--surface3);padding:2px 6px;border-radius:4px;">${EX_LABEL[et]}</span>
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <span style="font-size:20px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
+                    <span style="font-size:15px;font-weight:700;color:var(--text);">${e.activity}</span>
+                    <span style="font-size:10px;font-weight:700;${tagStyle}padding:3px 10px;border-radius:6px;text-transform:uppercase;">${EX_LABEL[et]}</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text3);font-family:var(--mono);">
-                    📅 ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
-                    ${e.note ? ` • 💬 ${e.note}` : ''}
+                  <div style="font-size:12px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;">
+                    <span style="opacity:0.7;">📅</span> ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                    ${e.note ? ` <span style="opacity:0.3;">|</span> <span style="opacity:0.7;">💬</span> ${e.note}` : ''}
                   </div>
                 </div>
                 <div style="text-align:right;">
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:4px;">฿${EX_REWARD[et]}</div>
+                  <div style="font-size:16px;font-weight:800;color:var(--green);margin-bottom:6px;">฿${EX_REWARD[et]}</div>
                   ${st}
                 </div>
               </div>
             </div>
           `;
     }).join('')}
+        </div>
       </div>
     `;
   }).join('');

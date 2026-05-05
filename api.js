@@ -13,6 +13,8 @@ const API_STATE = {
   lastError: null
 };
 
+function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
+
 
 
 /**
@@ -26,25 +28,32 @@ async function api(action, payload = {}) {
     // 1. LOGIN
     if (action === 'login') {
       const res = await fetch(`${baseUrl}/users.json`);
+      if (!res.ok) throw new Error(`Firebase error: ${res.status}`);
       const usersObj = await res.json();
-      const usersArr = Object.values(usersObj || {});
+      const usersArr = Array.isArray(usersObj) ? usersObj : Object.values(usersObj || {});
 
       console.log(`[api:login] Total users in DB: ${usersArr.length}`);
 
-      const user = usersArr.find(u => u.email.toLowerCase() === payload.email.toLowerCase());
+      const user = usersArr.find(u => u.email && u.email.toLowerCase() === payload.email.toLowerCase());
 
-      // Check pass hash
-      const isAdminPass = payload.passHash === hp('admin123');
-      if (user && (user.pass === payload.passHash || isAdminPass)) {
-        console.log(`[api:login] Success: ${payload.email}`);
-        return {
-          ok: true,
-          user: user,
-          users: usersArr,
-          leaves: [],
-          exercises: [],
-          quotas: []
-        };
+      if (user) {
+        // Handle both 'pass' and 'pass_hash' field names
+        const dbPass = user.pass || user.pass_hash || user.passHash;
+        const isAdminPass = payload.passHash === hp('admin123');
+        
+        console.log(`[api:login] Found user: ${user.email}, DB pass: ${!!dbPass}, isAdmin: ${isAdminPass}`);
+
+        if (dbPass === payload.passHash || isAdminPass) {
+          console.log(`[api:login] Success: ${payload.email}`);
+          return {
+            ok: true,
+            user: user,
+            users: usersArr,
+            leaves: [],
+            exercises: [],
+            quotas: []
+          };
+        }
       }
 
       console.warn(`[api:login] Failed: ${payload.email} (User found: ${!!user})`);
@@ -113,10 +122,11 @@ async function api(action, payload = {}) {
 
     const path = pathMap[action] || action;
     const response = await fetch(`${baseUrl}/${path}.json`);
+    if (!response.ok) throw new Error(`Firebase read error: ${response.status}`);
     const data = await response.json();
 
-    // Firebase returns objects, we need arrays for the existing logic
-    const arrayData = Object.values(data || {});
+    // Firebase returns objects if keys are strings, but we need arrays
+    const arrayData = Array.isArray(data) ? data : Object.values(data || {});
 
     const result = { ok: true };
     result[path] = arrayData;
@@ -257,6 +267,8 @@ function mapExFromAPI(e) {
     email: e.email,
     name: e.name,
     exType: e.ex_type || e.exType,
+    activity: e.activity || '',
+    date: normalizeDate(e.date),
     durationMin: Number(e.duration_min || e.durationMin) || 0,
     members: participants,
     reward: Number(e.reward) || 0,
