@@ -373,6 +373,16 @@ function mapExFromAPI(e) {
     else if (Array.isArray(e.participants)) participants = e.participants;
   } catch { participants = []; }
 
+  // Deduplicate sys members by email to prevent double-join entries
+  const seen = new Set();
+  const dedupedParticipants = participants.filter(m => {
+    if (m.type !== 'sys') return true;
+    const key = (m.email || '').toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   return {
     id: e.id,
     email: e.email,
@@ -381,14 +391,20 @@ function mapExFromAPI(e) {
     activity: e.activity || '',
     date: normalizeDate(e.date),
     durationMin: Number(e.duration_min || e.durationMin) || 0,
-    members: participants,
+    members: dedupedParticipants,
     reward: Number(e.reward) || 0,
     status: e.status || 'pending',
     submittedAt: e.submitted_at || e.submittedAt || new Date().toISOString(),
     approvedBy: e.approved_by || e.approvedBy || '',
     dept: e.dept,
     proofDoc: e.proof_doc || e.proofDoc || null,
-    proofLink: e.proof_link || e.proofLink || ''
+    proofLink: e.proof_link || e.proofLink || '',
+    proofLinks: (() => {
+      const raw = e.proof_links || e.proofLinks;
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      try { return JSON.parse(raw); } catch { return []; }
+    })()
   };
 }
 

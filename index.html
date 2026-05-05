@@ -16,8 +16,8 @@
       --surface: #161820;
       --surface2: #1e2029;
       --surface3: #252733;
-      --border: #2e3044;
-      --border2: #3a3d55;
+      --border: rgba(46, 48, 68, 0.25);
+      --border2: rgba(58, 61, 85, 0.25);
       --text: #e8eaf6;
       --text2: #9094b8;
       --text3: #5a5e7a;
@@ -44,12 +44,17 @@
       padding: 0;
     }
 
+    html {
+      font-size: 125%;
+      /* scale: ~20px equivalent as base */
+    }
+
     body {
       font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      font-size: 15px;
+      font-size: 20px;
       line-height: 1.6;
     }
 
@@ -73,7 +78,7 @@
     }
 
     .login-logo {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 800;
       color: var(--accent);
       margin-bottom: 4px;
@@ -81,7 +86,7 @@
     }
 
     .login-sub {
-      font-size: 12px;
+      font-size: 16px;
       color: var(--text3);
       font-family: var(--mono);
       margin-bottom: 28px;
@@ -91,7 +96,7 @@
       background: var(--red-bg);
       border: 1px solid rgba(255, 107, 107, 0.3);
       color: var(--red);
-      font-size: 13px;
+      font-size: 17px;
       padding: 10px 14px;
       border-radius: var(--radius-sm);
       margin-bottom: 16px;
@@ -106,7 +111,7 @@
     }
 
     .sidebar {
-      width: 240px;
+      width: 270px;
       background: var(--surface);
       border-right: 1px solid var(--border);
       display: flex;
@@ -125,14 +130,14 @@
     }
 
     .logo-title {
-      font-size: 20px;
+      font-size: 24px;
       font-weight: 700;
       color: var(--accent);
       letter-spacing: -0.5px;
     }
 
     .logo-sub {
-      font-size: 11px;
+      font-size: 15px;
       color: var(--text3);
       font-family: var(--mono);
       margin-top: 2px;
@@ -144,7 +149,7 @@
     }
 
     .nav-label {
-      font-size: 10px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text3);
       letter-spacing: 1.5px;
@@ -160,7 +165,7 @@
       border-radius: var(--radius-sm);
       cursor: pointer;
       color: var(--text2);
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 500;
       transition: all .15s;
       border: 1px solid transparent;
@@ -178,7 +183,7 @@
     }
 
     .nav-icon {
-      font-size: 16px;
+      font-size: 20px;
       width: 20px;
       text-align: center;
     }
@@ -187,7 +192,7 @@
       margin-left: auto;
       background: var(--red);
       color: #fff;
-      font-size: 10px;
+      font-size: 14px;
       font-weight: 700;
       font-family: var(--mono);
       border-radius: 20px;
@@ -220,20 +225,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 700;
       flex-shrink: 0;
       background: var(--surface3);
     }
 
     .user-name {
-      font-size: 15px;
+      font-size: 19px;
       font-weight: 600;
       color: var(--text);
     }
 
     .user-role-txt {
-      font-size: 12px;
+      font-size: 16px;
       color: var(--text3);
     }
 
@@ -247,7 +252,7 @@
       border-radius: var(--radius-sm);
       color: var(--text3);
       font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
-      font-size: 12px;
+      font-size: 16px;
       cursor: pointer;
       text-align: center;
       transition: all .15s;
@@ -284,7 +289,7 @@
       background: transparent;
       border: none;
       color: var(--text);
-      font-size: 20px;
+      font-size: 24px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -348,12 +353,12 @@
     }
 
     .page-title {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 700;
     }
 
     .page-sub {
-      font-size: 13px;
+      font-size: 17px;
       color: var(--text3);
       margin-top: 2px;
       font-family: var(--mono);
@@ -368,9 +373,9 @@
     }
 
     .card-title {
-      font-size: 12px;
+      font-size: 22px;
       font-weight: 600;
-      color: var(--text2);
+      color: var(--text);
       margin-bottom: 16px;
       text-transform: uppercase;
       letter-spacing: .5px;
@@ -394,14 +399,14 @@
     }
 
     .stat-value {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 700;
       font-family: var(--mono);
       line-height: 1;
     }
 
     .stat-label {
-      font-size: 12px;
+      font-size: 16px;
       color: var(--text3);
       margin-top: 4px;
     }
@@ -429,7 +434,7 @@
       padding: 9px 18px;
       border-radius: var(--radius-sm);
       font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 600;
       cursor: pointer;
       border: none;
@@ -468,7 +473,7 @@
 
     .btn-sm {
       padding: 5px 12px;
-      font-size: 13px;
+      font-size: 17px;
     }
 
     .form-grid {
@@ -488,7 +493,7 @@
     }
 
     label {
-      font-size: 12px;
+      font-size: 16px;
       font-weight: 600;
       color: var(--text2);
       text-transform: uppercase;
@@ -504,7 +509,7 @@
       padding: 10px 12px;
       color: var(--text);
       font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
-      font-size: 14px;
+      font-size: 18px;
       outline: none;
       transition: border-color .15s;
       width: 100%;
@@ -537,7 +542,7 @@
       gap: 4px;
       padding: 3px 10px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 16px;
       font-weight: 600;
       font-family: var(--mono);
     }
@@ -582,7 +587,7 @@
     th {
       text-align: left;
       padding: 12px 14px;
-      font-size: 11px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text3);
       text-transform: uppercase;
@@ -594,7 +599,7 @@
     td {
       padding: 14px 14px;
       border-bottom: 1px solid var(--border);
-      font-size: 14px;
+      font-size: 18px;
       color: var(--text2);
       vertical-align: middle;
       white-space: nowrap;
@@ -620,7 +625,7 @@
     }
 
     td .meta {
-      font-size: 12px;
+      font-size: 16px;
       color: var(--text3);
       font-family: var(--mono);
     }
@@ -639,7 +644,7 @@
       flex: 1;
       padding: 8px 16px;
       border-radius: 6px;
-      font-size: 13px;
+      font-size: 17px;
       font-weight: 600;
       cursor: pointer;
       text-align: center;
@@ -660,7 +665,7 @@
       border: 1px solid rgba(108, 138, 255, .2);
       border-radius: var(--radius-sm);
       padding: 12px 16px;
-      font-size: 13px;
+      font-size: 17px;
       color: var(--text2);
       margin-bottom: 16px;
     }
@@ -670,7 +675,7 @@
       border: 1px solid rgba(245, 200, 66, .25);
       border-radius: var(--radius-sm);
       padding: 12px 16px;
-      font-size: 13px;
+      font-size: 17px;
       color: var(--yellow);
       margin-bottom: 16px;
     }
@@ -680,7 +685,7 @@
       border: 1px solid rgba(255, 107, 107, .25);
       border-radius: var(--radius-sm);
       padding: 12px 16px;
-      font-size: 13px;
+      font-size: 17px;
       color: var(--red);
     }
 
@@ -688,7 +693,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
+      font-size: 16px;
       flex-wrap: wrap;
     }
 
@@ -696,7 +701,7 @@
       padding: 4px 10px;
       border-radius: 20px;
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 15px;
     }
 
     .flow-step.done {
@@ -726,7 +731,7 @@
 
     .balance-table th {
       padding: 10px 12px;
-      font-size: 11px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text3);
       text-transform: uppercase;
@@ -738,7 +743,7 @@
     .balance-table td {
       padding: 11px 12px;
       border-bottom: 1px solid var(--border);
-      font-size: 13px;
+      font-size: 17px;
       vertical-align: middle;
     }
 
@@ -779,7 +784,7 @@
     .notify-badge {
       background: var(--surface3);
       color: var(--text3);
-      font-size: 11px;
+      font-size: 15px;
       padding: 3px 8px;
       border-radius: 20px;
       font-family: var(--mono);
@@ -799,7 +804,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 16px;
       font-weight: 700;
       font-family: var(--mono);
       color: var(--text3);
@@ -815,7 +820,7 @@
     .reward-tag {
       background: var(--yellow-bg);
       color: var(--yellow);
-      font-size: 13px;
+      font-size: 17px;
       font-weight: 700;
       font-family: var(--mono);
       padding: 4px 10px;
@@ -852,33 +857,93 @@
     .lb-row {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 12px;
-      border-radius: var(--radius-sm);
-      background: var(--surface2);
-      margin-bottom: 8px;
-      border: 1px solid var(--border);
+      gap: 12px;
+      padding: 2px 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      margin-bottom: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      transition: all 0.2s ease;
+    }
+
+    .lb-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateY(-1px);
     }
 
     .lb-rank {
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 22px;
+      font-weight: 800;
       font-family: var(--mono);
       color: var(--text3);
-      width: 28px;
-      text-align: center;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .lb-rank.gold {
-      color: #ffd700;
+      color: #f5c842;
+      font-size: 28px;
     }
 
     .lb-rank.silver {
-      color: #c0c0c0;
+      color: #cbd5e0;
+      font-size: 28px;
     }
 
     .lb-rank.bronze {
-      color: #cd7f32;
+      color: #ed8936;
+      font-size: 28px;
+    }
+
+    /* Custom Scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .lb-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      width: 100%;
+    }
+
+    @media (max-width: 992px) {
+      .lb-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+      gap: 16px;
+    }
+
+    .review-grid > div {
+      margin-bottom: 0 !important;
+    }
+
+    @media (max-width: 1100px) {
+      .review-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .modal-overlay {
@@ -924,7 +989,7 @@
       border-radius: 50%;
       color: var(--text3);
       cursor: pointer;
-      font-size: 14px;
+      font-size: 18px;
       transition: all 0.2s;
       z-index: 10;
     }
@@ -949,7 +1014,7 @@
     }
 
     .modal-title {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 700;
       margin-bottom: 20px;
     }
@@ -969,7 +1034,7 @@
       border: 1px solid var(--border2);
       border-radius: var(--radius);
       padding: 14px 20px;
-      font-size: 14px;
+      font-size: 18px;
       color: var(--text);
       box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
       z-index: 3000;
@@ -996,6 +1061,24 @@
     ::-webkit-scrollbar-thumb {
       background: var(--border2);
       border-radius: 3px;
+    }
+
+    .share-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 1400px) {
+      .share-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .share-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -1080,16 +1163,16 @@
             <div style="display:flex; align-items:baseline; gap:4px; overflow:hidden;">
               <div class="user-name" id="sb-nickname"
                 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
-              <div class="user-role-txt" id="sb-role" style="white-space:nowrap; opacity:0.7; font-size:10px;">—</div>
+              <div class="user-role-txt" id="sb-role" style="white-space:nowrap; opacity:0.7; font-size:14px;">—</div>
             </div>
             <div id="sb-fullname"
-              style="color:var(--text3); font-size:11px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              style="color:var(--text3); font-size:15px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
               —</div>
           </div>
         </div>
         <button class="logout-btn" onclick="openChangePass()"
           style="margin-top:12px; color:var(--text2); border-color:var(--surface3);"><i class="fa-solid fa-key"
-            style="margin-right:6px; font-size:10px;"></i> เปลี่ยนรหัสผ่าน</button>
+            style="margin-right:6px; font-size:14px;"></i> เปลี่ยนรหัสผ่าน</button>
         <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
       </div>
     </aside>
@@ -1099,9 +1182,9 @@
       <div class="mobile-nav-bar">
         <button class="mobile-menu-btn" onclick="toggleSidebar()">
           <i class="fa-solid fa-bars"></i>
-          <span style="font-size: 16px; font-weight: 700; color: var(--accent);">Design Flow</span>
+          <span style="font-size:20px; font-weight: 700; color: var(--accent);">Design Flow</span>
         </button>
-        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.4</div>
+        <div style="font-family: var(--mono); font-size:15px; color: var(--text3);">v2.4</div>
       </div>
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page active">
@@ -1132,13 +1215,13 @@
         <div class="card">
           <div class="card-title">&#x2726; การลาล่าสุด</div>
           <div id="d-leaves">
-            <div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>
+            <div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>
           </div>
         </div>
         <div class="card">
           <div class="card-title">&#x2B1F; ออกกำลังกายล่าสุด</div>
           <div id="d-exs">
-            <div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>
+            <div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>
           </div>
         </div>
       </div>
@@ -1243,7 +1326,7 @@
         <div id="bal-nodata" class="card" style="display:none;"></div>
         <div id="bal-overview"></div>
         <div
-          style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:none;"
+          style="font-size:17px;font-weight:500;color:var(--text2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:none;"
           id="bal-detail-label">&#x25C9; รายละเอียดรายคน</div>
         <div id="bal-content"></div>
       </div>
@@ -1309,7 +1392,7 @@
             style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
             <div class="card-title" style="margin-bottom:0;">🏃 ประวัติกิจกรรมของฉัน</div>
             <select id="ex-history-month" onchange="renderExHistory()"
-              style="width:auto;font-size:13px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
+              style="width:auto;font-size:17px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
             </select>
           </div>
           <div id="ex-history-list"></div>
@@ -1325,12 +1408,13 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-title">&#x2B1F; ของฉัน — มีชื่อฉันในคำขอ</div>
-          <div id="ex-share-mine"></div>
+          <div class="card-title" style="color:var(--green);"><i class="fa-solid fa-circle-check"></i>
+            มีชื่อฉันในคำขอแบบกลุ่ม</div>
+          <div id="ex-share-mine" class="share-grid"></div>
         </div>
         <div class="card">
           <div class="card-title">&#x2B22; ของทีม — กิจกรรมกลุ่มทั้งหมด</div>
-          <div id="ex-share-others"></div>
+          <div id="ex-share-others" class="share-grid"></div>
         </div>
       </div>
 
@@ -1342,26 +1426,7 @@
             <div class="page-sub">// สรุปภาพรวมสำหรับ PM</div>
           </div>
         </div>
-
-        <div class="card" style="border-left:4px solid var(--orange);">
-          <div class="card-title">&#x2B20; คำขอรออนุมัติ (Pending)</div>
-          <div id="ex-review-list"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">💰 สรุปยอดเงินรางวัลเดือนนี้ (ภาพรวมบริษัท)</div>
-          <div id="ex-review-summary"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">&#x2B22; แชร์กิจกรรมกลุ่มทั้งหมด</div>
-          <div id="ex-review-share"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">&#x2B1F; ประวัติคำขอทั้งหมด (History)</div>
-          <div id="ex-review-history"></div>
-        </div>
+        <div id="ex-review-container"></div>
       </div>
 
       <div id="page-leaderboard" class="page">
@@ -1371,7 +1436,7 @@
             <div class="page-sub">// จัดอันดับออกกำลังกาย</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+        <div class="lb-grid">
           <div class="card">
             <div class="card-title">&#x1F3C3; เดี่ยว — สะสมเงิน</div>
             <div id="lb-solo"></div>
@@ -1439,7 +1504,7 @@
           <label>ลิงก์หลักฐาน / เอกสาร <span style="color:var(--red);">*จำเป็น</span></label>
           <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
             style="width:100%;" />
-          <div style="font-size:11px;color:var(--text3);margin-top:4px;">* กรุณาอัปโหลดไฟล์ขึ้น Google Drive
+          <div style="font-size:15px;color:var(--text3);margin-top:4px;">* กรุณาอัปโหลดไฟล์ขึ้น Google Drive
             แล้วนำลิงก์มาวาง</div>
         </div>
       </div>
@@ -1448,7 +1513,7 @@
       <div id="add-for-member-section"
         style="display:none; margin-top:16px; padding:16px; background:var(--surface3); border-radius:var(--radius-sm); border:1px solid var(--border2);">
         <div
-          style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+          style="font-size:16px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
           &#x270E; เพิ่มวันลาให้สมาชิก (หัวหน้า / PM)</div>
         <div class="form-grid">
           <div class="form-group">
@@ -1458,7 +1523,7 @@
             </select>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text3);margin-top:8px;">✓ ไม่มีข้อกำหนดลาล่วงหน้า 7 วัน
+        <div style="font-size:16px;color:var(--text3);margin-top:8px;">✓ ไม่มีข้อกำหนดลาล่วงหน้า 7 วัน
           เมื่อยื่นให้สมาชิก</div>
       </div>
 
@@ -1565,7 +1630,7 @@
     <div class="modal">
       <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
       <div class="modal-title" id="conf-title">ยืนยัน</div>
-      <div id="conf-body" style="color:var(--text2);font-size:14px;"></div>
+      <div id="conf-body" style="color:var(--text2);font-size:18px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">ยกเลิก</button>
         <button class="btn btn-red" id="conf-ok">ยืนยัน</button>
@@ -1575,13 +1640,10 @@
 
   <!-- MODAL: Exercise Detail -->
   <div class="modal-overlay" id="modal-ex-detail">
-    <div class="modal">
-      <button class="modal-close" onclick="closeModal('modal-ex-detail')">✕</button>
-      <div class="modal-title">&#x1F50D; รายละเอียดคำขอ</div>
-      <div id="ex-detail-body" style="font-size:14px;color:var(--text);margin-bottom:16px;line-height:1.5;"></div>
-      <div class="modal-actions" id="ex-detail-actions">
-        <button class="btn btn-ghost" onclick="closeModal('modal-ex-detail')">ปิด</button>
-      </div>
+    <div class="modal"
+      style="max-width: 620px; padding: 40px; background: #1a1c26; border: 1px solid rgba(255,255,255,0.03); box-shadow: 0 40px 100px rgba(0,0,0,0.5); border-radius: 24px;">
+      <div id="ex-detail-body"></div>
+      <div id="ex-detail-actions"></div>
     </div>
   </div>
 
@@ -1611,11 +1673,11 @@
           <label>สมาชิกในกลุ่ม <span style="color:var(--accent);">*ไม่ต้องใส่ชื่อตัวเอง ระบบจะเพิ่มให้เอง
               (จำเป็นต้องเพิ่มสมาชิกอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้)</span></label>
           <div id="ex-member-list" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;">
-            <div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>
+            <div style="font-size:16px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>
           </div>
           <div
             style="background:var(--surface3);padding:12px;border-radius:var(--radius-sm);border:1px dashed var(--border2);">
-            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกในระบบ
+            <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกในระบบ
             </div>
             <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
               <select id="ex-sys-member" style="flex:1;min-width:180px;">
@@ -1623,7 +1685,7 @@
               </select>
               <button class="btn btn-ghost btn-sm" onclick="addExSysMember()">เพิ่ม</button>
             </div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกนอกระบบ
+            <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกนอกระบบ
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <input type="text" id="ex-out-name" placeholder="ชื่อนามสกุล" style="flex:1;min-width:120px;" />
@@ -1638,7 +1700,7 @@
             <input type="text" id="ex-link" placeholder="วางลิงก์วิดีโอหลักฐาน (Google Drive, YouTube ฯลฯ)..."
               style="flex:1;min-width:200px;" />
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px;">* เนื่องจากระบบอัปโหลดขัดข้องชั่วคราว
+          <div style="font-size:15px;color:var(--text3);margin-top:4px;">* เนื่องจากระบบอัปโหลดขัดข้องชั่วคราว
             กรุณาอัปโหลดวิดีโอขึ้น Google Drive แล้วนำลิงก์มาวางแทนค่ะ</div>
         </div>
       </div>

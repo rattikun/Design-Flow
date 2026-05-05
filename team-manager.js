@@ -29,9 +29,14 @@ function uName(email, fallback) {
   const u = (getUsers() || []).find(x => x.email.toLowerCase() === (email || '').toLowerCase());
   if (u) {
     const nick = u.nickname || u.name.split(' ')[0];
-    return nick + (u.dept ? ` (${u.dept})` : '');
+    return nick + (u.dept ? ` ${u.dept}` : '');
   }
   return fallback || email;
+}
+function uNick(email, fallback) {
+  const u = (getUsers() || []).find(x => x.email.toLowerCase() === (email || '').toLowerCase());
+  if (u) return u.nickname || u.name.split(' ')[0];
+  return (fallback || email || '').split(' ')[0];
 }
 
 function initUsers() {
@@ -70,7 +75,7 @@ async function doLogin() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-err');
-  
+
   if (!email || !pass) {
     errEl.textContent = 'กรุณากรอกอีเมลและรหัสผ่าน';
     errEl.style.display = 'block';
@@ -99,7 +104,7 @@ async function doLogin() {
         launchApp();
         return;
       }
-      
+
       if (res._network) {
         console.warn('[doLogin] Network error, trying LS fallback...');
       } else {
@@ -164,8 +169,8 @@ function launchApp() {
 }
 
 // ══ SIDEBAR ══════════════════════════════
-function setupSidebar(){
-  const r=cu.role;
+function setupSidebar() {
+  const r = cu.role;
   const nick = cu.nickname || cu.name.split(' ')[0];
   const roleLbl = RL[r];
   const dept = cu.dept ? ' ' + cu.dept : '';
@@ -174,31 +179,31 @@ function setupSidebar(){
 
   // Sidebar
   const sbAvatar = document.getElementById('sb-avatar');
-  if(sbAvatar){ sbAvatar.textContent = char; sbAvatar.style.color = color; }
+  if (sbAvatar) { sbAvatar.textContent = char; sbAvatar.style.color = color; }
   const sbNick = document.getElementById('sb-nickname');
-  if(sbNick) sbNick.textContent = nick;
+  if (sbNick) sbNick.textContent = nick;
   const sbRole = document.getElementById('sb-role');
-  if(sbRole) sbRole.textContent = `(${roleLbl}${dept})`;
+  if (sbRole) sbRole.textContent = `(${roleLbl}${dept})`;
   const sbFull = document.getElementById('sb-fullname');
-  if(sbFull) sbFull.textContent = cu.name;
-  
+  if (sbFull) sbFull.textContent = cu.name;
+
   // Dashboard Profile Card
   const dbAvatar = document.getElementById('db-profile-avatar');
-  if(dbAvatar) { dbAvatar.textContent = char; dbAvatar.style.color = color; }
+  if (dbAvatar) { dbAvatar.textContent = char; dbAvatar.style.color = color; }
   const dbNick = document.getElementById('db-profile-nickname');
-  if(dbNick) dbNick.textContent = nick;
+  if (dbNick) dbNick.textContent = nick;
   const dbRD = document.getElementById('db-profile-rd');
-  if(dbRD) dbRD.textContent = `(${roleLbl}${dept})`;
+  if (dbRD) dbRD.textContent = `(${roleLbl}${dept})`;
   const dbFull = document.getElementById('db-profile-fullname');
-  if(dbFull) dbFull.textContent = cu.name;
+  if (dbFull) dbFull.textContent = cu.name;
 
-  document.getElementById('nav-sec-members').style.display=(r==='lead'||r==='pm')?'block':'none';
-  document.getElementById('nav-leave-review').style.display=r==='lead'?'flex':'none';
-  document.getElementById('nav-leave-pm').style.display=r==='pm'?'flex':'none';
-  document.getElementById('nav-ex-review').style.display=r==='pm'?'flex':'none';
-  document.getElementById('nav-balance').style.display=(r==='lead'||r==='pm')?'flex':'none';
-  document.getElementById('nav-my-balance').style.display='flex';
-  document.getElementById('nav-leaderboard').style.display=(r==='lead'||r==='pm')?'flex':'none';
+  document.getElementById('nav-sec-members').style.display = (r === 'lead' || r === 'pm') ? 'block' : 'none';
+  document.getElementById('nav-leave-review').style.display = r === 'lead' ? 'flex' : 'none';
+  document.getElementById('nav-leave-pm').style.display = r === 'pm' ? 'flex' : 'none';
+  document.getElementById('nav-ex-review').style.display = r === 'pm' ? 'flex' : 'none';
+  document.getElementById('nav-balance').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
+  document.getElementById('nav-my-balance').style.display = 'flex';
+  document.getElementById('nav-leaderboard').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
 }
 
 // ══ NAVIGATION ═══════════════════════════
@@ -257,8 +262,8 @@ function renderMembers() {
     <tr>
       <td><div class="name">${uName(u.email, u.name)}</div><div class="meta">${u.name} • ${u.email}</div></td>
       <td><span class="chip" style="background:${u.role === 'pm' ? 'var(--orange-bg)' : u.role === 'lead' ? 'var(--yellow-bg)' : 'var(--purple-bg)'};color:${RC[u.role]};">${RL[u.role]}</span></td>
-      <td><span style="color:var(--text2);font-size:13px;">${u.dept || '—'}</span></td>
-      <td><span style="font-size:12px;font-weight:600;color:${(u.locationType || 'bkk') === 'bkk' ? 'var(--accent)' : 'var(--orange)'};">${(u.locationType || 'bkk') === 'bkk' ? 'กรุงเทพ' : 'ต่างจังหวัด'}</span></td>
+      <td><span style="color:var(--text2);font-size:17px;">${u.dept || '—'}</span></td>
+      <td><span style="font-size:16px;font-weight:500;color:${(u.locationType || 'bkk') === 'bkk' ? 'var(--accent)' : 'var(--orange)'};">${(u.locationType || 'bkk') === 'bkk' ? 'กรุงเทพ' : 'ต่างจังหวัด'}</span></td>
       <td><span class="meta">${u.addedBy || 'system'}</span></td>
       <td>${canE ? `
         <button class="btn btn-ghost btn-sm" onclick="openEdit('${u.email}')">✎ แก้ไข</button>
@@ -282,7 +287,7 @@ function addMember() {
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
   const newUser = { email, name, nickname, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk' };
   users.push(newUser);
-  saveUsers(users); 
+  saveUsers(users);
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
   closeModal('modal-add'); renderMembers(); setupLeaveFormForRole(); toast('✅ เพิ่มสมาชิก ' + name + ' เรียบร้อย');
 }
@@ -316,7 +321,7 @@ function saveMember() {
   const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) return;
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
   users[idx].name = name; users[idx].nickname = nickname; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
-  saveUsers(users); 
+  saveUsers(users);
   if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
   if (ek === cu.email) { cu = users[idx]; LS.set('tf_sess', cu.email); setupSidebar(); }
   closeModal('modal-edit'); renderMembers(); toast('✅ บันทึก ' + name + ' เรียบร้อย');
@@ -349,7 +354,7 @@ async function doChangePass() {
   if (hp(old) !== cu.pass) { err.textContent = '⚠️ รหัสผ่านเดิมไม่ถูกต้อง'; err.style.display = 'block'; return; }
   if (n1.length < 6) { err.textContent = '⚠️ รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร'; err.style.display = 'block'; return; }
   if (n1 !== n2) { err.textContent = '⚠️ ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'; err.style.display = 'block'; return; }
-  
+
   err.style.display = 'none';
   const newHash = hp(n1);
   const res = await apiSync('updateUser', { email: cu.email, pass: newHash });
@@ -403,12 +408,12 @@ function onLeaveChange() {
   if (needDoc) hs.push('<span style="color:var(--red);">📄 ต้องใส่ลิงก์หลักฐาน / ใบรับรองแพทย์</span>');
   if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
   if (type === 'dental') hs.push('<span style="color:var(--accent);">🦷 หัวหน้าพิจารณาเสมอ</span>');
-  hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:13px;margin-bottom:6px;">' + h + '</div>').join('');
+  hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
 }
 async function handleDoc(input) {
   const f = input.files[0]; if (!f) return;
   const label = document.getElementById('doc-text'), box = document.getElementById('doc-box'), icon = document.getElementById('doc-icon');
-  
+
   label.textContent = '⏳ กำลังอัปโหลด...';
   label.style.color = 'var(--accent)';
   box.style.borderColor = 'var(--accent)';
@@ -418,7 +423,7 @@ async function handleDoc(input) {
   const progBar = document.getElementById('leave-upload-progress-bar');
   const progText = document.getElementById('leave-upload-progress-text');
   progContainer.style.display = 'block';
-  
+
   let progress = 0;
   const interval = setInterval(() => {
     if (progress < 90) {
@@ -442,7 +447,7 @@ async function handleDoc(input) {
         clearInterval(interval);
         progBar.style.width = '100%';
         progText.textContent = '100%';
-        
+
         label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
         label.style.color = 'var(--green)';
         box.style.borderColor = 'var(--green)';
@@ -496,8 +501,8 @@ function submitLeave() {
   const ls = getLeaves();
   const newLeave = { id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
   ls.unshift(newLeave);
-  saveLeaves(ls); 
-  
+  saveLeaves(ls);
+
   // SYNC TO API
   apiSync('addLeave', newLeave);
 
@@ -526,16 +531,21 @@ function renderLR() {
   const ve = getVisibleEmails();
   const ls = getLeaves().filter(r => r.status === 'pending_lead' && (ve === null || ve.has(r.email)));
   const el = document.getElementById('leave-review-list');
-  if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:13px;">ไม่มีรายการรอรีวิว 🎉</div></div>'; return; }
+  if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการรอรีวิว 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
     const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : r.days + ' วัน';
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:16px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
-          <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} <strong style="color:var(--yellow);">(${dLabel})</strong>${r.addedBy ? ` <span style="color:var(--purple);font-size:11px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:17px;color:var(--text3);font-family:var(--mono);margin-top:2px;">
+            ${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} 
+            <strong style="color:var(--yellow);">(${dLabel})</strong>
+            <span style="font-size:14px;background:var(--accent-bg);color:var(--accent);padding:1px 8px;border-radius:20px;font-weight:700;margin-left:4px;font-family:var(--mono);">W${getWkNum(r.start)}</span>
+            ${r.addedBy ? ` <span style="color:var(--purple);font-size:15px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}
+          </div>
+          <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
         </div>
         <span class="chip chip-pending">รอพิจารณา</span>
       </div>
@@ -546,8 +556,8 @@ function renderLR() {
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ (ไม่บังคับ)</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="ln-${r.id}" style="margin-top:6px;" /></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-green btn-sm" onclick="lAct(${r.id},'approve')">✅ อนุมัติ</button>
-        <button class="btn btn-red btn-sm" onclick="lAct(${r.id},'reject')">✕ ปฏิเสธ</button>
+        <button class="btn btn-green btn-sm" onclick="lAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
+        <button class="btn btn-red btn-sm" onclick="lAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
       </div>
     </div>`;
   }).join('');
@@ -561,9 +571,9 @@ function lAct(id, action) {
     toast('✅ ส่งต่อใบลาของ ' + r.name + ' ให้ PM พิจารณาแล้ว');
   } else {
     r.status = 'rejected';
-    toast('✕ ปฏิเสธ ' + r.name);
+    toast('✕ ไม่อนุมัติ ' + r.name);
   }
-  saveLeaves(ls); 
+  saveLeaves(ls);
   apiSync('updateLeave', r);
   updateBadges(); updateDashboard(); renderLR();
 }
@@ -572,18 +582,23 @@ function lAct(id, action) {
 function renderLP() {
   const ls = getLeaves().filter(r => r.status === 'pending_pm');
   const el = document.getElementById('leave-pm-list');
-  if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:13px;">ไม่มีรายการ 🎉</div></div>'; return; }
+  if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการ 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
     const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : r.days + ' วัน';
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:16px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
-          <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} <strong style="color:var(--yellow);">(${dLabel})</strong>${r.addedBy ? ` <span style="color:var(--purple);font-size:11px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:6px;">${r.reason}</div>
-          ${r.autoEscalated ? '<div style="font-size:12px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
-          ${r.leadNote ? `<div style="font-size:12px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:17px;color:var(--text3);font-family:var(--mono);margin-top:2px;">
+            ${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} 
+            <strong style="color:var(--yellow);">(${dLabel})</strong>
+            <span style="font-size:14px;background:var(--accent-bg);color:var(--accent);padding:1px 8px;border-radius:20px;font-weight:700;margin-left:4px;font-family:var(--mono);">W${getWkNum(r.start)}</span>
+            ${r.addedBy ? ` <span style="color:var(--purple);font-size:15px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}
+          </div>
+          <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
+          ${r.autoEscalated ? '<div style="font-size:16px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
+          ${r.leadNote ? `<div style="font-size:16px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
         </div>
         <span class="chip ${r.autoEscalated ? 'chip-pm' : 'chip-escalated'}">${r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า'}</span>
       </div>
@@ -594,8 +609,8 @@ function renderLP() {
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ PM</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="pn-${r.id}" style="margin-top:6px;" /></div>
       <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn btn-green btn-sm" onclick="pAct(${r.id},'approve')">✅ ยืนยันอนุมัติ</button>
-        <button class="btn btn-red btn-sm" onclick="pAct(${r.id},'reject')">✕ ปฏิเสธ</button>
+        <button class="btn btn-green btn-sm" onclick="pAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
+        <button class="btn btn-red btn-sm" onclick="pAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
       </div>
     </div>`;
   }).join('');
@@ -603,12 +618,12 @@ function renderLP() {
 function pAct(id, action) {
   const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
   const r = ls[idx];
-  r.pmNote = document.getElementById('pn-' + id)?.value || ''; 
-  r.pmAction = action; 
+  r.pmNote = document.getElementById('pn-' + id)?.value || '';
+  r.pmAction = action;
   r.status = action === 'approve' ? 'approved' : 'rejected';
-  saveLeaves(ls); 
+  saveLeaves(ls);
   apiSync('updateLeave', r);
-  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ปฏิเสธ ' + r.name);
+  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ไม่อนุมัติ ' + r.name);
   updateBadges(); updateDashboard(); renderLP();
 }
 
@@ -625,9 +640,9 @@ function renderHist(f) {
   tb.innerHTML = data.map(r => {
     const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:10px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
-      <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:11px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
+      <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td>${ch[r.status] || ''}</td>
       <td>${bFlow(r)}</td>
     </tr>`;
@@ -664,13 +679,13 @@ function renderBal() {
   const members = getMyTeamMembers();
   const tabs = document.getElementById('bal-tabs'), nd = document.getElementById('bal-nodata'), cont = document.getElementById('bal-content');
   if (!members.length) {
-    nd.style.display = 'block'; nd.innerHTML = '<div style="color:var(--text3);text-align:center;padding:32px;"><div style="font-size:32px;">👥</div><div style="font-size:14px;color:var(--text2);margin-top:8px;">ยังไม่มีสมาชิกในทีม</div></div>';
+    nd.style.display = 'block'; nd.innerHTML = '<div style="color:var(--text3);text-align:center;padding:32px;"><div style="font-size:36px;">👥</div><div style="font-size:18px;color:var(--text2);margin-top:8px;">ยังไม่มีสมาชิกในทีม</div></div>';
     cont.innerHTML = ''; tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; return;
   }
   nd.style.display = 'none';
   if (!selMember || !members.find(u => u.email === selMember)) selMember = members[0].email;
   renderBalOverview(members, isPM);
-  tabs.innerHTML = members.map(u => '<button onclick="selMb(\'' + u.email + '\')" style="padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid ' + (u.email === selMember ? 'rgba(108,138,255,.3)' : 'var(--border)') + ';background:' + (u.email === selMember ? 'rgba(108,138,255,.15)' : 'var(--surface2)') + ';color:' + (u.email === selMember ? 'var(--accent)' : 'var(--text2)') + ';font-family: Google Sans, Noto Sans Thai, sans-serif;transition:all .15s;">' + u.name + '</button>').join('');
+  tabs.innerHTML = members.map(u => '<button onclick="selMb(\'' + u.email + '\')" style="padding:7px 16px;border-radius:20px;font-size:17px;font-weight:500;cursor:pointer;border:1px solid ' + (u.email === selMember ? 'rgba(108,138,255,.3)' : 'var(--border)') + ';background:' + (u.email === selMember ? 'rgba(108,138,255,.15)' : 'var(--surface2)') + ';color:' + (u.email === selMember ? 'var(--accent)' : 'var(--text2)') + ';font-family: Google Sans, Noto Sans Thai, sans-serif;transition:all .15s;">' + u.name + '</button>').join('');
   document.getElementById('bal-detail-label').style.display = 'block';
   renderBalTable(selMember, isPM);
 }
@@ -683,12 +698,12 @@ function renderBalOverview(members, isPM) {
       const def = LQ[type], cq = qs[u.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
       const used = ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
       const rem = Math.max(0, effQ - used), c = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      return '<td style="text-align:center;font-family:var(--mono);font-size:13px;"><span style="font-weight:700;color:' + c + ';">' + rem + '</span><span style="color:var(--text3);font-size:11px;">/' + effQ + '</span></td>';
+      return '<td style="text-align:center;font-family:var(--mono);font-size:17px;"><span style="font-weight:700;color:' + c + ';">' + rem + '</span><span style="color:var(--text3);font-size:15px;">/' + effQ + '</span></td>';
     }).join('');
     return '<tr><td><div class="name">' + uName(u.email, u.name) + '</div><div class="meta">' + u.email + '</div></td>' + cells + '</tr>';
   }).join('');
   const ths = fixedTypes.map(t => '<th style="text-align:center;white-space:nowrap;">' + LT[t].replace(/^\S+\s/, '') + '</th>').join('');
-  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:12px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:16px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 function renderBalTable(email, isPM) {
   const user = getUsers().find(u => u.email === email); if (!user) return;
@@ -700,19 +715,19 @@ function renderBalTable(email, isPM) {
     if (def.q !== null) {
       const rem = Math.max(0, effQ - used), pct = effQ > 0 ? Math.min(100, (used / effQ) * 100) : 0;
       const bc = pct >= 90 ? 'bar-danger' : pct >= 60 ? 'bar-warn' : 'bar-ok', rc = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      const qCell = isPM ? '<div style="display:flex;align-items:center;gap:6px;"><input type="number" min="0" max="365" value="' + effQ + '" id="qi-' + email.replace(/[@.]/g, '-') + '-' + type + '" style="width:60px;padding:4px 8px;font-size:13px;text-align:center;" /><button onclick="saveQ(\'' + email + '\',\'' + type + '\')" style="padding:4px 10px;font-size:12px;background:var(--green);color:#0e0f14;border:none;border-radius:6px;cursor:pointer;font-weight:700;">บันทึก</button>' + (isC ? '<span style="font-size:10px;color:var(--orange);">✎</span>' : '') + '</div>' : '<span style="font-family:var(--mono);color:var(--text2);">' + effQ + '</span>';
-      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:11px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td>' + qCell + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + (pend ? '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td style="font-weight:700;color:' + rc + ';font-family:var(--mono);">' + rem.toFixed(1).replace(/\.0$/, '') + '</td><td style="min-width:100px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
+      const qCell = isPM ? '<div style="display:flex;align-items:center;gap:6px;"><input type="number" min="0" max="365" value="' + effQ + '" id="qi-' + email.replace(/[@.]/g, '-') + '-' + type + '" style="width:60px;padding:4px 8px;font-size:17px;text-align:center;" /><button onclick="saveQ(\'' + email + '\',\'' + type + '\')" style="padding:4px 10px;font-size:16px;background:var(--green);color:#0e0f14;border:none;border-radius:6px;cursor:pointer;font-weight:700;">บันทึก</button>' + (isC ? '<span style="font-size:14px;color:var(--orange);">✎</span>' : '') + '</div>' : '<span style="font-family:var(--mono);color:var(--text2);">' + effQ + '</span>';
+      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td>' + qCell + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + (pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td style="font-weight:700;color:' + rc + ';font-family:var(--mono);">' + rem.toFixed(1).replace(/\.0$/, '') + '</td><td style="min-width:100px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:14px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
     } else {
       const appr = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').length;
-      return '<tr><td>' + LT[type] + ' <span style="font-size:11px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + (pend ? '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td>—</td><td>—</td></tr>';
+      return '<tr><td>' + LT[type] + ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + (pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td>—</td><td>—</td></tr>';
     }
   }).join('');
-  cont.innerHTML = (isPM ? '<div class="info-box" style="margin-bottom:16px;">✎ PM สามารถแก้ไขโควต้าได้โดยตรง</div>' : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;font-family:var(--mono);">// แสดงผลเท่านั้น</div>') + '<div class="card"><div class="card-title">◈ รายละเอียดวันลาของ ' + uName(user.email, user.name) + '</div><div class="table-wrap"><table class="balance-table"><thead><tr><th>ประเภท</th><th>โควต้า' + (isPM ? ' (แก้ได้)' : '') + '</th><th>ใช้แล้ว</th><th>คงเหลือ</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  cont.innerHTML = (isPM ? '<div class="info-box" style="margin-bottom:16px;">✎ PM สามารถแก้ไขโควต้าได้โดยตรง</div>' : '<div style="font-size:16px;color:var(--text3);margin-bottom:12px;font-family:var(--mono);">// แสดงผลเท่านั้น</div>') + '<div class="card"><div class="card-title">◈ รายละเอียดวันลาของ ' + uName(user.email, user.name) + '</div><div class="table-wrap"><table class="balance-table"><thead><tr><th>ประเภท</th><th>โควต้า' + (isPM ? ' (แก้ได้)' : '') + '</th><th>ใช้แล้ว</th><th>คงเหลือ</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 function saveQ(email, type) {
   const k = 'qi-' + email.replace(/[@.]/g, '-') + '-' + type; const v = parseInt(document.getElementById(k)?.value);
   if (isNaN(v) || v < 0) { toast('⚠️ กรอกตัวเลขที่ถูกต้อง'); return; }
-  const q = getQs(); if (!q[email]) q[email] = {}; q[email][type] = v; 
+  const q = getQs(); if (!q[email]) q[email] = {}; q[email][type] = v;
   saveQs(q);
   apiSync('updateQuotas', { email, data: q[email] });
   toast('✅ บันทึกโควต้า ' + LT[type] + ' = ' + v + ' วัน'); renderBal();
@@ -737,31 +752,32 @@ function renderMyBal() {
     else if (rem <= 2) chips.push({ label: LT[type], rem, effQ, color: 'var(--yellow)', bg: 'var(--yellow-bg)', icon: '⏰' });
   });
   document.getElementById('my-bal-chips').innerHTML = chips.length
-    ? chips.map(c => '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:' + c.bg + ';border:1px solid ' + c.color + '40;display:flex;align-items:center;gap:8px;"><span>' + c.icon + '</span><div><div style="font-size:13px;font-weight:700;color:' + c.color + ';">' + c.label + '</div><div style="font-size:11px;color:' + c.color + ';font-family:var(--mono);">เหลือ ' + c.rem + '/' + c.effQ + '</div></div></div>').join('')
-    : '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--green-bg);border:1px solid rgba(61,214,140,.3);display:flex;align-items:center;gap:8px;"><span>✅</span><div style="font-size:13px;font-weight:600;color:var(--green);">วันลาทุกประเภทยังเหลือพอ</div></div>';
+    ? chips.map(c => '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:' + c.bg + ';border:1px solid ' + c.color + '40;display:flex;align-items:center;gap:8px;"><span>' + c.icon + '</span><div><div style="font-size:17px;font-weight:700;color:' + c.color + ';">' + c.label + '</div><div style="font-size:15px;color:' + c.color + ';font-family:var(--mono);">เหลือ ' + c.rem + '/' + c.effQ + '</div></div></div>').join('')
+    : '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--green-bg);border:1px solid rgba(61,214,140,.3);display:flex;align-items:center;gap:8px;"><span>✅</span><div style="font-size:17px;font-weight:500;color:var(--green);">วันลาทุกประเภทยังเหลือพอ</div></div>';
   const rows = Object.keys(LQ).map(type => {
     const def = LQ[type], cq = qs[cu.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
     const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const pend = mine.filter(r => r.type === type && r.status.startsWith('pending')).length;
-    const pb = pend ? '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '';
+    const pb = pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '';
     if (def.q !== null) {
       const rem = Math.max(0, effQ - used), pct = effQ > 0 ? Math.min(100, (used / effQ) * 100) : 0;
       const bc = pct >= 90 ? 'bar-danger' : pct >= 60 ? 'bar-warn' : 'bar-ok', rc = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:11px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td style="font-family:var(--mono);color:var(--text2);">' + effQ + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + pb + '</td><td><span style="font-size:20px;font-weight:800;font-family:var(--mono);color:' + rc + ';">' + rem.toFixed(1).replace(/\.0$/, '') + '</span><span style="font-size:11px;color:var(--text3);"> วัน</span></td><td style="min-width:120px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
+      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td style="font-family:var(--mono);color:var(--text2);">' + effQ + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + pb + '</td><td><span style="font-size:24px;font-weight:500;font-family:var(--mono);color:' + rc + ';">' + rem.toFixed(1).replace(/\.0$/, '') + '</span><span style="font-size:15px;color:var(--text3);"> วัน</span></td><td style="min-width:120px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:14px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
     } else {
       const appr = mine.filter(r => r.type === type && r.status === 'approved').length;
-      return '<tr><td>' + LT[type] + ' <span style="font-size:11px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + pb + '</td><td>—</td><td>—</td></tr>';
+      return '<tr><td>' + LT[type] + ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + pb + '</td><td>—</td><td>—</td></tr>';
     }
   }).join('');
   document.getElementById('my-bal-tbody').innerHTML = rows;
   const histEl = document.getElementById('my-leave-hist'), rec = mine.slice(0, 10);
-  if (!rec.length) { histEl.innerHTML = '<div style="color:var(--text3);font-size:13px;">ยังไม่มีประวัติการลา</div>'; return; }
+  if (!rec.length) { histEl.innerHTML = '<div style="color:var(--text3);font-size:17px;">ยังไม่มีประวัติการลา</div>'; return; }
   const sc = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
   histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th></tr></thead><tbody>' + rec.map(r => '<tr><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td></tr>').join('') + '</tbody></table></div>';
 }
 
 // ══ EXERCISE ═════════════════════════════
 let exMembers = [];
+let _editingExId = null;
 function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
   if (!sel) return;
@@ -816,10 +832,10 @@ function removeExMember(id) {
 function renderExMembers() {
   const el = document.getElementById('ex-member-list'); if (!el) return;
   updateExSysMemberSelect();
-  if (!exMembers.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>'; return; }
+  if (!exMembers.length) { el.innerHTML = '<div style="font-size:16px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>'; return; }
   el.innerHTML = exMembers.map(m => {
     const label = m.displayName || m.name;
-    return '<span class="chip" style="background:var(--surface3);border:1px solid var(--border);padding-right:6px;margin-bottom:4px;">' + (m.type === 'sys' ? '👤' : '👤(นอก) ') + label + ' <button onclick="removeExMember(\'' + m.id + '\')" style="background:none;border:none;color:var(--red);margin-left:6px;cursor:pointer;">✕</button></span>';
+    return '<span class="chip" style="background:var(--surface3);border:1px solid var(--border);padding-right:6px;margin-bottom:4px;">' + (m.type === 'sys' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-user"></i> (นอก) ') + label + ' <button onclick="removeExMember(\'' + m.id + '\')" style="background:none;border:none;color:var(--red);margin-left:6px;cursor:pointer;">✕</button></span>';
   }).join('');
 }
 // handleExDoc is deprecated as we moved to link-only submission
@@ -829,20 +845,24 @@ function toLocalDateString(d) {
   const y = dt.getFullYear(), m = String(dt.getMonth() + 1).padStart(2, '0'), d2 = String(dt.getDate()).padStart(2, '0');
   return `${y}-${m}-${d2}`;
 }
-// week starts Sunday, cuts on Saturday
+// week aligned to monthly period (starts on the 19th, then every 7 days)
+// so wkKey is always within the same monthKey — no cross-period weeks
 function wkKey(d) {
   if (!d) return '';
   let dt = new Date(d);
   if (isNaN(dt.getTime())) return '';
-  // If input is YYYY-MM-DD string, new Date(d) might be UTC. 
-  // Let's ensure we treat it as local if it's just a date.
   if (typeof d === 'string' && d.length === 10) {
     const [y, m, d1] = d.split('-').map(Number);
     dt = new Date(y, m - 1, d1);
   }
-  const s = new Date(dt);
-  s.setDate(dt.getDate() - dt.getDay());
-  return toLocalDateString(s);
+  const mk = monthKey(dt);
+  if (!mk) return '';
+  const [py, pm] = mk.split('-').map(Number);
+  const periodStart = new Date(py, pm - 1, 19);
+  const offsetDays = Math.round((dt - periodStart) / 86400000);
+  const weekStart = new Date(periodStart);
+  weekStart.setDate(19 + Math.floor(offsetDays / 7) * 7);
+  return toLocalDateString(weekStart);
 }
 // monthly cycle cuts on 18th: day 1-18 belongs to prev period
 // monthly cycle starts on 19th: 19th onwards belongs to the same month, up to 18th of next month
@@ -867,13 +887,27 @@ function quarterKey(d) {
   const [y, m] = mk.split('-').map(Number);
   return `${y}-Q${Math.ceil(m / 3)}`;
 }
+function getWkNum(d) {
+  const mk = monthKey(d);
+  if (!mk) return 0;
+  const [y, m] = mk.split('-').map(Number);
+  const dStart = new Date(y, m - 1, 19), dEnd = new Date(y, m, 18);
+  const weekOpts = [];
+  let curr = new Date(dStart);
+  while (curr <= dEnd) {
+    const wKey = wkKey(curr);
+    if (!weekOpts.includes(wKey)) weekOpts.push(wKey);
+    curr.setDate(curr.getDate() + 1);
+  }
+  return weekOpts.indexOf(wkKey(d)) + 1;
+}
 function isGroupEx(t) { return t === 'group_ex' || t === 'group_eat'; }
 function getExType(e) { if (e.exType) return e.exType; return e.type === 'group' ? 'group_ex' : 'solo'; }
-function isUserInvolved(e, email) { 
+function isUserInvolved(e, email) {
   if (!e || !email) return false;
   const target = email.toLowerCase();
   const creator = (e.email || '').toLowerCase();
-  return creator === target || (e.members || []).some(m => m.type === 'sys' && (m.email || '').toLowerCase() === target); 
+  return creator === target || (e.members || []).some(m => m.type === 'sys' && (m.email || '').toLowerCase() === target);
 }
 
 function updateExType() {
@@ -900,14 +934,14 @@ function updateQuota() {
   const exType = document.getElementById('ex-type')?.value || 'solo';
   const all = getExs();
   const wkLimit = isBkk ? 2 : 3, moLimit = isBkk ? 8 : 12;
-  
+
   // Stats for the viewed week/month
   const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
   const moSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && monthKey(e.date) === mk).length;
   const wkGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && wkKey(e.date) === wk).length;
   const moGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && monthKey(e.date) === mk).length;
   const qGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && quarterKey(e.date) === qk).length;
-  
+
   const colaThresh = isBkk ? 6 : 1, colaOk = qGrp >= colaThresh;
   const locLabel = isBkk ? 'กทม.' : 'ตจว.';
 
@@ -943,14 +977,15 @@ function updateQuota() {
 
   const curWkNum = weekOpts.indexOf(wk) + 1;
   const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
+  if (we > dEnd) we.setTime(dEnd.getTime());
   const segBar = (used, max, color) => `
     <div style="display:flex;align-items:center;gap:6px;flex:1;">
       <div style="display:flex;gap:3px;flex:1;height:8px;">
         ${Array.from({ length: max }, (_, i) => `<div style="flex:1;border-radius:4px;background:${i < used ? color : 'rgba(255,255,255,0.1)'};border:1px solid ${i < used ? 'transparent' : 'rgba(255,255,255,0.05)'};"></div>`).join('')}
       </div>
       <div style="display:flex;align-items:center;gap:4px;min-width:48px;justify-content:flex-end;">
-        <div style="font-size:11px;color:${used >= max ? 'var(--green)' : 'var(--text3)'};font-family:var(--mono);">(${used}/${max})</div>
-        ${used >= max ? `<span style="color:var(--green);font-size:14px;font-weight:bold;line-height:1;">✓</span>` : ''}
+        <div style="font-size:15px;color:${used >= max ? 'var(--green)' : 'var(--text3)'};font-family:var(--mono);">(${used}/${max})</div>
+        ${used >= max ? `<span style="color:var(--green);font-size:18px;font-weight:bold;line-height:1;">✓</span>` : ''}
       </div>
     </div>`;
 
@@ -963,10 +998,10 @@ function updateQuota() {
   qd.innerHTML = `
   <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px 20px;border:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
     <div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:2px;font-family:var(--mono);">💰 ยอดเงินสะสมเดือนนี้ (คาดการณ์)</div>
-      <div style="font-size:28px;font-weight:800;font-family:var(--mono);color:var(--green);">฿${totalMoMoney}</div>
+      <div style="font-size:16px;color:var(--text3);margin-bottom:2px;font-family:var(--mono);">💰 ยอดเงินสะสมเดือนนี้ (คาดการณ์)</div>
+      <div style="font-size:32px;font-weight:500;font-family:var(--mono);color:var(--green);">฿${totalMoMoney}</div>
     </div>
-    <div style="text-align:right;font-size:12px;color:var(--text3);font-family:var(--mono);background:var(--surface3);padding:8px 12px;border-radius:8px;">
+    <div style="text-align:right;font-size:16px;color:var(--text3);font-family:var(--mono);background:var(--surface3);padding:8px 12px;border-radius:8px;">
       <div style="margin-bottom:4px;">⏳ ตัดรอบสัปดาห์: <strong style="color:var(--text2);">ทุกวันเสาร์</strong></div>
       <div>📅 ตัดรอบเดือน: <strong style="color:var(--text2);">ทุกวันที่ 18</strong></div>
     </div>
@@ -975,15 +1010,15 @@ function updateQuota() {
     <!-- CARD 1: SOLO -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
+        <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
       </div>
       <div style="display:flex;gap:32px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;">
-          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+          <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
           ${segBar(wkSolo, wkLimit, 'var(--green)')}
         </div>
         <div style="flex:1;min-width:200px;">
-          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
+          <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
           ${segBar(moSolo, moLimit, 'var(--green)')}
         </div>
       </div>
@@ -993,32 +1028,32 @@ function updateQuota() {
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
+          <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
         </div>
         <div style="display:flex;gap:32px;flex-wrap:wrap;">
           <div style="flex:1;min-width:200px;">
-            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+            <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
             ${segBar(wkGrp, 1, 'var(--green)')}
           </div>
           <div style="flex:1;min-width:200px;">
-            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
+            <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
             ${segBar(moGrp, 4, 'var(--green)')}
           </div>
         </div>
       </div>
-      ${wkGrp >= 1 || moGrp >= 4 ? `<div style="font-size:12px;color:var(--accent);margin-top:12px;">รายสัปดาห์โควต้าครบแล้ว</div>` : ''}
+      ${wkGrp >= 1 || moGrp >= 4 ? `<div style="font-size:16px;color:var(--accent);margin-top:12px;">รายสัปดาห์โควต้าครบแล้ว</div>` : ''}
     </div>
 
     <!-- CARD 3: COLA -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:16px;">Cola — ไตรมาสนี้</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">แบบกลุ่ม</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:16px;">Cola — ไตรมาสนี้</div>
+        <div style="font-size:17px;color:var(--text2);margin-bottom:6px;">แบบกลุ่ม</div>
         ${segBar(qGrp, colaThresh, 'var(--green)')}
       </div>
       ${colaOk ? `
-        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;color:rgba(108,138,255,0.8);font-size:13px;">
-          <span style="background:var(--green);color:#fff;width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">✓</span>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;color:rgba(108,138,255,0.8);font-size:17px;">
+          <span style="background:var(--green);color:#fff;width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;">✓</span>
           ได้โบนัสไตรมาสถัดไป ฿1,500/เดือน
         </div>` : ''}
     </div>
@@ -1040,7 +1075,7 @@ function updateQuota() {
   const wLabel = document.getElementById('week-label');
   if (wLabel) {
     const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
-    wLabel.innerHTML = `<span style="color:var(--accent);font-weight:700;">📂 กำลังดู:</span> ${moName} — สัปดาห์ที่ ${weekOpts.indexOf(wk) + 1} <span style="opacity:0.7;font-size:12px;">(${fmt(ws)} - ${fmt(we)})</span>`;
+    wLabel.innerHTML = `<span style="color:var(--accent);font-weight:700;">📂 กำลังดู:</span> ${moName} — สัปดาห์ที่ ${weekOpts.indexOf(wk) + 1} <span style="opacity:0.7;font-size:16px;">(${fmt(ws)} - ${fmt(we)})</span>`;
   }
 
   // Re-enable button if monthly is not full
@@ -1058,9 +1093,9 @@ function submitEx() {
     const date = document.getElementById('ex-date').value;
     const note = document.getElementById('ex-note').value.trim();
     const link = document.getElementById('ex-link').value.trim();
-    
+
     console.log('Submitting Ex:', { exType, act, date, link });
-    
+
     clearExErr();
     const elSucc = document.getElementById('ex-success'); if (elSucc) elSucc.style.display = 'none';
 
@@ -1068,48 +1103,65 @@ function submitEx() {
     if (!act) missing.push('กิจกรรม (เช่น วิ่ง 5km)');
     if (!date) missing.push('วันที่');
     if (!link) missing.push('หลักฐาน (ลิงก์)');
-    if (missing.length) { 
-      showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• ')); 
-      return; 
+    if (missing.length) {
+      showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• '));
+      return;
     }
 
     const loc = cu.locationType || 'bkk', isBkk = loc === 'bkk';
     const wk = wkKey(date), mk = monthKey(date);
-    const all = getExs();
+    // Skip quota checks when PM edits an already-approved record
+    const editingApproved = _editingExId !== null && getExs().find(e => e.id === _editingExId)?.status === 'approved';
+    // Exclude the record being edited from quota counts so we don't double-count it
+    const all = getExs().filter(e => e.id !== _editingExId);
 
-    if (exType === 'solo') {
+    if (!editingApproved && exType === 'solo') {
+      const wkLimit = isBkk ? 2 : 3;
       const moLimit = isBkk ? 8 : 12;
       const locLabel = isBkk ? 'กทม.' : 'ต่างจว.';
+      const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
+      if (wkSolo >= wkLimit) { showExErr(`⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${wkLimit} ครั้ง/สัปดาห์ (ใช้ไปแล้ว ${wkSolo} ครั้ง)`); return; }
       const moSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && monthKey(e.date) === mk).length;
       if (moSolo >= moLimit) { showExErr(`⚠️ โควต้าเดี่ยวเดือนนี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${moLimit} ครั้ง/เดือน (ใช้ไปแล้ว ${moSolo} ครั้ง)`); return; }
-    } else {
+    } else if (!editingApproved) {
+      const wkGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && wkKey(e.date) === wk).length;
+      if (wkGrp >= 1) { showExErr(`⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้เต็มแล้ว<br>สูงสุด 1 ครั้ง/สัปดาห์ (ใช้ไปแล้ว ${wkGrp} ครั้ง)`); return; }
       const moGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && monthKey(e.date) === mk).length;
       if (moGrp >= 4) { showExErr(`⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้เต็มแล้ว<br>สูงสุด 4 ครั้ง/เดือน (รวมทุกประเภทกลุ่ม) ใช้ไปแล้ว ${moGrp} ครั้ง`); return; }
     }
 
     const reward = EX_REWARD[exType] || 100;
-    const count = 1 + (isGroupEx(exType) ? exMembers.length : 0);
+    const sysCount = isGroupEx(exType) ? exMembers.filter(m => m.type === 'sys').length : 0;
+    const count = 1 + sysCount;
     const total = reward * count;
     const summary = `
       <div style="margin-bottom:12px;padding:12px;background:var(--surface3);border-radius:8px;border:1px solid var(--border);">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">ข้อมูลการยื่นเบิก</div>
-        <div style="font-size:16px;font-weight:700;color:var(--accent);">${EX_LABEL[exType]}</div>
+        <div style="font-size:16px;color:var(--text3);margin-bottom:4px;">ข้อมูลการยื่นเบิก</div>
+        <div style="font-size:20px;font-weight:700;color:var(--accent);">${EX_LABEL[exType]}</div>
         <div style="margin-top:8px;"><b>กิจกรรม:</b> ${act}</div>
         <div><b>วันที่:</b> ${date}</div>
         ${isGroupEx(exType) ? `<div><b>สมาชิก:</b> ${count} คน (รวมคุณ)</div>` : ''}
-        <div style="margin-top:8px;font-size:18px;color:var(--green);font-weight:800;">ยอดเงินรางวัล: ฿${total}</div>
+        <div style="margin-top:8px;font-size:22px;color:var(--green);font-weight:500;">ยอดเงินรางวัล: ฿${total}</div>
       </div>
-      <div style="font-size:13px;color:var(--text2);">กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนกดยืนยัน</div>
+      <div style="font-size:17px;color:var(--text2);">กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนกดยืนยัน</div>
     `;
 
-    document.getElementById('conf-title').textContent = 'ยืนยันการยื่นเบิก';
+    const isEditing = _editingExId !== null;
+    document.getElementById('conf-title').textContent = isEditing ? 'ยืนยันการแก้ไขใบเบิก' : 'ยืนยันการยื่นเบิก';
     document.getElementById('conf-body').innerHTML = summary;
     const okBtn = document.getElementById('conf-ok');
-    okBtn.textContent = 'ยืนยันยื่นเบิก';
+    okBtn.textContent = isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันยื่นเบิก';
     okBtn.className = 'btn btn-primary';
-    okBtn.onclick = () => {
-      doSubmitEx({ exType, act, date, note, link, isGrp: isGroupEx(exType) });
-      closeModal('modal-confirm');
+    okBtn.onclick = async () => {
+      okBtn.disabled = true;
+      okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+      const label = isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันยื่นเบิก';
+      try {
+        await doSubmitEx({ exType, act, date, note, link, isGrp: isGroupEx(exType) });
+      } finally {
+        okBtn.disabled = false;
+        okBtn.textContent = label;
+      }
     };
     openModal('modal-confirm');
   } catch (err) {
@@ -1118,9 +1170,27 @@ function submitEx() {
   }
 }
 
-function doSubmitEx(data) {
+async function doSubmitEx(data) {
   const { exType, act, date, note, link, isGrp } = data;
   const es = getExs();
+
+  if (_editingExId !== null) {
+    const i = es.findIndex(e => e.id === _editingExId);
+    if (i >= 0) {
+      es[i] = { ...es[i], exType, type: isGrp ? 'group' : 'solo', activity: act, date, note, members: isGrp ? [...exMembers] : [], proofDoc: link, proofLink: link };
+      saveExs(es);
+      await apiSync('updateEx', es[i]);
+    }
+    _editingExId = null;
+    resetExFormUI();
+    closeModal('modal-confirm');
+    closeModal('modal-ex-form');
+    try { updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr(); renderExShare(); renderExR(); } catch (e) { console.error(e); }
+    if (isGrp) { exMembers = []; renderExMembers(); }
+    toast('✅ แก้ไขใบเบิกเรียบร้อยแล้ว');
+    return;
+  }
+
   const newEx = {
     id: eid++,
     name: cu.name,
@@ -1134,13 +1204,14 @@ function doSubmitEx(data) {
     submittedAt: new Date().toISOString(),
     members: isGrp ? [...exMembers] : [],
     proofDoc: link,
-    proofLink: link
+    proofLink: link,
+    proofLinks: []
   };
   es.unshift(newEx);
-  saveExs(es); 
-  
+  saveExs(es);
+
   // SYNC TO API
-  apiSync('addEx', newEx);
+  await apiSync('addEx', newEx);
 
   // Close modals FIRST to ensure popup always closes
   closeModal('modal-confirm');
@@ -1150,129 +1221,255 @@ function doSubmitEx(data) {
   try {
     updateDashboard(); updateLB(); updateQuota(); updateBadges(); clearExErr();
   } catch (e) { console.error('UI update error after submitEx:', e); }
-  
+
   if (isGrp) { exMembers = []; renderExMembers(); }
   ['ex-act', 'ex-note', 'ex-link'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   toast('✅ ยื่นคำขอเรียบร้อยแล้ว');
 }
+
+function resetExFormUI() {
+  document.querySelector('#modal-ex-form .modal-title').innerHTML = '<i class="fa-solid fa-circle-plus" style="margin-right:8px;color:var(--accent);"></i>ยื่นเบิกใหม่';
+  const btn = document.getElementById('btn-submit-ex');
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-plus" style="margin-right:6px;"></i> ยื่นเบิกใหม่';
+}
+let _exReviewMonth = null;
+let _exReviewTab = 'pending';
+function setExReviewMonth(mk) { _exReviewMonth = mk; renderExR(); }
+function setExReviewTab(t) { _exReviewTab = t; renderExR(); }
+
 function renderExR() {
+  const wrap = document.getElementById('ex-review-container');
+  if (!wrap) return;
   if (cu.role !== 'pm') {
-    document.getElementById('ex-review-list').innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:13px;">เฉพาะ PM เท่านั้น</div></div>';
+    wrap.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">เฉพาะ PM เท่านั้น</div></div>';
     return;
   }
 
   const all = getExs();
-  const sorted = [...all].sort((a, b) => new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date));
-  const elList = document.getElementById('ex-review-list');
-  const elSum = document.getElementById('ex-review-summary');
-  const elShare = document.getElementById('ex-review-share');
-  const elHist = document.getElementById('ex-review-history');
+  const today = new Date().toISOString().split('T')[0];
 
-  const renderExCard = (e, showAction = false) => {
+  // ── Month options (last 6 → next 1) ─────────────────────────────────────
+  const monthOpts = [];
+  const now = new Date();
+  for (let i = -6; i <= 1; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 20);
+    const mk = monthKey(d);
+    if (!monthOpts.includes(mk)) monthOpts.push(mk);
+  }
+  if (!_exReviewMonth || !monthOpts.includes(_exReviewMonth)) _exReviewMonth = monthKey(today);
+  const mk = _exReviewMonth;
+  const [py, pm] = mk.split('-').map(Number);
+  const periodStart = new Date(py, pm - 1, 19), periodEnd = new Date(py, pm, 18);
+  const fmt = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  const rangeLabel = `${fmt(periodStart)} – ${fmt(periodEnd)}`;
+  const moName = new Date(py, pm - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+
+  const monthSel = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,0.015);padding:16px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;"><i class="fa-solid fa-calendar-days"></i></div>
+        <div>
+          <div style="font-size:14px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">รอบการเบิก</div>
+          <select onchange="setExReviewMonth(this.value)" style="background:transparent;border:none;color:#fff;font-size:18px;font-weight:700;padding:0;cursor:pointer;outline:none;font-family:inherit;">
+            ${monthOpts.map(m => {
+    const [y2, m2] = m.split('-').map(Number);
+    const label = new Date(y2, m2 - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+    return `<option value="${m}" ${m === mk ? 'selected' : ''} style="background:#1a1c26;color:#fff;">${label}</option>`;
+  }).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.05);padding:8px 16px;border-radius:12px;font-family:var(--mono);color:#9094b8;font-size:15px;border:1px solid rgba(255,255,255,0.02);">${rangeLabel}</div>
+    </div>`;
+
+  // ── Filter to selected month ─────────────────────────────────────────────
+  const inMonth = all.filter(e => monthKey(e.date) === mk);
+  const sorted = [...inMonth].sort((a, b) => new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date));
+
+  // Build Week Options for calculation
+  const weekOpts = [];
+  const [y, m] = mk.split('-').map(Number);
+  const dStart = new Date(y, m - 1, 19), dEnd = new Date(y, m, 18);
+  let currW = new Date(dStart);
+  while (currW <= dEnd) {
+    const wKey = wkKey(currW);
+    if (!weekOpts.includes(wKey)) weekOpts.push(wKey);
+    currW.setDate(currW.getDate() + 1);
+  }
+
+  // ── Summary stats ────────────────────────────────────────────────────────
+  const pending = sorted.filter(e => e.status === 'pending');
+  const approved = sorted.filter(e => e.status === 'approved');
+  const rejected = sorted.filter(e => e.status === 'rejected');
+  const totalMoney = approved.reduce((s, e) => s + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).filter(m => m.type === 'sys').length), 0);
+
+  const statBox = (label, val, color) =>
+    `<div style="flex:1;min-width:110px;background:#1a1c26;border:1px solid rgba(255,255,255,0.03);border-radius:16px;padding:16px;text-align:center;">
+       <div style="font-size:24px;font-weight:500;font-family:var(--mono);color:${color};">${val}</div>
+       <div style="font-size:14px;color:var(--text3);margin-top:4px;font-weight:500;">${label}</div>
+     </div>`;
+
+  const statsHtml = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;">
+      ${statBox('รออนุมัติ', pending.length, 'var(--yellow)')}
+      ${statBox('อนุมัติแล้ว', approved.length, 'var(--green)')}
+      ${statBox('ปฏิเสธ', rejected.length, 'var(--red)')}
+      ${statBox('ยอดเงินรางวัล', '฿' + totalMoney.toLocaleString(), 'var(--accent)')}
+    </div>`;
+
+  // ── Compact row renderer ─────────────────────────────────────────────────
+  // ── Card row renderer ──────────────────────────────────────────────────
+  const renderRow = (e, showApproveBtn) => {
     const et = getExType(e);
     const reward = EX_REWARD[et] || 100;
     const tcolor = et === 'solo' ? 'var(--green)' : et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
-    const rbg = et === 'solo' ? 'var(--green-bg)' : et === 'group_ex' ? 'var(--purple-bg)' : 'var(--orange-bg)';
     const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
-    const totalReward = reward * count;
-    const submitterLoc = getUsers().find(u => u.email === e.email)?.locationType || 'bkk';
-    const locBadge = `<span style="font-size:10px;background:var(--surface3);color:var(--text3);padding:1px 6px;border-radius:20px;font-family:var(--mono);">${submitterLoc === 'bkk' ? 'กทม.' : 'ต่างจว.'}</span>`;
-    const statusBadge = e.status === 'approved' ? '<span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:20px;font-family:var(--mono);">✓ อนุมัติ</span>' : e.status === 'rejected' ? '<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:2px 8px;border-radius:20px;font-family:var(--mono);">✕ ปฏิเสธ</span>' : '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:2px 8px;border-radius:20px;font-family:var(--mono);">รออนุมัติ</span>';
-    const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
+    const proofLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '');
+    const proofLinks = e.proofLinks || [];
+    const totalLinks = (proofLink ? 1 : 0) + proofLinks.length;
+    const wkNum = weekOpts.indexOf(wkKey(e.date)) + 1;
+    const isGrp = isGroupEx(et);
 
-    return `<div class="card excard" style="margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:700;font-family:var(--mono);color:${tcolor};">${EX_LABEL[et]}</div>
-        ${locBadge}
-        ${isGroupEx(et) ? `<span style="font-size:10px;background:var(--surface3);color:var(--text3);padding:2px 8px;border-radius:20px;font-family:var(--mono);">${count} คน</span>` : ''}
-        ${statusBadge}
-      </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-size:16px;font-weight:600;color:var(--text);">${uName(e.email, e.name)} <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">${e.email}</span></div>
-          <div style="font-size:13px;color:var(--text3);">${e.activity} • ${e.duration ? e.duration + ' นาที • ' : ''}${e.date}</div>
-          ${e.note ? `<div style="font-size:12px;color:var(--text3);margin-top:4px;">${e.note}</div>` : ''}
-          ${(e.proofDoc || e.proofLink) ? `<div style="font-size:12px;margin-top:6px;"><a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="background:var(--surface3);padding:3px 8px;border-radius:20px;color:var(--accent);text-decoration:none;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
-          ${allMembers.length > 1 ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">${allMembers.map(m => `<span style="font-size:11px;background:var(--surface3);color:var(--text2);padding:2px 6px;border-radius:4px;">${m.kind === 'submitter' || m.kind === 'sys' ? '👤' : '👤(นอก) '} ${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)}</span>`).join('')}</div>` : ''}
+    const allMembers = [
+      { email: e.email, name: e.name, kind: 'submitter' },
+      ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
+    ];
+
+    const chips = allMembers.map(m => {
+      const isSub = m.kind === 'submitter';
+      return `
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:3px 12px;border-radius:12px;font-size:14px;color:var(--text2);border:1px solid rgba(255,255,255,0.02);">
+          <i class="fa-solid fa-user" style="color:#b37fff;font-size:12px;"></i>
+          <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
+          ${isSub ? '<i class="fa-regular fa-star" style="font-size:11px;color:var(--accent);margin-left:4px;"></i>' : ''}
+        </div>`;
+    }).join('');
+
+    const indicatorColor = showApproveBtn === 'pending' ? 'var(--yellow)' : 'var(--green)';
+
+    return `
+      <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; margin-bottom:12px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+        <!-- Top Row: Name & Reward -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
+            <span style="font-size:16px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
+            <span style="background:#f5c842; color:#000; padding:1px 8px; border-radius:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Week ${wkNum}</span>
+          </div>
+          <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
         </div>
-        <div style="background:${rbg};color:${tcolor};font-weight:700;font-family:var(--mono);padding:4px 12px;border-radius:20px;font-size:13px;border:1px solid ${tcolor}40;">+฿${totalReward}</div>
-      </div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        ${showAction ? `
-          <button class="btn btn-green btn-sm" onclick="apprEx(${e.id})">✅ อนุมัติ</button>
-          <button class="btn btn-red btn-sm" onclick="rejEx(${e.id})">✕ ไม่อนุมัติ</button>
-        ` : ''}
-        ${isGroupEx(et) && !isUserInvolved(e, cu.email) && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved')) ? `
-          <button class="btn btn-primary btn-sm" onclick="joinExGroup(${e.id})">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>
-        ` : ''}
-        ${isGroupEx(et) && isUserInvolved(e, cu.email) && e.email !== cu.email && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved')) ? `
-          <button class="btn btn-red btn-sm" onclick="leaveExGroup(${e.id})">✕ ถอนตัวออกจากกลุ่ม</button>
-        ` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="viewExDetail(${e.id})">🔍 ดูรายละเอียด</button>
-      </div>
-    </div>`;
+
+        <!-- Meta Row: Date -->
+        <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:15px; margin-bottom:12px; font-weight:500;">
+          <i class="fa-regular fa-calendar" style="font-size:14px;"></i>
+          <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        </div>
+
+        <!-- Bottom Row: Members & Actions -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:240px;">
+            ${isGrp ? `
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="font-size:14px; color:#5a5e7a; font-weight:600;">สมาชิกทั้งหมด</span>
+                <span style="background:rgba(255,255,255,0.08); color:#5a5e7a; padding:0 8px; border-radius:8px; font-size:12px; font-weight:700;">${allMembers.length}</span>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                ${chips}
+              </div>
+            ` : `
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="font-size:14px; color:#5a5e7a; font-weight:600; flex-shrink:0;">ผู้ยื่น</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  ${chips}
+                </div>
+              </div>
+            `}
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px;">
+            ${proofLink || proofLinks.length ? `
+              <a href="${proofLink || proofLinks[0]?.url}" target="_blank" style="width:38px; height:34px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.04); border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">
+                <i class="fa-solid fa-circle-play" style="font-size:22px; color:var(--accent);"></i>
+              </a>` : ''}
+            
+            ${showApproveBtn === 'pending' ? `
+              <button class="btn btn-green btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();apprEx(${e.id})">
+                <i class="fa-solid fa-check" style="font-size:13px;"></i> อนุมัติ
+              </button>
+              <button class="btn btn-red btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();rejEx(${e.id})">
+                <i class="fa-solid fa-xmark" style="font-size:13px;"></i> ไม่อนุมัติ
+              </button>
+            ` : ''}
+
+            ${showApproveBtn === 'approved' ? `
+              <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px;" onclick="event.stopPropagation();revertExToPending(${e.id})">
+                <i class="fa-solid fa-angles-left"></i> รออนุมัติ
+              </button>
+            ` : ''}
+
+            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail(${e.id})">
+                <i class="fa-solid fa-magnifying-glass" style="font-size:13px;"></i> รายละเอียด
+            </button>
+          </div>
+        </div>
+      </div>`;
   };
 
-  // 1. Pending List (Split into Solo and Group)
-  const pending = sorted.filter(e => e.status === 'pending');
-  const pendingSolo = pending.filter(e => !isGroupEx(getExType(e)));
+  // ── Section builder ──────────────────────────────────────────────────────
+  const section = (title, items, showApprove, isGrid = false) => {
+    if (!items.length) return `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div>
+        <div style="padding:16px; font-size:16px; color:#5a5e7a; background:rgba(255,255,255,0.01); border-radius:12px; border:1px dashed rgba(255,255,255,0.05); text-align:center;">— ไม่มีรายการ —</div>
+      </div>`;
+    return `
+      <div style="margin-bottom:32px;">
+        <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div>
+        <div class="${isGrid ? 'review-grid' : ''}">
+          ${items.map(e => renderRow(e, showApprove)).join('')}
+        </div>
+      </div>`;
+  };
+
   const pendingGroup = pending.filter(e => isGroupEx(getExType(e)));
+  const pendingSolo = pending.filter(e => !isGroupEx(getExType(e)));
+  const apprGroup = approved.filter(e => isGroupEx(getExType(e)));
+  const apprSolo = approved.filter(e => !isGroupEx(getExType(e)));
 
-  let listHtml = '';
-  if (pendingGroup.length) {
-    listHtml += `
-      <div style="margin-bottom:24px;">
-        <div style="font-size:14px;font-weight:800;color:var(--purple);margin-bottom:12px;display:flex;align-items:center;gap:10px;background:var(--purple-bg);padding:8px 16px;border-radius:12px;border:1px solid rgba(191,123,255,0.2);">
-          <span>🏋️ แบบกลุ่ม</span>
-          <span style="background:var(--purple);color:white;font-size:11px;padding:2px 8px;border-radius:20px;">${pendingGroup.length} รายการ</span>
-        </div>
-        ${pendingGroup.map(e => renderExCard(e, true)).join('')}
-      </div>`;
-  }
-  if (pendingSolo.length) {
-    listHtml += `
-      <div style="margin-bottom:24px;">
-        <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:10px;background:var(--green-bg);padding:8px 16px;border-radius:12px;border:1px solid rgba(61,214,140,0.2);">
-          <span>🏃 แบบเดี่ยว</span>
-          <span style="background:var(--green);color:white;font-size:11px;padding:2px 8px;border-radius:20px;">${pendingSolo.length} รายการ</span>
-        </div>
-        ${pendingSolo.map(e => renderExCard(e, true)).join('')}
-      </div>`;
-  }
-  
-  elList.innerHTML = listHtml || '<div style="color:var(--text3);text-align:center;padding:10px;font-size:13px;">ไม่มีคำขอรออนุมัติ 🎉</div>';
+  const tabsHtml = `
+    <div style="display:flex; gap:12px; margin-bottom:24px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03);">
+      <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">
+        <i class="fa-solid fa-hourglass-half" style="font-size:15px;"></i> รออนุมัติ
+        <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${pending.length}</span>
+      </button>
+      <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">
+        <i class="fa-solid fa-circle-check" style="font-size:15px;"></i> อนุมัติแล้ว
+        <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${approved.length}</span>
+      </button>
+    </div>
+  `;
 
-  // 2. Summary (Total Only - Including Pending)
-  const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-  const today = new Date().toISOString().split('T')[0];
-  const mk = monthKey(today);
-  const allMo = all.filter(e => e.status !== 'rejected' && monthKey(e.date) === mk);
-  const totalMoney = allMo.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).filter(m => m.type === 'sys').length), 0);
-  const [y, mm] = mk.split('-');
-  const rangeLabel = `${fmt(new Date(y, parseInt(mm) - 1, 19))} - ${fmt(new Date(y, parseInt(mm), 18))}`;
-
-  elSum.innerHTML = `<div style="font-size:28px;font-weight:800;font-family:var(--mono);color:var(--green);">฿${totalMoney.toLocaleString()}</div><div style="font-size:12px;color:var(--text3);">ยอดเงินรางวัลรวมทั้งหมดของบริษัทในเดือนนี้ (${rangeLabel})</div>`;
-
-  // 3. Share Activities (All group ex)
-  const shares = sorted.filter(e => isGroupEx(getExType(e)));
-  elShare.innerHTML = shares.length ? shares.map(e => renderExCard(e, false)).join('') : '<div style="color:var(--text3);font-size:13px;">ไม่มีกิจกรรมกลุ่ม</div>';
-
-  // 4. History (All requests - Split into Solo and Group)
-  const histSolo = sorted.filter(e => !isGroupEx(getExType(e)));
-  const histGroup = sorted.filter(e => isGroupEx(getExType(e)));
-
-  let histHtml = '';
-  if (histGroup.length) {
-    histHtml += `<div style="margin-bottom:16px;"><div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:10px;">🏋️ ประวัติแบบกลุ่ม</div>${histGroup.map(e => renderExCard(e, false)).join('')}</div>`;
-  }
-  if (histSolo.length) {
-    histHtml += `<div style="margin-bottom:16px;"><div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px;">🏃 ประวัติแบบเดี่ยว</div>${histSolo.map(e => renderExCard(e, false)).join('')}</div>`;
+  let contentHtml = '';
+  if (_exReviewTab === 'pending') {
+    contentHtml = section('แบบกลุ่ม', pendingGroup, 'pending') + section('แบบเดี่ยว', pendingSolo, 'pending', true);
+  } else {
+    contentHtml = section('แบบกลุ่ม', apprGroup, 'approved') + section('แบบเดี่ยว', apprSolo, 'approved', true);
   }
 
-  elHist.innerHTML = histHtml || '<div style="color:var(--text3);font-size:13px;">ไม่มีประวัติคำขอ</div>';
+  wrap.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      ${monthSel}
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:14px; font-size:18px;">📊 สรุปรอบ ${moName}</div>
+      ${statsHtml}
+    </div>
+    <div style="margin-top:32px;">
+      ${tabsHtml}
+      ${contentHtml}
+    </div>`;
 }
 function apprEx(id) {
   if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
@@ -1292,18 +1489,27 @@ function apprEx(id) {
       return;
     }
   }
-  es[i].status = 'approved'; 
+  es[i].status = 'approved';
   saveExs(es);
   apiSync('updateEx', es[i]);
   toast('✅ อนุมัติแล้ว'); updateDashboard(); updateLB(); updateQuota(); renderExR();
 }
-function rejEx(id) { 
-  if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; } 
-  const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return; 
-  es[i].status = 'rejected'; 
-  saveExs(es); 
+function rejEx(id) {
+  if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
+  const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return;
+  es[i].status = 'rejected';
+  saveExs(es);
   apiSync('updateEx', es[i]);
-  toast('✕ ไม่อนุมัติ'); renderExR(); 
+  toast('✕ ไม่อนุมัติ'); renderExR();
+}
+function revertExToPending(id) {
+  if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
+  const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return;
+  es[i].status = 'pending';
+  es[i].approvedBy = '';
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  toast('↩️ ปรับกลับเป็นรออนุมัติแล้ว'); renderExR(); updateDashboard(); updateLB(); updateQuota(); updateBadges();
 }
 
 // ══ EXERCISE SHARE ═══════════════════════
@@ -1318,45 +1524,113 @@ function renderExShare() {
 
   const renderCard = (e) => {
     const et = getExType(e);
-    const tcolor = et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
     const locked = isLocked(e);
     const count = memberCount(e);
     const userIsSubmitter = e.email === cu.email;
     const userInMembers = (e.members || []).some(m => m.type === 'sys' && m.email === cu.email);
     const userInvolved = userIsSubmitter || userInMembers;
-    const statusBadge = e.status === 'approved' ? '<span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:20px;font-family:var(--mono);">✓ อนุมัติ</span>' : e.status === 'rejected' ? '<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:2px 8px;border-radius:20px;font-family:var(--mono);">✕ ปฏิเสธ</span>' : '<span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:2px 8px;border-radius:20px;font-family:var(--mono);">รออนุมัติ</span>';
-    const countBadge = `<span style="font-size:10px;background:${count >= 3 ? 'var(--green-bg)' : 'var(--surface3)'};color:${count >= 3 ? 'var(--green)' : 'var(--text3)'};padding:2px 8px;border-radius:20px;font-family:var(--mono);">${count} คน${count >= 3 ? ' ✅' : ''}</span>`;
+
+    // Date formatting
+    const d = new Date(e.date);
+    const day = d.getDate();
+    const month = d.toLocaleDateString('th-TH', { month: 'short' });
+    const fullDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const wkNum = getWkNum(e.date);
+
+    // Status config
+    const statusCfg = e.status === 'approved'
+      ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-solid fa-circle-check', bg: 'var(--green-bg)' }
+      : e.status === 'rejected'
+        ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', bg: 'var(--red-bg)' }
+        : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock', bg: 'var(--yellow-bg)' };
+
+    // Member Chips
     const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
     const memberChips = allMembers.map(m => {
       const isSubmitter = m.kind === 'submitter';
       const isMe = m.email === cu.email && (isSubmitter || m.kind === 'sys');
-      const bg = isMe ? 'var(--accent)' : isSubmitter ? 'rgba(108,138,255,.15)' : 'var(--surface3)';
-      const fg = isMe ? '#fff' : isSubmitter ? 'var(--accent)' : 'var(--text2)';
-      const icon = isSubmitter ? '⭐' : m.kind === 'sys' ? '👤' : '👥';
-      const showRm = (!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3;
-      return `<span style="font-size:12px;background:${bg};color:${fg};padding:4px 10px;border-radius:14px;display:inline-flex;align-items:center;gap:4px;">${icon} ${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)}${showRm ? ` <button onclick="leaveExGroup(${e.id})" style="background:rgba(0,0,0,.25);border:none;color:#fff;cursor:pointer;font-size:11px;padding:0 5px;border-radius:8px;margin-left:2px;">✕</button>` : ''}</span>`;
-    }).join(' ');
-    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:${tcolor};">${EX_LABEL[et]}</span>
-        ${countBadge}
-        ${statusBadge}
+      const u = getUsers().find(x => x.email === m.email) || {};
+      const char = (m.name || '?')[0].toUpperCase();
+      const color = u.nickname ? `hsl(${m.name.length * 40 % 360}, 70%, 70%)` : 'var(--text3)';
+
+      const bg = isMe ? 'rgba(77, 111, 255, 0.15)' : 'var(--surface3)';
+      const border = isMe ? '1px solid rgba(77, 111, 255, 0.07)' : '1px solid var(--border)';
+      const fg = isMe ? 'var(--accent)' : 'var(--text2)';
+
+      return `
+        <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 10px 4px 8px;border-radius:30px;font-size:14px;color:${fg};">
+          <i class="fa-solid fa-user" style="color:${color};font-size:12px;opacity:0.9;"></i>
+          <div style="white-space:nowrap;">
+            <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
+            <span style="font-size:11px;opacity:0.6;margin-left:2px;">${m.dept || ''}</span>
+            ${isSubmitter ? '<i class="fa-regular fa-star" style="font-size:10px;margin-left:4px;color:var(--accent);"></i>' : ''}
+          </div>
+          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup(${e.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;">✕</button>` : ''}
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border2);background:var(--surface2);">
+      <!-- Header Row -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fa-solid fa-heart-pulse" style="color:var(--orange);font-size:14px;"></i>
+          <span style="font-size:16px;font-weight:700;color:var(--orange);letter-spacing:0.5px;">${EX_LABEL[et]}</span>
+          <span style="color:var(--text3);margin:0 4px;">•</span>
+          <span style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">WEEK ${wkNum}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:${statusCfg.bg};color:${statusCfg.color};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;">
+          <i class="${statusCfg.icon}"></i>
+          <span>${statusCfg.label}</span>
+        </div>
       </div>
-      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:2px;">${e.activity}</div>
-      <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:10px;">📅 ${e.date}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">${memberChips}</div>
-      ${e.note ? `<div style="font-size:12px;color:var(--text3);margin-top:8px;">📝 ${e.note}</div>` : ''}
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved ? `<button class="btn btn-primary btn-sm" onclick="joinExGroup(${e.id})">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>` : ''}
-        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter ? `<button class="btn btn-red btn-sm" onclick="leaveExGroup(${e.id})">✕ ถอนตัวออกจากกลุ่ม</button>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="viewExDetail(${e.id})">🔍 ดูรายละเอียด</button>
+
+      <!-- Main Content -->
+      <div style="padding:24px 20px;">
+        <div style="display:flex;gap:20px;align-items:center;">
+          <!-- Calendar Block -->
+          <div style="display:flex;flex-direction:column;width:64px;border-radius:14px;overflow:hidden;text-align:center;background:var(--surface3);border:1px solid var(--border2);flex-shrink:0;">
+            <div style="background:var(--orange);color:#000;font-size:14px;font-weight:500;padding:4px 0;text-transform:uppercase;">${month}</div>
+            <div style="font-size:24px;font-weight:500;padding:4px 0;color:var(--text);">${day}</div>
+          </div>
+          <!-- Title & Meta -->
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:26px;font-weight:500;color:var(--text);margin-bottom:6px;line-height:1.2;">${e.activity}</div>
+            <div style="display:flex;align-items:center;gap:12px;color:var(--text3);font-size:14px;">
+              <div style="display:flex;align-items:center;gap:6px;"><i class="fa-regular fa-calendar"></i> ${fullDate}</div>
+              <span style="opacity:0.3;">•</span>
+              <div style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-users"></i> ${count} คน</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Members Section -->
+        <div style="margin-top:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">ผู้เข้าร่วม</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            ${memberChips}
+          </div>
+        </div>
+
+        ${e.note ? `<div style="margin-top:16px;padding:12px;background:var(--surface3);border-radius:10px;font-size:14px;color:var(--text2);border-left:3px solid var(--border2);">📝 ${e.note}</div>` : ''}
+
+        <!-- Actions -->
+        <div style="margin-top:20px;display:flex;gap:12px;">
+          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
+        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="joinExGroup(${e.id})"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
+        : ''}
+          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter
+        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="leaveExGroup(${e.id})"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
+        : ''}
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;height:48px;border-radius:14px;background:var(--surface3);font-size:16px;" onclick="viewExDetail(${e.id})">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:8px;font-size:12px;opacity:0.6;"></i></button>
+        </div>
       </div>
     </div>`;
   };
   const mineEl = document.getElementById('ex-share-mine');
   const othersEl = document.getElementById('ex-share-others');
-  if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:13px;">ยังไม่มีคำขอที่มีชื่อคุณ</div>';
-  if (othersEl) othersEl.innerHTML = others.length ? others.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:13px;">ไม่มีคำขออื่นในทีม</div>';
+  if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ยังไม่มีคำขอที่มีชื่อคุณ</div>';
+  if (othersEl) othersEl.innerHTML = others.length ? others.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีคำขออื่นในทีม</div>';
 }
 function joinExGroup(id) {
   const es = getExs(), i = es.findIndex(e => e.id === id);
@@ -1371,9 +1645,21 @@ function joinExGroup(id) {
   if (wkGrp >= 1) { toast('⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้ของคุณเต็มแล้ว (1/1)'); return; }
   const moGrp = es.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
   if (moGrp >= 4) { toast('⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้ของคุณเต็มแล้ว (4/4)'); return; }
-  e.members = e.members || [];
-  e.members.push({ id: 'sys_' + cu.email + '_' + Date.now(), type: 'sys', email: cu.email, name: cu.name });
-  saveExs(es); 
+
+  document.getElementById('conf-title').textContent = 'ยืนยันการเข้าร่วมกลุ่ม';
+  document.getElementById('conf-body').innerHTML = '<div style="font-size:19px;line-height:1.6;color:var(--text);">เช็กให้ชัวร์ก่อนกดนะ! เพราะ PM จะตรวจสอบสิทธิ์จากหลักฐานที่คุณแจ้งไว้ เพื่อให้งานไม่สะดุด รบกวนตรวจสอบความถูกต้องอีกครั้งครับ/ค่ะ</div>';
+  document.getElementById('conf-ok').onclick = () => doJoinExGroup(id);
+  openModal('modal-confirm');
+}
+function doJoinExGroup(id) {
+  closeModal('modal-confirm');
+  const es = getExs(), i = es.findIndex(e => e.id === id);
+  if (i < 0) return;
+  const e = es[i];
+  // Deduplicate: remove any stale entry for this email before adding (idempotent join)
+  e.members = (e.members || []).filter(m => !(m.type === 'sys' && (m.email || '').toLowerCase() === cu.email.toLowerCase()));
+  e.members.push({ id: 'sys_' + cu.email, type: 'sys', email: cu.email, name: cu.name });
+  saveExs(es);
   apiSync('updateEx', es[i]);
   renderExShare(); updateQuota(); updateLB(); updateDashboard(); updateBadges();
   toast('✅ เพิ่มชื่อคุณเข้ากลุ่มเรียบร้อย');
@@ -1401,27 +1687,65 @@ function leaveExGroup(id) {
 function updateLB() {
   const a = getExs().filter(e => e.status !== 'rejected');
   const sm = {}, gxm = {}, gem = {};
+
   a.forEach(e => {
     const et = getExType(e);
     if (et === 'solo') {
-      const label = uName(e.email, e.name);
-      sm[label] = (sm[label] || 0) + 1;
+      sm[e.email] = (sm[e.email] || 0) + 1;
     } else {
-      const partic = [{ email: e.email, name: e.name, type: 'sys' }, ...(e.members || []).filter(m => m.type === 'sys')];
+      const partic = [{ email: e.email }, ...(e.members || []).filter(m => m.type === 'sys')];
       partic.forEach(p => {
-        const label = uName(p.email, p.name);
-        if (et === 'group_ex') gxm[label] = (gxm[label] || 0) + 1;
-        else if (et === 'group_eat') gem[label] = (gem[label] || 0) + 1;
+        if (et === 'group_ex') gxm[p.email] = (gxm[p.email] || 0) + 1;
+        else if (et === 'group_eat') gem[p.email] = (gem[p.email] || 0) + 1;
       });
     }
   });
-  const mkRow = ([n], i) => '<div class="lb-row"><div class="lb-rank ' + (i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '') + '">' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1) + '</div><div style="flex:1;font-weight:600;color:var(--text);">' + n + '</div>';
-  const sr = Object.entries(sm).sort((a, b) => b[1] - a[1]);
-  document.getElementById('lb-solo').innerHTML = sr.length ? sr.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--green);font-family:var(--mono);">฿' + (r[1] * 100) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
-  const gxr = Object.entries(gxm).sort((a, b) => b[1] - a[1]);
-  document.getElementById('lb-group-ex').innerHTML = gxr.length ? gxr.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--purple);font-family:var(--mono);">฿' + (r[1] * 500) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
-  const ger = Object.entries(gem).sort((a, b) => b[1] - a[1]);
-  document.getElementById('lb-group-eat').innerHTML = ger.length ? ger.map((r, i) => mkRow(r, i) + '<div style="font-family:var(--mono);color:var(--text2);font-size:13px;">' + r[1] + ' ครั้ง</div><div style="font-weight:700;color:var(--orange);font-family:var(--mono);">฿' + (r[1] * 300) + '</div></div>').join('') : '<div style="color:var(--text3);font-size:13px;">ยังไม่มีข้อมูล</div>';
+
+  const renderSection = (data, colorVar, price) => {
+    const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+    if (!sorted.length) return '<div style="color:var(--text3);font-size:18px;padding:32px;text-align:center;font-weight:500;">ยังไม่มีข้อมูลในเดือนนี้</div>';
+
+    const mkRow = (email, count, i) => {
+      const u = getUsers().find(x => x.email === email) || { name: 'Unknown', dept: 'Media' };
+      const name = u.nickname || u.name;
+      const dept = u.dept || 'Media';
+      const isTop3 = i < 3;
+      const rankHtml = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+      const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+
+      return `
+        <div class="lb-row" style="${!isTop3 ? 'background:transparent; border:none; padding:10px 12px; margin-bottom:0;' : ''}">
+          <div class="lb-rank ${rankClass}">${rankHtml}</div>
+          <div style="flex:1;min-width:0;margin-left:4px;">
+            <div style="font-weight:500;color:var(--text);font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+            <div style="font-size:14px;color:var(--text3);font-weight:500;margin-top:-2px;">${dept}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--mono);color:var(--text2);font-size:15px;line-height:1.1;">${count} <span style="font-size:12px;color:var(--text3);">ครั้ง</span></div>
+            <div style="font-weight:500;color:${colorVar};font-family:var(--mono);font-size:20px;line-height:1.1;margin-top:2px;">฿${count * price}</div>
+          </div>
+        </div>
+      `;
+    };
+
+    const top3 = sorted.slice(0, 3);
+    const rest = sorted.slice(3);
+
+    let html = top3.map(([email, count], i) => mkRow(email, count, i)).join('');
+
+    if (rest.length) {
+      html += `
+        <div style="max-height:280px; overflow-y:auto; margin-top:10px; padding-right:6px;" class="custom-scroll">
+          ${rest.map(([email, count], i) => mkRow(email, count, i + 3)).join('')}
+        </div>
+      `;
+    }
+    return html;
+  };
+
+  document.getElementById('lb-solo').innerHTML = renderSection(sm, 'var(--green)', 100);
+  document.getElementById('lb-group-ex').innerHTML = renderSection(gxm, 'var(--purple)', 500);
+  document.getElementById('lb-group-eat').innerHTML = renderSection(gem, 'var(--orange)', 300);
 
   // --- ADD SUMMARY TABLE ---
   const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
@@ -1431,7 +1755,7 @@ function updateLB() {
   const [y, mm] = mk.split('-');
   const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
   const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
-  const users = getUsers().sort((a,b) => a.name.localeCompare(b.name, 'th'));
+  const users = getUsers().sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const userStats = users.map(u => {
     const uExs = allMo.filter(e => isUserInvolved(e, u.email));
     let sC = 0, sA = 0, gexC = 0, gexA = 0, geC = 0, geA = 0;
@@ -1455,18 +1779,18 @@ function updateLB() {
   const summaryEl = document.getElementById('lb-summary-table');
   if (summaryEl) {
     summaryEl.innerHTML = `
-      <div style="margin-bottom:12px;font-size:12px;color:var(--text3);">รอบการคำนวณเงินรางวัล: ${rangeLabel} <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
-      <div class="table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-        <table class="balance-table" style="font-size:11px;">
+      <div style="margin-bottom:12px;font-size:16px;color:var(--text3);">รอบการคำนวณเงินรางวัล: ${rangeLabel} <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
+      <div class="table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow-x:auto;">
+        <table class="balance-table" style="font-size:15px; min-width: 800px;">
           <thead style="background:var(--surface3);">
             <tr>
-              <th rowspan="2" style="text-align:left;font-size:12px;">ชื่อ-นามสกุล</th>
+              <th rowspan="2" style="text-align:left;font-size:16px;">ชื่อ-นามสกุล</th>
               <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);">แบบเดี่ยว (100)</th>
               <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);">แบบกลุ่มออก (500)</th>
               <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);">แบบกลุ่มกิน (300)</th>
-              <th rowspan="2" style="background:var(--surface2);font-weight:800;font-size:12px;">รวม (อนุมัติ)</th>
+              <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;">รวม (อนุมัติ)</th>
             </tr>
-            <tr style="font-size:9px;">
+            <tr style="font-size:13px;">
               <th style="background:rgba(61,214,140,0.05);">ครั้ง</th><th style="background:rgba(61,214,140,0.05);">เงิน</th>
               <th style="background:rgba(191,123,255,0.05);">ครั้ง</th><th style="background:rgba(191,123,255,0.05);">เงิน</th>
               <th style="background:rgba(255,171,0,0.05);">ครั้ง</th><th style="background:rgba(255,171,0,0.05);">เงิน</th>
@@ -1476,15 +1800,15 @@ function updateLB() {
             ${userStats.map(s => `
               <tr style="${s.total > 0 ? 'background:rgba(255,255,255,0.02);' : 'opacity:0.5;'}">
                 <td style="text-align:left;">
-                  <div style="font-weight:600;">${s.name}</div>
-                  <div style="font-size:10px;color:var(--text3);">*${s.nick}*</div>
+                  <div style="font-weight:500;">${s.name}</div>
+                  <div style="font-size:14px;color:var(--text3);">*${s.nick}*</div>
                 </td>
-                <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR} <span style="opacity:0.6;font-size:9px;">(${s.sAR})</span></td>
-                <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR} <span style="opacity:0.6;font-size:9px;">(${s.gexAR})</span></td>
-                <td>${s.geC}</td><td style="color:var(--orange);font-family:var(--mono);">฿${s.geR} <span style="opacity:0.6;font-size:9px;">(${s.geAR})</span></td>
-                <td style="font-weight:800;background:rgba(255,255,255,0.03);font-family:var(--mono);font-size:12px;">
+                <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR} <span style="opacity:0.6;font-size:13px;">(${s.sAR})</span></td>
+                <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR} <span style="opacity:0.6;font-size:13px;">(${s.gexAR})</span></td>
+                <td>${s.geC}</td><td style="color:var(--orange);font-family:var(--mono);">฿${s.geR} <span style="opacity:0.6;font-size:13px;">(${s.geAR})</span></td>
+                <td style="font-weight:500;background:rgba(255,255,255,0.03);font-family:var(--mono);font-size:16px;">
                   ฿${s.total.toLocaleString()}
-                  <div style="font-size:10px;color:var(--green);opacity:0.8;">(฿${s.totalA.toLocaleString()})</div>
+                  <div style="font-size:14px;color:var(--green);opacity:0.8;">(฿${s.totalA.toLocaleString()})</div>
                 </td>
               </tr>
             `).join('')}
@@ -1506,8 +1830,8 @@ function updateDashboard() {
   const memberCount = ve ? ve.size : getUsers().length;
   document.getElementById('d-members').textContent = memberCount;
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:600;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
-  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(' + e.id + ')"><div><div style="font-weight:600;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:12px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;" onclick="event.stopPropagation();viewExDetail(' + e.id + ')">🔍</button></div></div>').join('') || '<div style="color:var(--text3);font-size:13px;">ยังไม่มีรายการ</div>';
+  document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
+  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(' + e.id + ')"><div><div style="font-weight:500;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' (W' + getWkNum(e.date) + ') • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:15px;" onclick="event.stopPropagation();viewExDetail(' + e.id + ')"><i class="fa-solid fa-magnifying-glass"></i> รายละเอียด</button></div></div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -1556,37 +1880,132 @@ function viewExDetail(id) {
   const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
   const totalReward = reward * count;
   const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
+  const wkNum = getWkNum(e.date);
 
-  let html = `
-    <div style="margin-bottom:8px;"><b>ผู้ยื่น:</b> ${uName(e.email, e.name)} (${e.email})</div>
-    <div style="margin-bottom:8px;"><b>กิจกรรม:</b> ${e.activity} ${e.duration ? `(${e.duration} นาที)` : ''}</div>
-    <div style="margin-bottom:8px;"><b>วันที่:</b> ${e.date}</div>
-    <div style="margin-bottom:8px;"><b>สถานะ:</b> ${e.status === 'approved' ? '✅ อนุมัติ' : e.status === 'rejected' ? '✕ ปฏิเสธ' : '⏳ รออนุมัติ'}</div>
-    <div style="margin-bottom:8px;"><b>รางวัลรวม (ประเมิน):</b> ฿${totalReward}</div>
-    ${e.note ? `<div style="margin-bottom:8px;"><b>หมายเหตุ:</b> ${e.note}</div>` : ''}
-    ${(e.proofDoc || e.proofLink) ? `<div style="margin-bottom:8px;"><b>หลักฐาน:</b> <a href="${e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '#')}" target="_blank" style="color:var(--accent);text-decoration:underline;">▶️ เล่นวิดีโอหลักฐาน</a></div>` : ''}
-    ${allMembers.length > 1 ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"><b>สมาชิกในกลุ่ม (${count} คน):</b><ul style="margin-top:6px;padding-left:20px;">${allMembers.map(m => `<li>${m.kind === 'out' ? m.name + ' (' + m.dept + ')' : uName(m.email, m.name)} ${m.kind === 'submitter' ? '⭐' : m.kind === 'sys' ? '👤' : '👤(นอก)'}</li>`).join('')}</ul></div>` : ''}
+  // Status config
+  const statusCfg = e.status === 'approved'
+    ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-solid fa-circle-check', bg: 'var(--green-bg)' }
+    : e.status === 'rejected'
+      ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', bg: 'var(--red-bg)' }
+      : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-solid fa-circle', bg: 'var(--yellow-bg)' };
+
+  const canEdit = (e.email === cu.email && e.status === 'pending') || (cu.role === 'pm' && e.status === 'approved');
+  const canUpdateProof = isUserInvolved(e, cu.email) && e.status !== 'rejected';
+  const primaryLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '') || '';
+  const extraLinks = e.proofLinks || [];
+
+  // Format links into uniform objects
+  const allLinks = [];
+  if (primaryLink) allLinks.push({ url: primaryLink, addedBy: e.name });
+  extraLinks.forEach(p => allLinks.push({ url: p.url, addedBy: p.addedByName || p.addedBy }));
+
+  const getAv = (name, email) => {
+    const color = `hsl(${name.length * 40 % 360}, 65%, 65%)`;
+    return `<div style="width:36px;height:36px;border-radius:50%;background:${color}33;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;border:1px solid ${color}44;"><i class="fa-solid fa-user"></i></div>`;
+  };
+
+  const body = document.getElementById('ex-detail-body');
+  const actions = document.getElementById('ex-detail-actions');
+
+  body.innerHTML = `
+    <!-- Header Row -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+      <div>
+        <div style="font-size:14px;color:#5a5e7a;margin-bottom:6px;font-weight:500;">คำขอเบิกรางวัล</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:0px;">
+          <h2 style="font-size:32px;font-weight:500;color:#fff;margin:0;">${e.activity + (e.note ? ` (${e.note.split('\n')[0].substring(0, 20)})` : '')}</h2>
+          <span style="background:#f5c842;color:#000;padding:2px 8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;">Week ${wkNum}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;color:#9094b8;font-size:20px;font-weight:500;">
+          <i class="fa-regular fa-calendar" style="font-size:18px;"></i>
+          ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px;background:${statusCfg.bg};color:${statusCfg.color};padding:6px 18px;border-radius:30px;font-size:16px;font-weight:700;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${statusCfg.dot || statusCfg.color};"></div>
+          ${statusCfg.label}
+        </div>
+        <button onclick="closeModal('modal-ex-detail')" style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.08);border:none;color:#5a5e7a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">✕</button>
+      </div>
+    </div>
+
+    <!-- Submitter Card -->
+    <div style="background:rgba(255,255,255,0.02);padding:16px;border-radius:20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <div style="width:48px;height:48px;color:#b37fff;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;">
+        <i class="fa-solid fa-user"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:20px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">
+          ผู้ยื่น • ${uNick(e.email, e.name)}
+          <span style="font-size:15px;color:#5a5e7a;font-weight:500;">(${(getUsers().find(x => x.email === e.email) || {}).dept || 'Media'})</span>
+        </div>
+        <div style="font-size:16px;color:#5a5e7a;font-family:var(--mono);">${e.email}</div>
+      </div>
+    </div>
+
+    <!-- Members Section -->
+    <div style="margin-bottom:32px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <span style="font-size:16px;font-weight:700;color:#5a5e7a;">สมาชิกทั้งหมด</span>
+        <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allMembers.length}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">
+        ${allMembers.map(m => {
+    const isSubmitter = m.kind === 'submitter';
+    const isMe = m.email === cu.email;
+    const color = isMe ? '#6c8aff' : '#9094b8';
+    return `
+            <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);padding:2px 16px;border-radius:14px;font-size:16px;color:${color};">
+              <i class="fa-solid fa-user" style="font-size:16px;color:#b37fff;"></i>
+              <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
+              ${isSubmitter ? '<i class="fa-regular fa-star" style="font-size:14px;margin-left:4px;color:#6c8aff;"></i>' : ''}
+            </div>`;
+  }).join('')}
+      </div>
+    </div>
+
+    <!-- Evidence Section -->
+    <div style="margin-bottom:32px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <span style="font-size:16px;font-weight:700;color:#5a5e7a;">หลักฐาน</span>
+        <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allLinks.length}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        ${allLinks.map((link, idx) => `
+          <a href="${link.url}" target="_blank" style="text-decoration:none;background:rgba(255,255,255,0.01);padding:14px;border-radius:24px;display:flex;align-items:center;justify-content:space-between;color:#fff;border:1px solid rgba(255,255,255,0.01);">
+            <div style="display:flex;align-items:center;gap:20px;">
+              <div style="width:56px;height:44px;border-radius:12px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;">
+                <i class="fa-solid fa-circle-play"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:20px;">หลักฐาน #${idx + 1}</div>
+                <div style="font-size:14px;color:#5a5e7a;margin-top:4px;">Tog ${link.addedBy || 'Member'}</div>
+              </div>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:20px;color:#5a5e7a;opacity:0.6;"></i>
+          </a>
+        `).join('')}
+        
+        <div style="display:flex;gap:12px;margin-top:8px;">
+          <input type="text" id="proof-link-input-${e.id}" placeholder="วางลิงก์เพิ่มเติม..." style="flex:1;height:64px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:14px;padding:0 24px;color:#fff;font-size:18px;" />
+          <button class="btn" onclick="saveProofLink(${e.id})" style="height:64px;padding:0 32px;border-radius:14px;font-weight:700;background:rgba(255,255,255,0.08);color:#fff;border:none;font-size:18px;">แนบเพิ่ม</button>
+        </div>
+      </div>
+    </div>
   `;
-  document.getElementById('ex-detail-body').innerHTML = html;
 
-  const canDelete = e.email === cu.email || cu.role === 'lead' || cu.role === 'pm';
-  const actionsEl = document.getElementById('ex-detail-actions');
-  actionsEl.innerHTML = '';
-  
-  // Join/Leave Button logic
-  const et2 = getExType(e);
-  if (isGroupEx(et2) && (e.status === 'pending' || (cu.role === 'pm' && e.status === 'approved'))) {
-    if (!isUserInvolved(e, cu.email)) {
-      actionsEl.innerHTML += `<button class="btn btn-primary" onclick="joinExGroup(${e.id});closeModal('modal-ex-detail')">+ เพิ่มชื่อฉันเข้ากลุ่ม</button>`;
-    } else if (e.email !== cu.email) {
-      actionsEl.innerHTML += `<button class="btn btn-red" onclick="leaveExGroup(${e.id});closeModal('modal-ex-detail')">✕ ถอนตัวออกจากกลุ่ม</button>`;
-    }
-  }
-
-  if (canDelete) {
-    actionsEl.innerHTML += `<button class="btn btn-red" onclick="deleteEx(${e.id})">🗑️ ลบคำขอ</button>`;
-  }
-  actionsEl.innerHTML += `<button class="btn btn-ghost" onclick="closeModal('modal-ex-detail')">ปิด</button>`;
+  actions.innerHTML = `
+    <div style="display:flex;width:100%;justify-content:space-between;align-items:center;margin-top:32px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.03);">
+      <button class="btn" onclick="deleteEx(${e.id})" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
+        <i class="fa-solid fa-trash-can" style="margin-right:12px;"></i> ลบ
+      </button>
+      <div style="display:flex;gap:16px;">
+        <button class="btn" onclick="closeModal('modal-ex-detail')" style="background:rgba(255,255,255,0.08);color:#9094b8;border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">ปิด</button>
+        ${canEdit ? `<button class="btn" onclick="editEx(${e.id})" style="border-radius:14px;height:64px;padding:0 40px;font-weight:700;background:#738aff;color:#fff;border:none;display:flex;align-items:center;gap:12px;font-size:20px;"><i class="fa-solid fa-pencil"></i> แก้ไขใบเบิก</button>` : ''}
+      </div>
+    </div>
+  `;
 
   openModal('modal-ex-detail');
 }
@@ -1609,19 +2028,78 @@ function deleteEx(id) {
   if (pageReview && pageReview.classList.contains('active')) renderExR();
 }
 
-window.onload = tryRestore;
+function editEx(id) {
+  const es = getExs(), e = es.find(x => x.id === id);
+  const submitterPending = e.email === cu.email && e.status === 'pending';
+  const pmApproved = cu.role === 'pm' && e.status === 'approved';
+  if (!e || (!submitterPending && !pmApproved)) return;
+
+  _editingExId = id;
+
+  // Pre-fill form fields — keep original submitter name when PM edits
+  document.getElementById('ex-name').value = e.name || cu.name;
+  document.getElementById('ex-type').value = e.exType || 'solo';
+  document.getElementById('ex-act').value = e.activity || '';
+  document.getElementById('ex-date').value = e.date || '';
+  document.getElementById('ex-note').value = e.note || '';
+  document.getElementById('ex-link').value = e.proofLink || e.proofDoc || '';
+
+  // Pre-populate member list (re-hydrate displayName from user directory)
+  const users = getUsers();
+  exMembers = (e.members || []).map(m => {
+    if (m.type === 'sys') {
+      const u = users.find(x => x.email === m.email);
+      const nick = u ? (u.nickname || u.name.split(' ')[0]) : m.name;
+      const dept = u?.dept ? ` (${u.dept})` : '';
+      return { ...m, displayName: `${nick}${dept}` };
+    }
+    return { ...m, displayName: `${m.name} (${m.dept})` };
+  });
+
+  updateExType();
+  renderExMembers();
+  updateExSysMemberSelect();
+
+  // Switch form to edit mode
+  document.querySelector('#modal-ex-form .modal-title').innerHTML = '<i class="fa-solid fa-pen" style="margin-right:8px;color:var(--accent);"></i>แก้ไขใบเบิก';
+  const btn = document.getElementById('btn-submit-ex');
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> บันทึกการแก้ไข';
+
+  closeModal('modal-ex-detail');
+  openModal('modal-ex-form');
+}
+
+function saveProofLink(id) {
+  const link = document.getElementById('proof-link-input-' + id)?.value.trim();
+  if (!link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน'); return; }
+  const es = getExs(), i = es.findIndex(e => e.id === id);
+  if (i < 0) return;
+  if (!es[i].proofLink) {
+    es[i].proofLink = link;
+    es[i].proofDoc = link;
+  } else {
+    es[i].proofLinks = [...(es[i].proofLinks || []), { url: link, addedBy: cu.email, addedByName: cu.name, addedAt: new Date().toISOString() }];
+  }
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  toast('✅ เพิ่มหลักฐานเรียบร้อย');
+  viewExDetail(id);
+}
 
 function getExWkLabel(dateStr) {
-  let d;
+  // dateStr is the period-aligned week start date returned by wkKey()
+  let s;
   if (typeof dateStr === 'string' && dateStr.length === 10) {
     const [y, m, d1] = dateStr.split('-').map(Number);
-    d = new Date(y, m - 1, d1);
+    s = new Date(y, m - 1, d1);
   } else {
-    d = new Date(dateStr);
+    s = new Date(dateStr);
   }
-  const day = d.getDay();
-  const s = new Date(d); s.setDate(d.getDate() - day);
+  const mk = monthKey(s);
+  const [py, pm] = mk.split('-').map(Number);
+  const periodEnd = new Date(py, pm, 18);
   const e = new Date(s); e.setDate(s.getDate() + 6);
+  if (e > periodEnd) e.setTime(periodEnd.getTime());
   const opt = { day: 'numeric', month: 'short' };
   return `สัปดาห์ ${s.toLocaleDateString('th-TH', opt)} – ${e.toLocaleDateString('th-TH', opt)}`;
 }
@@ -1661,7 +2139,7 @@ function renderExHistory() {
   }
 
   if (!filtered.length) {
-    elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:14px;">ยังไม่มีกิจกรรมในเดือนนี้</div>';
+    elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:18px;">ยังไม่มีกิจกรรมในเดือนนี้</div>';
     return;
   }
 
@@ -1689,8 +2167,8 @@ function renderExHistory() {
     return `
       <div style="margin-bottom:32px;background:rgba(255,255,255,0.015);border:1px solid var(--border);border-radius:16px;padding:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;">
-           <div style="font-size:16px;font-weight:800;color:var(--accent);">${wkLabel}</div>
-           <div style="display:flex;gap:12px;font-size:12px;font-weight:600;background:var(--surface3);padding:6px 16px;border-radius:24px;border:1px solid var(--border);">
+           <div style="font-size:20px;font-weight:500;color:var(--accent);">${wkLabel}</div>
+           <div style="display:flex;gap:12px;font-size:16px;font-weight:500;background:var(--surface3);padding:6px 16px;border-radius:24px;border:1px solid var(--border);">
              ${soloStatus}
              <div style="width:1px;height:12px;background:var(--border);align-self:center;"></div>
              ${grpStatus}
@@ -1701,7 +2179,7 @@ function renderExHistory() {
       const et = getExType(e);
       const isGrp = isGroupEx(et);
       const st = { pending: '<span class="chip chip-pending">รออนุมัติ</span>', approved: '<span class="chip chip-approved">อนุมัติแล้ว</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' }[e.status] || '';
-      
+
       let tagStyle = 'background:var(--surface3);color:var(--text3);';
       if (et === 'solo') tagStyle = 'background:rgba(61,214,140,.15);color:var(--green);border:1px solid rgba(61,214,140,.2);';
       else if (et === 'group_ex') tagStyle = 'background:rgba(191,123,255,.15);color:var(--purple);border:1px solid rgba(191,123,255,.2);';
@@ -1712,20 +2190,20 @@ function renderExHistory() {
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                 <div style="flex:1;">
                   <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                    <span style="font-size:20px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
-                    <span style="font-size:15px;font-weight:700;color:var(--text);">${e.activity}</span>
-                    <span style="font-size:10px;font-weight:700;${tagStyle}padding:3px 10px;border-radius:6px;text-transform:uppercase;">${EX_LABEL[et]}</span>
+                    <span style="font-size:24px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
+                    <span style="font-size:19px;font-weight:700;color:var(--text);">${e.activity}</span>
+                    <span style="font-size:14px;font-weight:700;${tagStyle}padding:3px 10px;border-radius:6px;text-transform:uppercase;">${EX_LABEL[et]}</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                    <span style="opacity:0.7;">👤</span> ${e.email === cu.email ? 'คุณเป็นผู้ยื่น' : `เข้าร่วมกลุ่มของ: ${uName(e.email, e.name)}`}
+                  <div style="font-size:16px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                    <span style="opacity:0.7;"><i class="fa-solid fa-user"></i></span> ${e.email === cu.email ? 'คุณเป็นผู้ยื่น' : `เข้าร่วมกลุ่มของ: ${uName(e.email, e.name)}`}
                   </div>
-                  <div style="font-size:12px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;">
+                  <div style="font-size:16px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;">
                     <span style="opacity:0.7;">📅</span> ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
                     ${e.note ? ` <span style="opacity:0.3;">|</span> <span style="opacity:0.7;">💬</span> ${e.note}` : ''}
                   </div>
                 </div>
                 <div style="text-align:right;">
-                  <div style="font-size:16px;font-weight:800;color:var(--green);margin-bottom:6px;">฿${EX_REWARD[et]}</div>
+                  <div style="font-size:20px;font-weight:500;color:var(--green);margin-bottom:6px;">฿${EX_REWARD[et]}</div>
                   ${st}
                 </div>
               </div>
@@ -1738,7 +2216,11 @@ function renderExHistory() {
   }).join('');
 }
 
+window.onload = tryRestore;
+
 function openExModal() {
+  _editingExId = null;
+  resetExFormUI();
   openModal('modal-ex-form');
   setupExForm();
   document.getElementById('ex-name').value = cu.name;
