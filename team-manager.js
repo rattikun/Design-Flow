@@ -1050,6 +1050,9 @@ function updateQuota() {
         <div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:16px;">Cola — ไตรมาสนี้</div>
         <div style="font-size:17px;color:var(--text2);margin-bottom:6px;">แบบกลุ่ม</div>
         ${segBar(qGrp, colaThresh, 'var(--green)')}
+        <div style="font-size:15px;color:var(--text3);margin-top:10px;line-height:1.4;">
+          * ร่วมกิจกรรมให้ครบ รับเงิน 1,500/เดือน ในไตรมาสถัดไป
+        </div>
       </div>
       ${colaOk ? `
         <div style="margin-top:12px;display:flex;align-items:center;gap:6px;color:rgba(108,138,255,0.8);font-size:17px;">
@@ -1288,7 +1291,7 @@ function renderExR() {
 
   // ── Filter & Sort ────────────────────────────────────────────────────────
   const inMonth = all.filter(e => monthKey(e.date) === mk);
-  
+
   const sorted = [...inMonth].sort((a, b) => {
     if (_exReviewSort === 'week') {
       const wa = wkKey(a.date);
@@ -1366,16 +1369,16 @@ function renderExR() {
         <!-- Top Row: Name & Reward -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0px;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
-            <span style="font-size:16px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
-            <span style="background:#f5c842; color:#000; padding:1px 8px; border-radius:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Week ${wkNum}</span>
+            <span style="font-size:22px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
+            <span style="font-size:17px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
+            <span style="background:#f5c842; color:#000; padding:1px 8px; border-radius:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Week ${wkNum}</span>
           </div>
-          <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
+          <div style="font-size:22px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
         </div>
 
         <!-- Meta Row: Date -->
-        <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:15px; margin-bottom:12px; font-weight:500;">
-          <i class="fa-regular fa-calendar" style="font-size:14px;"></i>
+        <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:16px; margin-bottom:12px; font-weight:500;">
+          <i class="fa-regular fa-calendar" style="font-size:15px;"></i>
           <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </div>
 
@@ -2187,53 +2190,94 @@ function renderExHistory() {
     const soloStatus = wkSolo >= 2 ? '<span style="color:var(--green);">แบบเดี่ยว ครบ</span>' : `<span style="color:var(--text3);">แบบเดี่ยว ${wkSolo}/2</span>`;
     const grpStatus = wkGrp >= 1 ? '<span style="color:var(--purple);">แบบกลุ่ม ครบ</span>' : `<span style="color:var(--text3);">แบบกลุ่ม ${wkGrp}/1</span>`;
 
+    const wkSoloItems = items.filter(e => getExType(e) === 'solo');
+    const wkGrpItems = items.filter(e => isGroupEx(getExType(e)));
+
+    // Helper for history card
+    const renderHistCard = (e) => {
+      const et = getExType(e);
+      const reward = EX_REWARD[et] || 100;
+      const tcolor = et === 'solo' ? 'var(--green)' : et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
+
+      const allMembers = [
+        { email: e.email, name: e.name, kind: 'submitter' },
+        ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
+      ];
+
+      const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
+
+      const chips = allMembers.map(m => {
+        const isSub = m.kind === 'submitter';
+        const icon = isSub ? 'fa-crown' : 'fa-user';
+        const iconColor = isSub ? 'var(--yellow)' : '#b37fff';
+        return `
+          <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:3px 12px;border-radius:12px;font-size:15px;color:var(--text2);border:1px solid rgba(255,255,255,0.02);">
+            <i class="fa-solid ${icon}" style="color:${iconColor};font-size:13px;"></i>
+            <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
+          </div>`;
+      }).join('');
+
+      const statusCfg = e.status === 'approved'
+        ? { label: 'อนุมัติแล้ว', color: 'var(--green)', bg: 'var(--green-bg)', icon: 'fa-solid fa-circle-check' }
+        : e.status === 'rejected'
+          ? { label: 'ปฏิเสธ', color: 'var(--red)', bg: 'var(--red-bg)', icon: 'fa-solid fa-circle-xmark' }
+          : { label: 'รออนุมัติ', color: 'var(--yellow)', bg: 'var(--yellow-bg)', icon: 'fa-regular fa-clock' };
+
+      return `
+        <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; margin-bottom:12px; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
+              <span style="font-size:15px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
+              <div style="display:flex; align-items:center; gap:4px; background:${statusCfg.bg}; color:${statusCfg.color}; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase;">
+                <i class="${statusCfg.icon}"></i> ${statusCfg.label}
+              </div>
+            </div>
+            <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:15px; margin-bottom:8px; font-weight:500;">
+            <i class="fa-regular fa-calendar" style="font-size:14px;"></i>
+            <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${chips}
+            </div>
+            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail(${e.id})">
+                <i class="fa-solid fa-magnifying-glass" style="font-size:13px;"></i> รายละเอียด
+            </button>
+          </div>
+        </div>`;
+    };
+
     return `
-      <div style="margin-bottom:32px;background:rgba(255,255,255,0.015);border:1px solid var(--border);border-radius:16px;padding:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;">
-           <div style="font-size:20px;font-weight:500;color:var(--accent);">${wkLabel}</div>
-           <div style="display:flex;gap:12px;font-size:16px;font-weight:500;background:var(--surface3);padding:6px 16px;border-radius:24px;border:1px solid var(--border);">
+      <div style="margin-bottom:40px; border-top:1px solid rgba(255,255,255,0.05); padding-top:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:16px;">
+           <div style="font-size:22px;font-weight:700;color:var(--accent);">${wkLabel}</div>
+           <div style="display:flex;gap:12px;font-size:15px;font-weight:600;background:rgba(255,255,255,0.03);padding:8px 20px;border-radius:24px;border:1px solid rgba(255,255,255,0.03);">
              ${soloStatus}
-             <div style="width:1px;height:12px;background:var(--border);align-self:center;"></div>
+             <div style="width:1px;height:12px;background:rgba(255,255,255,0.1);align-self:center;"></div>
              ${grpStatus}
            </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          ${items.map(e => {
-      const et = getExType(e);
-      const isGrp = isGroupEx(et);
-      const st = { pending: '<span class="chip chip-pending">รออนุมัติ</span>', approved: '<span class="chip chip-approved">อนุมัติแล้ว</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' }[e.status] || '';
 
-      let tagStyle = 'background:var(--surface3);color:var(--text3);';
-      if (et === 'solo') tagStyle = 'background:rgba(61,214,140,.15);color:var(--green);border:1px solid rgba(61,214,140,.2);';
-      else if (et === 'group_ex') tagStyle = 'background:rgba(191,123,255,.15);color:var(--purple);border:1px solid rgba(191,123,255,.2);';
-      else if (et === 'group_eat') tagStyle = 'background:rgba(255,171,0,.15);color:var(--orange);border:1px solid rgba(255,171,0,.2);';
+        ${wkGrpItems.length ? `
+          <div style="margin-bottom:24px;">
+            <div style="font-size:16px; font-weight:700; color:#5a5e7a; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">แบบกลุ่ม</div>
+            ${wkGrpItems.map(renderHistCard).join('')}
+          </div>
+        ` : ''}
 
-      return `
-            <div class="card" style="margin-bottom:0;background:var(--surface2);border-color:var(--border);padding:14px 18px;cursor:pointer;transition:transform 0.1s;" onclick="viewExDetail(${e.id})" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-                <div style="flex:1;">
-                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                    <span style="font-size:24px;">${isGrp ? (et === 'group_ex' ? '🤸' : '🍽️') : '🏃'}</span>
-                    <span style="font-size:19px;font-weight:700;color:var(--text);">${e.activity}</span>
-                    <span style="font-size:14px;font-weight:700;${tagStyle}padding:3px 10px;border-radius:6px;text-transform:uppercase;">${EX_LABEL[et]}</span>
-                  </div>
-                  <div style="font-size:16px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                    <span style="opacity:0.7;"><i class="fa-solid fa-user"></i></span> ${e.email === cu.email ? 'คุณเป็นผู้ยื่น' : `เข้าร่วมกลุ่มของ: ${uName(e.email, e.name)}`}
-                  </div>
-                  <div style="font-size:16px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px;">
-                    <span style="opacity:0.7;">📅</span> ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
-                    ${e.note ? ` <span style="opacity:0.3;">|</span> <span style="opacity:0.7;">💬</span> ${e.note}` : ''}
-                  </div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-size:20px;font-weight:500;color:var(--green);margin-bottom:6px;">฿${EX_REWARD[et]}</div>
-                  ${st}
-                </div>
-              </div>
+        ${wkSoloItems.length ? `
+          <div>
+            <div style="font-size:16px; font-weight:700; color:#5a5e7a; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">แบบเดี่ยว</div>
+            <div class="review-grid">
+              ${wkSoloItems.map(renderHistCard).join('')}
             </div>
-          `;
-    }).join('')}
-        </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
