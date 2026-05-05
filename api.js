@@ -60,7 +60,61 @@ async function api(action, payload = {}) {
       return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
     }
 
-    // 2. FILE UPLOAD (Google Drive via Apps Script)
+    // 3. USERS (CRUD)
+    if (action === 'addUser') {
+      const res = await fetch(`${baseUrl}/users.json`, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: payload.email,
+          name: payload.name,
+          nickname: payload.nickname || '',
+          birthday: payload.birthday || '',
+          role: payload.role,
+          dept: payload.dept || '',
+          pass_hash: payload.pass,
+          added_by: payload.addedBy || '',
+          added_at: payload.addedAt || new Date().toISOString(),
+          location_type: payload.locationType || 'bkk'
+        })
+      });
+      return { ok: res.ok };
+    }
+
+    if (action === 'updateUser') {
+      const res = await fetch(`${baseUrl}/users.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].email && data[k].email.toLowerCase() === payload.email.toLowerCase());
+      if (key) {
+        const updateData = {
+          name: payload.name,
+          nickname: payload.nickname || '',
+          birthday: payload.birthday || '',
+          role: payload.role,
+          dept: payload.dept || '',
+          location_type: payload.locationType || 'bkk'
+        };
+        if (payload.pass) updateData.pass_hash = payload.pass;
+        const res2 = await fetch(`${baseUrl}/users/${key}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify(updateData)
+        });
+        return { ok: res2.ok };
+      }
+      return { ok: false, error: 'User not found' };
+    }
+
+    if (action === 'deleteUser') {
+      const res = await fetch(`${baseUrl}/users.json`);
+      const data = await res.json();
+      const key = Object.keys(data || {}).find(k => data[k].email && data[k].email.toLowerCase() === payload.email.toLowerCase());
+      if (key) {
+        const res2 = await fetch(`${baseUrl}/users/${key}.json`, { method: 'DELETE' });
+        return { ok: res2.ok };
+      }
+      return { ok: true };
+    }
+
+    // 4. FILE UPLOAD (Google Drive via Apps Script)
     if (action === 'uploadFile') {
       if (!APPS_SCRIPT_URL) {
         throw new Error('กรุณากำหนด APPS_SCRIPT_URL ใน api.js เพื่อใช้งานระบบอัปโหลดไฟล์');
