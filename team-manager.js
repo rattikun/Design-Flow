@@ -1236,8 +1236,10 @@ function resetExFormUI() {
 }
 let _exReviewMonth = null;
 let _exReviewTab = 'pending';
+let _exReviewSort = 'date';
 function setExReviewMonth(mk) { _exReviewMonth = mk; renderExR(); }
 function setExReviewTab(t) { _exReviewTab = t; renderExR(); }
+function setExReviewSort(s) { _exReviewSort = s; renderExR(); }
 
 function renderExR() {
   const wrap = document.getElementById('ex-review-container');
@@ -1284,9 +1286,18 @@ function renderExR() {
       <div style="background:rgba(255,255,255,0.05);padding:8px 16px;border-radius:12px;font-family:var(--mono);color:#9094b8;font-size:15px;border:1px solid rgba(255,255,255,0.02);">${rangeLabel}</div>
     </div>`;
 
-  // ── Filter to selected month ─────────────────────────────────────────────
+  // ── Filter & Sort ────────────────────────────────────────────────────────
   const inMonth = all.filter(e => monthKey(e.date) === mk);
-  const sorted = [...inMonth].sort((a, b) => new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date));
+  
+  const sorted = [...inMonth].sort((a, b) => {
+    if (_exReviewSort === 'week') {
+      const wa = wkKey(a.date);
+      const wb = wkKey(b.date);
+      if (wa !== wb) return wb.localeCompare(wa); // Newer weeks first
+    }
+    // Default or within same week: Sort by submission date (newest first)
+    return new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date);
+  });
 
   // Build Week Options for calculation
   const weekOpts = [];
@@ -1339,11 +1350,12 @@ function renderExR() {
 
     const chips = allMembers.map(m => {
       const isSub = m.kind === 'submitter';
+      const icon = isSub ? 'fa-crown' : 'fa-user';
+      const iconColor = isSub ? 'var(--yellow)' : '#b37fff';
       return `
         <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:3px 12px;border-radius:12px;font-size:14px;color:var(--text2);border:1px solid rgba(255,255,255,0.02);">
-          <i class="fa-solid fa-user" style="color:#b37fff;font-size:12px;"></i>
+          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:12px;"></i>
           <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-          ${isSub ? '<i class="fa-regular fa-star" style="font-size:11px;color:var(--accent);margin-left:4px;"></i>' : ''}
         </div>`;
     }).join('');
 
@@ -1439,15 +1451,28 @@ function renderExR() {
   const apprSolo = approved.filter(e => !isGroupEx(getExType(e)));
 
   const tabsHtml = `
-    <div style="display:flex; gap:12px; margin-bottom:24px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03);">
-      <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">
-        <i class="fa-solid fa-hourglass-half" style="font-size:15px;"></i> รออนุมัติ
-        <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${pending.length}</span>
-      </button>
-      <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">
-        <i class="fa-solid fa-circle-check" style="font-size:15px;"></i> อนุมัติแล้ว
-        <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${approved.length}</span>
-      </button>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
+      <div style="display:flex; gap:12px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03); flex:1; min-width:300px;">
+        <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">
+          <i class="fa-solid fa-hourglass-half" style="font-size:15px;"></i> รออนุมัติ
+          <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${pending.length}</span>
+        </button>
+        <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">
+          <i class="fa-solid fa-circle-check" style="font-size:15px;"></i> อนุมัติแล้ว
+          <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${approved.length}</span>
+        </button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.02);padding:8px 16px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);height:62px;">
+        <div style="width:32px;height:32px;background:rgba(255,255,255,0.05);color:var(--text3);display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;"><i class="fa-solid fa-arrow-down-wide-short"></i></div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">เรียงตาม</div>
+          <select onchange="setExReviewSort(this.value)" style="background:transparent;border:none;color:#fff;font-size:15px;font-weight:600;padding:0;cursor:pointer;outline:none;font-family:inherit;">
+            <option value="date" ${_exReviewSort === 'date' ? 'selected' : ''} style="background:#1a1c26;color:#fff;">วันที่ล่าสุด</option>
+            <option value="week" ${_exReviewSort === 'week' ? 'selected' : ''} style="background:#1a1c26;color:#fff;">ตามสัปดาห์</option>
+          </select>
+        </div>
+      </div>
     </div>
   `;
 
@@ -1549,9 +1574,9 @@ function renderExShare() {
     const memberChips = allMembers.map(m => {
       const isSubmitter = m.kind === 'submitter';
       const isMe = m.email === cu.email && (isSubmitter || m.kind === 'sys');
-      const u = getUsers().find(x => x.email === m.email) || {};
-      const char = (m.name || '?')[0].toUpperCase();
-      const color = u.nickname ? `hsl(${m.name.length * 40 % 360}, 70%, 70%)` : 'var(--text3)';
+
+      const icon = isSubmitter ? 'fa-crown' : 'fa-user';
+      const iconColor = isSubmitter ? 'var(--yellow)' : '#b37fff';
 
       const bg = isMe ? 'rgba(77, 111, 255, 0.15)' : 'var(--surface3)';
       const border = isMe ? '1px solid rgba(77, 111, 255, 0.07)' : '1px solid var(--border)';
@@ -1559,11 +1584,10 @@ function renderExShare() {
 
       return `
         <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 10px 4px 8px;border-radius:30px;font-size:14px;color:${fg};">
-          <i class="fa-solid fa-user" style="color:${color};font-size:12px;opacity:0.9;"></i>
+          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:12px;"></i>
           <div style="white-space:nowrap;">
             <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
             <span style="font-size:11px;opacity:0.6;margin-left:2px;">${m.dept || ''}</span>
-            ${isSubmitter ? '<i class="fa-regular fa-star" style="font-size:10px;margin-left:4px;color:var(--accent);"></i>' : ''}
           </div>
           ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup(${e.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;">✕</button>` : ''}
         </div>`;
@@ -1607,7 +1631,7 @@ function renderExShare() {
         <!-- Members Section -->
         <div style="margin-top:10px;">
           <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">ผู้เข้าร่วม</div>
-          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
             ${memberChips}
           </div>
         </div>
@@ -1931,9 +1955,9 @@ function viewExDetail(id) {
     </div>
 
     <!-- Submitter Card -->
-    <div style="background:rgba(255,255,255,0.02);padding:16px;border-radius:20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-      <div style="width:48px;height:48px;color:#b37fff;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;">
-        <i class="fa-solid fa-user"></i>
+    <div style="background:rgba(255,255,255,0.02);padding:12px;border-radius:20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <div style="width:48px;height:48px;color:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;">
+        <i class="fa-solid fa-crown"></i>
       </div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:20px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">
@@ -1946,20 +1970,19 @@ function viewExDetail(id) {
 
     <!-- Members Section -->
     <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
         <span style="font-size:16px;font-weight:700;color:#5a5e7a;">สมาชิกทั้งหมด</span>
         <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allMembers.length}</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:12px;">
-        ${allMembers.map(m => {
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+         ${allMembers.map(m => {
     const isSubmitter = m.kind === 'submitter';
-    const isMe = m.email === cu.email;
-    const color = isMe ? '#6c8aff' : '#9094b8';
+    const icon = isSubmitter ? 'fa-crown' : 'fa-user';
+    const iconColor = isSubmitter ? 'var(--yellow)' : '#b37fff';
     return `
-            <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);padding:2px 16px;border-radius:14px;font-size:16px;color:${color};">
-              <i class="fa-solid fa-user" style="font-size:16px;color:#b37fff;"></i>
+            <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.03);padding:2px 10px;border-radius:14px;font-size:16px;color:#fff;">
+              <i class="fa-solid ${icon}" style="font-size:16px;color:${iconColor};"></i>
               <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-              ${isSubmitter ? '<i class="fa-regular fa-star" style="font-size:14px;margin-left:4px;color:#6c8aff;"></i>' : ''}
             </div>`;
   }).join('')}
       </div>
@@ -1967,20 +1990,20 @@ function viewExDetail(id) {
 
     <!-- Evidence Section -->
     <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
         <span style="font-size:16px;font-weight:700;color:#5a5e7a;">หลักฐาน</span>
         <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allLinks.length}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;">
         ${allLinks.map((link, idx) => `
-          <a href="${link.url}" target="_blank" style="text-decoration:none;background:rgba(255,255,255,0.01);padding:14px;border-radius:24px;display:flex;align-items:center;justify-content:space-between;color:#fff;border:1px solid rgba(255,255,255,0.01);">
+          <a href="${link.url}" target="_blank" style="text-decoration:none;background:rgba(255,255,255,0.01);padding:5px 10px;border-radius:24px;display:flex;align-items:center;justify-content:space-between;color:#fff;border:1px solid rgba(255,255,255,0.01);">
             <div style="display:flex;align-items:center;gap:20px;">
               <div style="width:56px;height:44px;border-radius:12px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;">
                 <i class="fa-solid fa-circle-play"></i>
               </div>
               <div>
-                <div style="font-weight:700;font-size:20px;">หลักฐาน #${idx + 1}</div>
-                <div style="font-size:14px;color:#5a5e7a;margin-top:4px;">Tog ${link.addedBy || 'Member'}</div>
+                <div style="font-weight:700;font-size:20px; line-height:1.2;">หลักฐาน #${idx + 1}</div>
+                <div style="font-size:14px;color:#5a5e7a;margin-top:0px;">Tog ${link.addedBy || 'Member'}</div>
               </div>
             </div>
             <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:20px;color:#5a5e7a;opacity:0.6;"></i>
