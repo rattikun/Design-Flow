@@ -303,6 +303,35 @@ function delMember(email) {
   closeModal('modal-confirm'); renderMembers(); toast('🗑️ ลบสมาชิกเรียบร้อย');
 }
 
+// ══ CHANGE PASSWORD ══════════════════════
+function openChangePass() {
+  document.getElementById('cp-old').value = '';
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-confirm').value = '';
+  document.getElementById('cp-err').style.display = 'none';
+  openModal('modal-change-pass');
+}
+async function doChangePass() {
+  const old = document.getElementById('cp-old').value, n1 = document.getElementById('cp-new').value, n2 = document.getElementById('cp-confirm').value;
+  const err = document.getElementById('cp-err');
+  if (!old || !n1 || !n2) { err.textContent = '⚠️ กรุณากรอกข้อมูลให้ครบ'; err.style.display = 'block'; return; }
+  if (hp(old) !== cu.pass) { err.textContent = '⚠️ รหัสผ่านเดิมไม่ถูกต้อง'; err.style.display = 'block'; return; }
+  if (n1.length < 6) { err.textContent = '⚠️ รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร'; err.style.display = 'block'; return; }
+  if (n1 !== n2) { err.textContent = '⚠️ ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'; err.style.display = 'block'; return; }
+  
+  err.style.display = 'none';
+  const newHash = hp(n1);
+  const res = await apiSync('updateUser', { email: cu.email, pass: newHash });
+  if (res.ok) {
+    cu.pass = newHash;
+    const users = getUsers(), idx = users.findIndex(u => u.email === cu.email);
+    if (idx >= 0) { users[idx].pass = newHash; saveUsers(users); }
+    closeModal('modal-change-pass'); toast('✅ เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+  } else {
+    err.textContent = '⚠️ ' + (res.error || 'เกิดข้อผิดพลาดในการเชื่อมต่อ'); err.style.display = 'block';
+  }
+}
+
 // ══ LEAVE FORM ═══════════════════════════
 function onLeaveChange() {
   const type = document.getElementById('leave-type').value;
@@ -693,21 +722,18 @@ function updateExSysMemberSelect() {
   const allUsers = getUsers();
   const today = document.getElementById('ex-date')?.value || new Date().toISOString().split('T')[0];
   const mk = monthKey(today);
-  const wk = wkKey(today);
   const es = getExs();
 
-  let available = allUsers.filter(u => u.email !== cu.email);
+  // Sort by name
+  let available = allUsers.filter(u => u.email !== cu.email).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
-  const exType = document.getElementById('ex-type')?.value || 'solo';
-  if (isGroupEx(exType)) {
-    available = available.filter(u => {
-      const uMoGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
-      const uWkGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
-      return uMoGrp < 4 && uWkGrp < 1;
-    });
-  }
-
-  sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => '<option value="' + u.email + '">' + u.name + ' (' + u.email + ')</option>').join('');
+  sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
+    const uMoGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
+    const nick = u.nickname || u.name.split(' ')[0];
+    const dept = u.dept ? ` (${u.dept})` : '';
+    const isFull = uMoGrp >= 4;
+    return `<option value="${u.email}" ${isFull ? 'disabled style="color:var(--text3)"' : ''}>${nick}${dept}${isFull ? ' (เต็ม)' : ''}</option>`;
+  }).join('');
 }
 
 function setupExForm() {
@@ -720,7 +746,9 @@ function addExSysMember() {
   const email = sel.value; if (!email) return;
   const u = getUsers().find(x => x.email === email); if (!u) return;
   if (!exMembers.find(m => m.type === 'sys' && m.email === email)) {
-    exMembers.push({ id: 'sys_' + email, type: 'sys', email, name: u.name });
+    const nick = u.nickname || u.name.split(' ')[0];
+    const dept = u.dept ? ` (${u.dept})` : '';
+    exMembers.push({ id: 'sys_' + email, type: 'sys', email, name: u.name, displayName: `${nick}${dept}` });
     renderExMembers();
   }
   sel.value = '';
@@ -742,76 +770,13 @@ function removeExMember(id) {
 function renderExMembers() {
   const el = document.getElementById('ex-member-list'); if (!el) return;
   if (!exMembers.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>'; return; }
-  el.innerHTML = exMembers.map(m => '<span class="chip" style="background:var(--surface3);border:1px solid var(--border);padding-right:6px;margin-bottom:4px;">' + (m.type === 'sys' ? '👤' : '👤(นอก) ') + m.name + ' <button onclick="removeExMember(\'' + m.id + '\')" style="background:none;border:none;color:var(--red);margin-left:6px;cursor:pointer;">✕</button></span>').join('');
+  el.innerHTML = exMembers.map(m => {
+    const label = m.displayName || m.name;
+    return '<span class="chip" style="background:var(--surface3);border:1px solid var(--border);padding-right:6px;margin-bottom:4px;">' + (m.type === 'sys' ? '👤' : '👤(นอก) ') + label + ' <button onclick="removeExMember(\'' + m.id + '\')" style="background:none;border:none;color:var(--red);margin-left:6px;cursor:pointer;">✕</button></span>';
+  }).join('');
 }
-async function handleExDoc(input) {
-  const f = input.files[0]; if (!f) return;
-  const label = document.getElementById('ex-doc-text'), box = document.getElementById('ex-doc-box');
-  
-  const maxSize = 35 * 1024 * 1024; // 35MB
-  if (f.size > maxSize) {
-    toast('⚠️ ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 35MB)');
-    input.value = '';
-    label.textContent = 'คลิกแนบไฟล์วิดีโอ (VDO) ไม่เกิน 35MB';
-    label.style.color = 'var(--text3)';
-    box.style.borderColor = 'var(--border2)';
-    return;
-  }
-
-  label.textContent = '⏳ กำลังอัปโหลดวิดีโอ...';
-  label.style.color = 'var(--accent)';
-  box.style.borderColor = 'var(--accent)';
-
-  // แสดง Progress Bar แบบจำลอง
-  const progContainer = document.getElementById('ex-upload-progress-container');
-  const progBar = document.getElementById('ex-upload-progress-bar');
-  const progText = document.getElementById('ex-upload-progress-text');
-  progContainer.style.display = 'block';
-  
-  let progress = 0;
-  const interval = setInterval(() => {
-    if (progress < 90) {
-      progress += Math.random() * 10;
-      if (progress > 90) progress = 90;
-      progBar.style.width = progress + '%';
-      progText.textContent = Math.round(progress) + '%';
-    }
-  }, 400);
-
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const res = await api('uploadFile', {
-        action: 'uploadFile',
-        fileName: f.name,
-        mimeType: f.type,
-        base64: e.target.result
-      });
-      if (res.ok && res.url) {
-        clearInterval(interval);
-        progBar.style.width = '100%';
-        progText.textContent = '100%';
-        
-        label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
-        label.style.color = 'var(--green)';
-        box.style.borderColor = 'var(--green)';
-        input.dataset.url = res.url;
-        toast('✅ อัปโหลดวิดีโอไปที่ Google Drive เรียบร้อย');
-      } else {
-        throw new Error(res.error || 'Upload failed');
-      }
-    } catch (err) {
-      clearInterval(interval);
-      label.textContent = '❌ อัปโหลดล้มเหลว';
-      label.style.color = 'var(--red)';
-      box.style.borderColor = 'var(--red)';
-      toast('❌ ไม่สามารถอัปโหลดวิดีโอได้: ' + err.message);
-    } finally {
-      setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
-    }
-  };
-  reader.readAsDataURL(f);
-}
+// handleExDoc is deprecated as we moved to link-only submission
+function handleExDoc(input) {}
 // week starts Sunday, cuts on Saturday
 function wkKey(d) { const dt = new Date(d), s = new Date(dt); s.setDate(dt.getDate() - dt.getDay()); return s.toISOString().split('T')[0]; }
 // monthly cycle cuts on 18th: day 1-18 belongs to prev period
@@ -925,14 +890,17 @@ function updateQuota() {
   if (!warn) return;
   const btnSubmit = document.getElementById('btn-submit-ex');
   if (exType === 'solo') {
-    if (wkSolo >= wkLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว (${wkLimit} ครั้ง/${locLabel})`; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
+    if (wkSolo >= wkLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว (${wkLimit} ครั้ง/${locLabel}) — แต่ยังสามารถยื่นย้อนหลังได้หากโควต้ารายเดือนยังไม่เต็ม`; warn.style.display = 'block'; }
     else if (moSolo >= moLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวเดือนนี้เต็มแล้ว (${moLimit} ครั้ง/${locLabel})`; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
     else { warn.style.display = 'none'; if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   } else {
-    if (wkGrp >= 1) { warn.textContent = '⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้เต็มแล้ว (1 ครั้ง)'; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
+    if (wkGrp >= 1) { warn.textContent = '⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้เต็มแล้ว (1 ครั้ง) — แต่ยังสามารถยื่นย้อนหลังได้หากโควต้ารายเดือนยังไม่เต็ม'; warn.style.display = 'block'; }
     else if (moGrp >= 4) { warn.textContent = '⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้เต็มแล้ว (4 ครั้ง)'; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
     else { warn.style.display = 'none'; if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   }
+  // Re-enable button if monthly is not full
+  if (exType === 'solo' && moSolo < moLimit) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
+  if (exType !== 'solo' && moGrp < 4) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   updateExSysMemberSelect();
   renderExHistory();
 }
@@ -945,9 +913,8 @@ function submitEx() {
     const date = document.getElementById('ex-date').value;
     const note = document.getElementById('ex-note').value.trim();
     const link = document.getElementById('ex-link').value.trim();
-    const doc = document.getElementById('ex-doc').files[0];
     
-    console.log('Submitting Ex:', { exType, act, date, link, hasDoc: !!doc });
+    console.log('Submitting Ex:', { exType, act, date, link });
     
     clearExErr();
     const elSucc = document.getElementById('ex-success'); if (elSucc) elSucc.style.display = 'none';
@@ -955,7 +922,7 @@ function submitEx() {
     const missing = [];
     if (!act) missing.push('กิจกรรม (เช่น วิ่ง 5km)');
     if (!date) missing.push('วันที่');
-    if (!link && !doc) missing.push('หลักฐาน (ลิงก์หรือไฟล์)');
+    if (!link) missing.push('หลักฐาน (ลิงก์)');
     if (missing.length) { 
       showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• ')); 
       return; 
@@ -966,16 +933,12 @@ function submitEx() {
     const all = getExs();
 
     if (exType === 'solo') {
-      const wkLimit = isBkk ? 2 : 3, moLimit = isBkk ? 8 : 12;
+      const moLimit = isBkk ? 8 : 12;
       const locLabel = isBkk ? 'กทม.' : 'ต่างจว.';
-      const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
       const moSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && monthKey(e.date) === mk).length;
-      if (wkSolo >= wkLimit) { showExErr(`⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${wkLimit} ครั้ง/สัปดาห์ (ใช้ไปแล้ว ${wkSolo} ครั้ง)`); return; }
       if (moSolo >= moLimit) { showExErr(`⚠️ โควต้าเดี่ยวเดือนนี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${moLimit} ครั้ง/เดือน (ใช้ไปแล้ว ${moSolo} ครั้ง)`); return; }
     } else {
-      const wkGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && wkKey(e.date) === wk).length;
       const moGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && monthKey(e.date) === mk).length;
-      if (wkGrp >= 1) { showExErr(`⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้เต็มแล้ว<br>สูงสุด 1 ครั้ง/สัปดาห์ (รวมทุกประเภทกลุ่ม) ใช้ไปแล้ว ${wkGrp} ครั้ง`); return; }
       if (moGrp >= 4) { showExErr(`⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้เต็มแล้ว<br>สูงสุด 4 ครั้ง/เดือน (รวมทุกประเภทกลุ่ม) ใช้ไปแล้ว ${moGrp} ครั้ง`); return; }
     }
 

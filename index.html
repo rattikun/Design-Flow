@@ -1027,7 +1027,7 @@
     <aside class="sidebar">
       <div class="logo">
         <div class="logo-title">&#x2B21; Design Flow</div>
-        <div class="logo-sub">v2.1 — ระบบจัดการทีม</div>
+        <div class="logo-sub">v2.2 — ระบบจัดการทีม</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ภาพรวม</div>
@@ -1087,6 +1087,9 @@
               —</div>
           </div>
         </div>
+        <button class="logout-btn" onclick="openChangePass()"
+          style="margin-top:12px; color:var(--text2); border-color:var(--surface3);"><i class="fa-solid fa-key"
+            style="margin-right:6px; font-size:10px;"></i> เปลี่ยนรหัสผ่าน</button>
         <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
       </div>
     </aside>
@@ -1098,7 +1101,7 @@
           <i class="fa-solid fa-bars"></i>
           <span style="font-size: 16px; font-weight: 700; color: var(--accent);">Design Flow</span>
         </button>
-        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.1</div>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--text3);">v2.2</div>
       </div>
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page active">
@@ -1645,6 +1648,35 @@
         <button class="btn btn-ghost" onclick="closeModal('modal-ex-form')">ยกเลิก</button>
         <button id="btn-submit-ex" class="btn btn-primary" onclick="submitEx()"><i class="fa-solid fa-circle-plus"
             style="margin-right:6px;"></i> ยื่นเบิกใหม่</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Change Password -->
+  <div class="modal-overlay" id="modal-change-pass">
+    <div class="modal" style="max-width: 400px;">
+      <button class="modal-close" onclick="closeModal('modal-change-pass')">✕</button>
+      <div class="modal-title"><i class="fa-solid fa-key"
+          style="margin-right:8px; color:var(--accent);"></i>เปลี่ยนรหัสผ่าน</div>
+      <div class="form-grid" style="grid-template-columns: 1fr;">
+        <div class="form-group">
+          <label>รหัสผ่านเดิม</label>
+          <input type="password" id="cp-old" placeholder="กรอกรหัสผ่านปัจจุบัน" />
+        </div>
+        <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
+        <div class="form-group">
+          <label>รหัสผ่านใหม่</label>
+          <input type="password" id="cp-new" placeholder="อย่างน้อย 6 ตัวอักษร" />
+        </div>
+        <div class="form-group">
+          <label>ยืนยันรหัสผ่านใหม่</label>
+          <input type="password" id="cp-confirm" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
+        </div>
+      </div>
+      <div id="cp-err" class="danger-box" style="display:none; margin-top:16px;"></div>
+      <div class="modal-actions" style="margin-top:24px;">
+        <button class="btn btn-ghost" onclick="closeModal('modal-change-pass')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="doChangePass()">บันทึกรหัสใหม่</button>
       </div>
     </div>
   </div>
