@@ -1365,7 +1365,7 @@ function renderExR() {
     const indicatorColor = showApproveBtn === 'pending' ? 'var(--yellow)' : 'var(--green)';
 
     return `
-      <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; margin-bottom:12px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+      <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
         <!-- Top Row: Name & Reward -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0px;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -1442,7 +1442,7 @@ function renderExR() {
     return `
       <div style="margin-bottom:32px;">
         <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div>
-        <div class="${isGrid ? 'review-grid' : ''}">
+        <div class="${isGrid ? 'review-grid' : 'group-grid'}">
           ${items.map(e => renderRow(e, showApprove)).join('')}
         </div>
       </div>`;
@@ -2224,13 +2224,17 @@ function renderExHistory() {
           : { label: 'รออนุมัติ', color: 'var(--yellow)', bg: 'var(--yellow-bg)', icon: 'fa-regular fa-clock' };
 
       return `
-        <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; margin-bottom:12px; position:relative;">
+        <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
-              <span style="font-size:15px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
-              <div style="display:flex; align-items:center; gap:4px; background:${statusCfg.bg}; color:${statusCfg.color}; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase;">
-                <i class="${statusCfg.icon}"></i> ${statusCfg.label}
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; align-items:center; gap:4px; background:${et === 'solo' ? 'rgba(61, 214, 140, 0.12)' : 'rgba(179, 127, 255, 0.12)'}; color:${et === 'solo' ? 'var(--green)' : 'var(--purple)'}; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; border:1px solid ${et === 'solo' ? 'rgba(61, 214, 140, 0.2)' : 'rgba(179, 127, 255, 0.2)'};">
+                  ${et === 'solo' ? '<i class="fa-solid fa-user" style="font-size:10px;"></i> เดี่ยว' : '<i class="fa-solid fa-users" style="font-size:10px;"></i> กลุ่ม'}
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; background:${statusCfg.bg}; color:${statusCfg.color}; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; border:1px solid ${statusCfg.color}33;">
+                  <i class="${statusCfg.icon}"></i> ${statusCfg.label}
+                </div>
               </div>
             </div>
             <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
@@ -2265,14 +2269,14 @@ function renderExHistory() {
 
         ${wkGrpItems.length ? `
           <div style="margin-bottom:24px;">
-            <div style="font-size:16px; font-weight:700; color:#5a5e7a; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">แบบกลุ่ม</div>
-            ${wkGrpItems.map(renderHistCard).join('')}
+            <div class="group-grid">
+              ${wkGrpItems.map(renderHistCard).join('')}
+            </div>
           </div>
         ` : ''}
 
         ${wkSoloItems.length ? `
           <div>
-            <div style="font-size:16px; font-weight:700; color:#5a5e7a; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">แบบเดี่ยว</div>
             <div class="review-grid">
               ${wkSoloItems.map(renderHistCard).join('')}
             </div>
