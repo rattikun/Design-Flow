@@ -963,7 +963,7 @@ function submitEx() {
     okBtn.textContent = 'ยืนยันยื่นเบิก';
     okBtn.className = 'btn btn-primary';
     okBtn.onclick = () => {
-      doSubmitEx({ exType, act, date, note, link, doc, isGrp: isGroupEx(exType) });
+      doSubmitEx({ exType, act, date, note, link, isGrp: isGroupEx(exType) });
       closeModal('modal-confirm');
     };
     openModal('modal-confirm');
