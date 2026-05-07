@@ -219,7 +219,7 @@ function showPage(id) {
 // ══ INIT ═════════════════════════════════
 function initApp() {
   const t = new Date().toISOString().split('T')[0];
-  ['leave-start', 'leave-end', 'ex-date'].forEach(id => document.getElementById(id).value = t);
+  ['leave-start', 'leave-end', 'ex-date'].forEach(id => setVal(id, t));
   document.getElementById('leave-name').value = cu.name;
   document.getElementById('ex-name').value = cu.name;
   document.getElementById('bal-year').textContent = new Date().getFullYear();
@@ -229,6 +229,7 @@ function initApp() {
   eid = es.length ? Math.max(...es.map(e => e.id)) + 1 : 1;
   setupLeaveFormForRole();
   setupExForm();
+  initDatePickers();
   updateDashboard(); updateBadges(); updateQuota();
 }
 
@@ -236,8 +237,8 @@ function openLeaveModal() {
   setupLeaveFormForRole();
   clearLeaveForm();
   const t = new Date().toISOString().split('T')[0];
-  document.getElementById('leave-start').value = t;
-  document.getElementById('leave-end').value = t;
+  setVal('leave-start', t);
+  setVal('leave-end', t);
   openModal('modal-leave');
 }
 
@@ -250,6 +251,36 @@ function setupLeaveFormForRole() {
     sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
   }
+}
+
+function initDatePickers() {
+  const common = {
+    locale: 'th',
+    dateFormat: 'Y-m-d',
+    disableMobile: "true",
+    static: true, // Make calendar follow the input in scrolling containers
+    nextArrow: '<i class="fa-solid fa-chevron-right"></i>',
+    prevArrow: '<i class="fa-solid fa-chevron-left"></i>'
+  };
+
+  flatpickr('#leave-start', common);
+  flatpickr('#leave-end', common);
+  flatpickr('#new-birth', common);
+  flatpickr('#edit-birth', common);
+  flatpickr('#ex-date', {
+    ...common,
+    onChange: function(selectedDates, dateStr, instance) {
+      updateQuota();
+      clearExErr();
+    }
+  });
+}
+
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val;
+  if (el._flatpickr) el._flatpickr.setDate(val, false);
 }
 
 // ══ MEMBER MANAGEMENT ════════════════════
@@ -271,7 +302,7 @@ function renderMembers() {
     </tr>`).join('');
 }
 function openAddMember() {
-  ['new-name', 'new-nickname', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => document.getElementById(id).value = '');
+  ['new-name', 'new-nickname', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
   document.getElementById('new-role').value = 'junior';
   document.getElementById('add-err').style.display = 'none';
   openModal('modal-add');
@@ -296,7 +327,7 @@ function openEdit(email) {
   document.getElementById('edit-key').value = email;
   document.getElementById('edit-name').value = u.name;
   document.getElementById('edit-nickname').value = u.nickname || '';
-  document.getElementById('edit-birth').value = u.birthday || '';
+  setVal('edit-birth', u.birthday || '');
   document.getElementById('edit-email').value = u.email;
   document.getElementById('edit-pass').value = '';
   document.getElementById('edit-role').value = u.role;
@@ -926,7 +957,9 @@ function setQuotaDate(d) {
 function updateQuota() {
   const loc = cu.locationType || 'bkk';
   const isBkk = loc === 'bkk';
-  const vDate = quotaViewDate;
+  const exDateInput = document.getElementById('ex-date');
+  const isModalOpen = document.getElementById('modal-ex-form')?.classList.contains('open');
+  const vDate = (isModalOpen && exDateInput?.value) ? exDateInput.value : quotaViewDate;
   let wk = wkKey(vDate);
   const mk = monthKey(vDate), qk = quarterKey(vDate);
   const [moY, moM] = mk.split('-').map(Number);
@@ -1136,7 +1169,7 @@ function submitEx() {
     const reward = EX_REWARD[exType] || 100;
     const sysCount = isGroupEx(exType) ? exMembers.filter(m => m.type === 'sys').length : 0;
     const count = 1 + sysCount;
-    const total = reward * count;
+    const total = reward;
     const summary = `
       <div style="margin-bottom:12px;padding:12px;background:var(--surface3);border-radius:8px;border:1px solid var(--border);">
         <div style="font-size:16px;color:var(--text3);margin-bottom:4px;">ข้อมูลการยื่นเบิก</div>
@@ -1144,7 +1177,7 @@ function submitEx() {
         <div style="margin-top:8px;"><b>กิจกรรม:</b> ${act}</div>
         <div><b>วันที่:</b> ${date}</div>
         ${isGroupEx(exType) ? `<div><b>สมาชิก:</b> ${count} คน (รวมคุณ)</div>` : ''}
-        <div style="margin-top:8px;font-size:22px;color:var(--green);font-weight:500;">ยอดเงินรางวัล: ฿${total}</div>
+        <div style="margin-top:8px;font-size:22px;color:var(--green);font-weight:500;">ยอดเงินรางวัล (ส่วนตัว): ฿${total}</div>
       </div>
       <div style="font-size:17px;color:var(--text2);">กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนกดยืนยัน</div>
     `;
@@ -1373,7 +1406,7 @@ function renderExR() {
             <span style="font-size:17px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
             <span style="background:#f5c842; color:#000; padding:1px 8px; border-radius:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Week ${wkNum}</span>
           </div>
-          <div style="font-size:22px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
+          <div style="font-size:22px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${reward.toLocaleString()}</div>
         </div>
 
         <!-- Meta Row: Date -->
@@ -2066,7 +2099,7 @@ function editEx(id) {
   document.getElementById('ex-name').value = e.name || cu.name;
   document.getElementById('ex-type').value = e.exType || 'solo';
   document.getElementById('ex-act').value = e.activity || '';
-  document.getElementById('ex-date').value = e.date || '';
+  setVal('ex-date', e.date || '');
   document.getElementById('ex-note').value = e.note || '';
   document.getElementById('ex-link').value = e.proofLink || e.proofDoc || '';
 
@@ -2237,7 +2270,7 @@ function renderExHistory() {
                 </div>
               </div>
             </div>
-            <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${(reward * count).toLocaleString()}</div>
+            <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${reward.toLocaleString()}</div>
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:15px; margin-bottom:8px; font-weight:500;">
@@ -2296,6 +2329,6 @@ function openExModal() {
   setupExForm();
   document.getElementById('ex-name').value = cu.name;
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('ex-date').value = today;
+  setVal('ex-date', today);
   updateQuota();
 }
