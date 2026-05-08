@@ -7,7 +7,7 @@ const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.
 // [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
-const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook-test/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
+const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 
 const API_STATE = {
   online: true,
