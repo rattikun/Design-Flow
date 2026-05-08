@@ -316,7 +316,7 @@
     @media (max-width: 900px) {
       .sidebar {
         position: fixed;
-        left: -260px;
+        left: -290px;
         z-index: 1100;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
@@ -544,7 +544,8 @@
       border-radius: 20px !important;
       padding: 12px 6px !important;
       font-family: inherit !important;
-      width: 324px !important; /* Fixed width to prevent cutting off Sunday */
+      width: 324px !important;
+      /* Fixed width to prevent cutting off Sunday */
     }
 
     .flatpickr-day {
@@ -1394,16 +1395,15 @@
             <div class="page-title">วันลาของทีม</div>
             <div class="page-sub">// ปี <span id="bal-year"></span></div>
           </div>
-          <div id="pm-reset-wrap" style="display:none;"><button class="btn btn-ghost btn-sm"
-              onclick="confirmReset()">&#x1F504; รีเซตประจำปี</button></div>
+          <div id="pm-reset-wrap" style="display:none; gap:10px;">
+            <button class="btn btn-ghost btn-sm" onclick="openTeamQuotaModal()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-users-gear"></i> ปรับโควต้าทั้งทีม</button>
+            <button class="btn btn-ghost btn-sm" onclick="confirmReset()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-rotate"></i> รีเซตประจำปี</button>
+          </div>
         </div>
-        <div id="bal-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div id="bal-tabs" style="margin-bottom:24px;"></div>
         <div id="bal-nodata" class="card" style="display:none;"></div>
         <div id="bal-overview"></div>
-        <div
-          style="font-size:17px;font-weight:500;color:var(--text2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:none;"
-          id="bal-detail-label">&#x25C9; รายละเอียดรายคน</div>
-        <div id="bal-content"></div>
+
       </div>
 
       <!-- MY BALANCE (member view) -->
@@ -1697,6 +1697,46 @@
       <div class="modal-actions" id="edit-modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-edit')">ยกเลิก</button>
         <button class="btn btn-primary" onclick="saveMember()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT QUOTA -->
+  <div class="modal-overlay" id="modal-quota">
+    <div class="modal" style="width:100%;max-width:620px; padding:32px; border-radius:24px; background:#1a1c26;">
+      <div class="modal-header" style="margin-bottom:24px;">
+        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-pen-to-square" style="margin-right:10px; color:var(--yellow);"></i>แก้ไขโควต้าวันลา</div>
+        <button class="modal-close" onclick="closeModal('modal-quota')">✕</button>
+      </div>
+      <div style="margin-bottom:24px; padding:16px; background:rgba(255,255,255,0.03); border-radius:16px;">
+        <div id="quota-target-name" style="font-size:22px; font-weight:700; color:#fff;">—</div>
+        <div id="quota-target-email" style="font-size:16px; color:var(--text3); font-family:var(--mono);">—</div>
+      </div>
+      <div id="quota-modal-body" style="display:flex; flex-direction:column; gap:20px;">
+        <!-- Dynamic quota inputs here -->
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
+        <button class="btn btn-ghost" onclick="closeModal('modal-quota')" style="height:54px; padding:0 24px; font-weight:700; border:none; background:rgba(255,255,255,0.05); color:#9094b8;">ยกเลิก</button>
+        <button class="btn btn-primary" id="btn-save-quota" style="height:54px; padding:0 32px; font-weight:700; background:var(--yellow); color:#000;">บันทึกโควต้า</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-team-quota">
+    <div class="modal" style="width:100%;max-width:550px; padding:32px; border-radius:24px; background:#1a1c26;">
+      <div class="modal-header" style="margin-bottom:24px;">
+        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-users-gear" style="margin-right:10px; color:var(--accent);"></i>ปรับโควต้าทั้งทีม</div>
+        <button class="modal-close" onclick="closeModal('modal-team-quota')">✕</button>
+      </div>
+      <div class="info-box" style="margin-bottom:24px; background:rgba(108,138,255,0.1); border-color:rgba(108,138,255,0.2);">
+        <i class="fa-solid fa-circle-info" style="margin-right:8px;"></i> การตั้งค่านี้จะถูกนำไปใช้กับสมาชิกทุกคนในทีมปัจจุบัน
+      </div>
+      <div id="team-quota-body" style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Dynamic inputs -->
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
+        <button class="btn btn-ghost" onclick="closeModal('modal-team-quota')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveTeamQuotas()">อัปเดตโควต้าทั้งทีม</button>
       </div>
     </div>
   </div>

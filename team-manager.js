@@ -142,11 +142,13 @@ async function tryRestore() {
   if (!u) return;
   cu = u;
   // launch ทันที (เร็ว) แล้ว bootstrap เบื้องหลัง
+  migrateExIds();
   launchApp();
   if (typeof bootstrap === 'function') {
     bootstrap().then(res => {
       if (res.ok) {
-        initIDs(); // Update eid/lid from fresh data
+        migrateExIds();
+        initIDs(); // Update lid from fresh data
         // refresh visible page หลัง sync เสร็จ
         const active = document.querySelector('.page.active');
         if (active) {
@@ -537,6 +539,12 @@ function submitLeave() {
   // SYNC TO API
   apiSync('addLeave', newLeave);
 
+  // แจ้งเตือน Discord
+  if (!isPM) {
+    if (isLead) notifyLeave(newLeave, 'new_leave_lead', 'pm');
+    else notifyLeave(newLeave, 'new_leave_member', 'lead');
+  }
+
   updateBadges(); updateDashboard(); clearLeaveForm(); renderMyBal(); closeModal('modal-leave');
   const who = forMemberEmail ? ' (ให้ ' + targetName + ')' : '';
   let msg = '✅ ยื่นใบลา' + (isHalf ? 'ครึ่งวัน' : ' ' + diff + ' วัน') + who + ' เรียบร้อย';
@@ -600,6 +608,7 @@ function lAct(id, action) {
   if (action === 'approve') {
     r.status = 'pending_pm';
     toast('✅ ส่งต่อใบลาของ ' + r.name + ' ให้ PM พิจารณาแล้ว');
+    notifyLeave(r, 'lead_approved_leave', 'pm');
   } else {
     r.status = 'rejected';
     toast('✕ ไม่อนุมัติ ' + r.name);
@@ -714,13 +723,8 @@ function renderBal() {
     cont.innerHTML = ''; tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; return;
   }
   nd.style.display = 'none';
-  if (!selMember || !members.find(u => u.email === selMember)) selMember = members[0].email;
   renderBalOverview(members, isPM);
-  tabs.innerHTML = members.map(u => '<button onclick="selMb(\'' + u.email + '\')" style="padding:7px 16px;border-radius:20px;font-size:17px;font-weight:500;cursor:pointer;border:1px solid ' + (u.email === selMember ? 'rgba(108,138,255,.3)' : 'var(--border)') + ';background:' + (u.email === selMember ? 'rgba(108,138,255,.15)' : 'var(--surface2)') + ';color:' + (u.email === selMember ? 'var(--accent)' : 'var(--text2)') + ';font-family: Google Sans, Noto Sans Thai, sans-serif;transition:all .15s;">' + u.name + '</button>').join('');
-  document.getElementById('bal-detail-label').style.display = 'block';
-  renderBalTable(selMember, isPM);
 }
-function selMb(e) { selMember = e; document.getElementById('bal-detail-label').style.display = 'block'; renderBal(); }
 function renderBalOverview(members, isPM) {
   const ls = getLeaves(), qs = getQs(), yr = new Date().getFullYear();
   const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
@@ -731,44 +735,156 @@ function renderBalOverview(members, isPM) {
       const rem = Math.max(0, effQ - used), c = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
       return '<td style="text-align:center;font-family:var(--mono);font-size:17px;"><span style="font-weight:700;color:' + c + ';">' + rem + '</span><span style="color:var(--text3);font-size:15px;">/' + effQ + '</span></td>';
     }).join('');
-    return '<tr><td><div class="name">' + uName(u.email, u.name) + '</div><div class="meta">' + u.email + '</div></td>' + cells + '</tr>';
+    const action = isPM ? '<td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="openQuotaModal(\'' + u.email + '\')" style="padding:6px 14px;border-radius:10px;font-size:15px;color:var(--yellow);border-color:rgba(245, 200, 66, 0.2);background:rgba(245, 200, 66, 0.05);"><i class="fa-solid fa-pencil"></i> แก้ไข</button></td>' : '';
+    return '<tr><td><div class="name">' + uName(u.email, u.name) + '</div><div class="meta">' + u.email + '</div></td>' + cells + action + '</tr>';
   }).join('');
   const ths = fixedTypes.map(t => '<th style="text-align:center;white-space:nowrap;">' + LT[t].replace(/^\S+\s/, '') + '</th>').join('');
-  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:16px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  const actionTh = isPM ? '<th style="text-align:right;">โควต้า</th>' : '';
+  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:16px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + actionTh + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
-function renderBalTable(email, isPM) {
-  const user = getUsers().find(u => u.email === email); if (!user) return;
-  const ls = getLeaves(), qs = getQs(), cont = document.getElementById('bal-content');
-  const rows = Object.keys(LQ).map(type => {
-    const def = LQ[type], cq = qs[email]?.[type] ?? null, effQ = cq !== null ? cq : def.q, isC = cq !== null;
+
+
+function openQuotaModal(email) {
+  const user = getUsers().find(u => u.email === email);
+  if (!user) return;
+
+  document.getElementById('quota-target-name').textContent = uName(user.email, user.name);
+  document.getElementById('quota-target-email').textContent = user.email;
+
+  const ls = getLeaves(), qs = getQs();
+  const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
+
+  const body = document.getElementById('quota-modal-body');
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; padding:0 12px; margin-bottom:4px;">
+      <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase;">ประเภท</div>
+      <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">ทั้งหมด</div>
+      <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">คงเหลือ</div>
+    </div>
+    ${fixedTypes.map(type => {
+    const def = LQ[type], cq = qs[email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
     const used = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
-    const pend = ls.filter(r => r.email === email && r.type === type && r.status.startsWith('pending')).length;
-    if (def.q !== null) {
-      const rem = Math.max(0, effQ - used), pct = effQ > 0 ? Math.min(100, (used / effQ) * 100) : 0;
-      const bc = pct >= 90 ? 'bar-danger' : pct >= 60 ? 'bar-warn' : 'bar-ok', rc = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      const qCell = isPM ? '<div style="display:flex;align-items:center;gap:6px;"><input type="number" min="0" max="365" value="' + effQ + '" id="qi-' + email.replace(/[@.]/g, '-') + '-' + type + '" style="width:60px;padding:4px 8px;font-size:17px;text-align:center;" /><button onclick="saveQ(\'' + email + '\',\'' + type + '\')" style="padding:4px 10px;font-size:16px;background:var(--green);color:#0e0f14;border:none;border-radius:6px;cursor:pointer;font-weight:700;">บันทึก</button>' + (isC ? '<span style="font-size:14px;color:var(--orange);">✎</span>' : '') + '</div>' : '<span style="font-family:var(--mono);color:var(--text2);">' + effQ + '</span>';
-      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td>' + qCell + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + (pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td style="font-weight:700;color:' + rc + ';font-family:var(--mono);">' + rem.toFixed(1).replace(/\.0$/, '') + '</td><td style="min-width:100px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:14px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
-    } else {
-      const appr = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').length;
-      return '<tr><td>' + LT[type] + ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + (pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '') + '</td><td>—</td><td>—</td></tr>';
+    const rem = Math.max(0, effQ - used);
+
+    return `
+      <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
+        <div>
+          <div style="font-size:16px; font-weight:700; color:#fff;">${LT[type]}</div>
+          <div style="font-size:12px; color:var(--text3);">ใช้ไปแล้ว ${used} วัน</div>
+        </div>
+        <div>
+          <input type="number" class="quota-total-input" data-type="${type}" data-used="${used}" value="${effQ}" min="${used}" max="365" 
+            oninput="syncQuota(this, 'rem')"
+            style="width:100%; height:38px; background:var(--surface3); border:1px solid var(--border); border-radius:8px; color:#fff; text-align:center; font-size:16px; font-family:var(--mono); font-weight:700; outline:none;" />
+        </div>
+        <div>
+          <input type="number" class="quota-rem-input" data-type="${type}" data-used="${used}" value="${rem}" min="0" max="365" 
+            oninput="syncQuota(this, 'total')"
+            style="width:100%; height:38px; background:rgba(61, 214, 140, 0.05); border:1px solid rgba(61, 214, 140, 0.2); border-radius:8px; color:var(--green); text-align:center; font-size:16px; font-family:var(--mono); font-weight:700; outline:none;" />
+        </div>
+      </div>`;
+  }).join('')}`;
+
+  document.getElementById('btn-save-quota').onclick = () => saveQuotas(email);
+  openModal('modal-quota');
+}
+
+function syncQuota(el, target) {
+  const used = parseFloat(el.getAttribute('data-used'));
+  const val = parseFloat(el.value) || 0;
+  const row = el.closest('div').parentElement;
+
+  if (target === 'rem') {
+    const remInput = row.querySelector('.quota-rem-input');
+    remInput.value = (Math.max(0, val - used)).toFixed(1).replace(/\.0$/, '');
+  } else {
+    const totalInput = row.querySelector('.quota-total-input');
+    totalInput.value = (val + used).toFixed(1).replace(/\.0$/, '');
+  }
+}
+
+function saveQuotas(email) {
+  const inputs = document.querySelectorAll('.quota-total-input');
+  const qs = getQs();
+  if (!qs[email]) qs[email] = {};
+
+  inputs.forEach(input => {
+    const type = input.getAttribute('data-type');
+    const val = parseFloat(input.value);
+    if (!isNaN(val) && val >= 0) {
+      qs[email][type] = val;
     }
+  });
+
+  saveQs(qs);
+  apiSync('updateQuotas', { email, data: qs[email] });
+  closeModal('modal-quota');
+  toast('✅ บันทึกโควต้าสำเร็จ');
+  renderBal();
+}
+
+
+
+function openTeamQuotaModal() {
+  const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
+  const body = document.getElementById('team-quota-body');
+
+  body.innerHTML = fixedTypes.map(type => {
+    const def = LQ[type];
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
+        <div>
+          <div style="font-size:17px; font-weight:700; color:#fff;">${LT[type]}</div>
+          <div style="font-size:13px; color:var(--text3);">${def.n || ''}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="number" class="team-quota-input" data-type="${type}" value="${def.q}" min="0" max="365" 
+            style="width:80px; height:38px; background:var(--surface3); border:1px solid var(--border); border-radius:8px; color:#fff; text-align:center; font-size:17px; font-family:var(--mono); font-weight:700; outline:none;" />
+          <span style="color:var(--text3); font-size:14px; font-weight:500;">วัน/ปี</span>
+        </div>
+      </div>`;
   }).join('');
-  cont.innerHTML = (isPM ? '<div class="info-box" style="margin-bottom:16px;">✎ PM สามารถแก้ไขโควต้าได้โดยตรง</div>' : '<div style="font-size:16px;color:var(--text3);margin-bottom:12px;font-family:var(--mono);">// แสดงผลเท่านั้น</div>') + '<div class="card"><div class="card-title">◈ รายละเอียดวันลาของ ' + uName(user.email, user.name) + '</div><div class="table-wrap"><table class="balance-table"><thead><tr><th>ประเภท</th><th>โควต้า' + (isPM ? ' (แก้ได้)' : '') + '</th><th>ใช้แล้ว</th><th>คงเหลือ</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+
+  openModal('modal-team-quota');
 }
-function saveQ(email, type) {
-  const k = 'qi-' + email.replace(/[@.]/g, '-') + '-' + type; const v = parseInt(document.getElementById(k)?.value);
-  if (isNaN(v) || v < 0) { toast('⚠️ กรอกตัวเลขที่ถูกต้อง'); return; }
-  const q = getQs(); if (!q[email]) q[email] = {}; q[email][type] = v;
-  saveQs(q);
-  apiSync('updateQuotas', { email, data: q[email] });
-  toast('✅ บันทึกโควต้า ' + LT[type] + ' = ' + v + ' วัน'); renderBal();
+
+function saveTeamQuotas() {
+  const inputs = document.querySelectorAll('.team-quota-input');
+  const qs = getQs();
+  const members = getMyTeamMembers();
+
+  const updates = {};
+  inputs.forEach(input => {
+    const type = input.getAttribute('data-type');
+    const val = parseFloat(input.value);
+    if (!isNaN(val) && val >= 0) {
+      updates[type] = val;
+    }
+  });
+
+  if (Object.keys(updates).length === 0) return;
+
+  openConfirm('ยืนยันปรับโควต้าทั้งทีม?', `โควต้าของสมาชิกทุกคน (${members.length} คน) จะถูกปรับเป็นค่าใหม่ตามที่กำหนด ยืนยันหรือไม่?`, () => {
+    members.forEach(m => {
+      if (!qs[m.email]) qs[m.email] = {};
+      Object.assign(qs[m.email], updates);
+    });
+
+    saveQs(qs);
+    apiSync('updateTeamQuotas', { data: updates });
+    closeModal('modal-team-quota');
+    toast(`✅ อัปเดตโควต้าสมาชิก ${members.length} คนเรียบร้อย`);
+    renderBal();
+  });
 }
+
 function confirmReset() {
-  document.getElementById('conf-title').textContent = 'รีเซตประจำปี';
-  document.getElementById('conf-body').innerHTML = 'รีเซตโควต้าทั้งหมดกลับค่าเริ่มต้นสำหรับปี ' + new Date().getFullYear() + '?';
-  document.getElementById('conf-ok').onclick = doReset; openModal('modal-confirm');
+  openConfirm('รีเซตประจำปี', 'รีเซตโควต้าทั้งหมดกลับค่าเริ่มต้นสำหรับปี ' + new Date().getFullYear() + '?', () => {
+    saveQs({});
+    toast('🔄 รีเซตโควต้าเรียบร้อย');
+    renderBal();
+  });
 }
-function doReset() { saveQs({}); closeModal('modal-confirm'); toast('🔄 รีเซตโควต้าเรียบร้อย'); renderBal(); }
 
 // ══ MY BALANCE (member) ══════════════════
 function renderMyBal() {
@@ -1228,9 +1344,11 @@ async function doSubmitEx(data) {
   }
 
   const newEx = {
-    id: eid++,
+    id: generateDSID(),
     name: cu.name,
+    nickname: cu.nickname || cu.name.split(' ')[0],
     email: cu.email,
+    dept: cu.dept || '',
     exType,
     type: isGrp ? 'group' : 'solo',
     activity: act,
@@ -1248,6 +1366,7 @@ async function doSubmitEx(data) {
 
   // SYNC TO API
   await apiSync('addEx', newEx);
+  notifyNewExercise(newEx);
 
   // Close modals FIRST to ensure popup always closes
   closeModal('modal-confirm');
@@ -1273,9 +1392,45 @@ function resetExFormUI() {
 let _exReviewMonth = null;
 let _exReviewTab = 'pending';
 let _exReviewSort = 'date';
+let _exReviewSearch = '';
+let _exReviewDeptTab = 'ทั้งหมด';
 function setExReviewMonth(mk) { _exReviewMonth = mk; renderExR(); }
 function setExReviewTab(t) { _exReviewTab = t; renderExR(); }
 function setExReviewSort(s) { _exReviewSort = s; renderExR(); }
+function setExReviewSearch(v) { _exReviewSearch = v; renderExR(); }
+function setExReviewDeptTab(d) { _exReviewDeptTab = d; renderExR(); }
+function generateDSID() {
+  const es = getExs();
+  let max = 0;
+  es.forEach(e => {
+    if (typeof e.id === 'string' && e.id.startsWith('DS')) {
+      const num = parseInt(e.id.substring(2));
+      if (!isNaN(num) && num > max) max = num;
+    }
+  });
+  return 'DS' + (max + 1).toString().padStart(4, '0');
+}
+
+function migrateExIds() {
+  const es = getExs();
+  let changed = false;
+  let max = 0;
+  es.forEach(e => {
+    if (typeof e.id === 'string' && e.id.startsWith('DS')) {
+      const num = parseInt(e.id.substring(2));
+      if (!isNaN(num) && num > max) max = num;
+    }
+  });
+
+  es.forEach(e => {
+    if (!e.id || typeof e.id === 'number' || (typeof e.id === 'string' && !e.id.startsWith('DS'))) {
+      max++;
+      e.id = 'DS' + max.toString().padStart(4, '0');
+      changed = true;
+    }
+  });
+  if (changed) saveExs(es);
+}
 
 function renderExR() {
   const wrap = document.getElementById('ex-review-container');
@@ -1285,10 +1440,16 @@ function renderExR() {
     return;
   }
 
+  if (!document.getElementById('ex-review-controls')) {
+    wrap.innerHTML = `
+      <div id="ex-review-controls" class="card" style="margin-bottom:16px;"></div>
+      <div id="ex-review-stats-card" class="card" style="margin-bottom:16px;"></div>
+      <div id="ex-review-list-area" style="margin-top:32px;"></div>
+    `;
+  }
+
   const all = getExs();
   const today = new Date().toISOString().split('T')[0];
-
-  // ── Month options (last 6 → next 1) ─────────────────────────────────────
   const monthOpts = [];
   const now = new Date();
   for (let i = -6; i <= 1; i++) {
@@ -1304,49 +1465,64 @@ function renderExR() {
   const rangeLabel = `${fmt(periodStart)} – ${fmt(periodEnd)}`;
   const moName = new Date(py, pm - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
 
-  const monthSel = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,0.015);padding:16px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);margin-bottom:24px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;"><i class="fa-solid fa-calendar-days"></i></div>
-        <div>
-          <div style="font-size:14px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">รอบการเบิก</div>
-          <select onchange="setExReviewMonth(this.value)" style="background:transparent;border:none;color:#fff;font-size:18px;font-weight:700;padding:0;cursor:pointer;outline:none;font-family:inherit;">
-            ${monthOpts.map(m => {
-    const [y2, m2] = m.split('-').map(Number);
-    const label = new Date(y2, m2 - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
-    return `<option value="${m}" ${m === mk ? 'selected' : ''} style="background:#1a1c26;color:#fff;">${label}</option>`;
-  }).join('')}
-          </select>
+  const controlsEl = document.getElementById('ex-review-controls');
+  if (controlsEl && !controlsEl.innerHTML) {
+    controlsEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,0.015);padding:16px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);">
+        <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:300px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;"><i class="fa-solid fa-calendar-days"></i></div>
+            <div>
+              <div style="font-size:14px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">รอบการเบิก</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <select id="ex-review-month-sel" onchange="setExReviewMonth(this.value)" style="background:transparent;border:none;color:#fff;font-size:18px;font-weight:700;padding:0;cursor:pointer;outline:none;font-family:inherit;">
+                  ${monthOpts.map(m => {
+      const [y2, m2] = m.split('-').map(Number);
+      const label = new Date(y2, m2 - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+      return `<option value="${m}" ${m === mk ? 'selected' : ''} style="background:#1a1c26;color:#fff;">${label}</option>`;
+    }).join('')}
+                </select>
+                <i class="fa-solid fa-chevron-down" style="font-size:12px;color:var(--text3);margin-top:2px;"></i>
+              </div>
+              <div id="ex-review-range-label" style="font-family:var(--mono);color:var(--accent);font-size:14px;font-weight:500;margin-top:2px;opacity:0.8;">${rangeLabel}</div>
+            </div>
+          </div>
+          <div style="width:1px;height:40px;background:rgba(255,255,255,0.05);margin:0 8px;"></div>
+          <div style="flex:1;position:relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;"></i>
+            <input type="text" id="ex-review-search-input" placeholder="ค้นหาชื่อ, กิจกรรม หรือรหัส DS..." value="${_exReviewSearch || ''}" oninput="setExReviewSearch(this.value)" 
+              style="width:100%;height:44px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:0 15px 0 40px;color:#fff;font-size:16px;outline:none;transition:all 0.2s;" />
+          </div>
         </div>
-      </div>
-      <div style="background:rgba(255,255,255,0.05);padding:8px 16px;border-radius:12px;font-family:var(--mono);color:#9094b8;font-size:15px;border:1px solid rgba(255,255,255,0.02);">${rangeLabel}</div>
-    </div>`;
+      </div>`;
+  } else if (controlsEl) {
+    const sel = document.getElementById('ex-review-month-sel');
+    if (sel && sel.value !== mk) sel.value = mk;
+    const lbl = document.getElementById('ex-review-range-label');
+    if (lbl && lbl.textContent !== rangeLabel) lbl.textContent = rangeLabel;
+    const searchInput = document.getElementById('ex-review-search-input');
+    if (searchInput && searchInput.value !== (_exReviewSearch || '')) {
+      searchInput.value = _exReviewSearch || '';
+    }
+  }
 
-  // ── Filter & Sort ────────────────────────────────────────────────────────
   const inMonth = all.filter(e => monthKey(e.date) === mk);
+  const q = (_exReviewSearch || '').toLowerCase();
+  const filtered = inMonth.filter(e => {
+    if (!q) return true;
+    return (e.name || '').toLowerCase().includes(q) || (e.email || '').toLowerCase().includes(q) || (e.activity || '').toLowerCase().includes(q) || (e.id || '').toString().toLowerCase().includes(q);
+  });
 
-  const sorted = [...inMonth].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     if (_exReviewSort === 'week') {
       const wa = wkKey(a.date);
       const wb = wkKey(b.date);
-      if (wa !== wb) return wb.localeCompare(wa); // Newer weeks first
+      if (wa !== wb) return wb.localeCompare(wa);
     }
-    // Default or within same week: Sort by submission date (newest first)
     return new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date);
   });
 
-  // Build Week Options for calculation
-  const weekOpts = [];
-  const [y, m] = mk.split('-').map(Number);
-  const dStart = new Date(y, m - 1, 19), dEnd = new Date(y, m, 18);
-  let currW = new Date(dStart);
-  while (currW <= dEnd) {
-    const wKey = wkKey(currW);
-    if (!weekOpts.includes(wKey)) weekOpts.push(wKey);
-    currW.setDate(currW.getDate() + 1);
-  }
-
-  // ── Summary stats ────────────────────────────────────────────────────────
+  // ── Stats ──────────────────────────────────────────────────────────────
   const pending = sorted.filter(e => e.status === 'pending');
   const approved = sorted.filter(e => e.status === 'approved');
   const rejected = sorted.filter(e => e.status === 'rejected');
@@ -1358,58 +1534,49 @@ function renderExR() {
        <div style="font-size:14px;color:var(--text3);margin-top:4px;font-weight:500;">${label}</div>
      </div>`;
 
-  const statsHtml = `
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;">
-      ${statBox('รออนุมัติ', pending.length, 'var(--yellow)')}
-      ${statBox('อนุมัติแล้ว', approved.length, 'var(--green)')}
-      ${statBox('ปฏิเสธ', rejected.length, 'var(--red)')}
-      ${statBox('ยอดเงินรางวัล', '฿' + totalMoney.toLocaleString(), 'var(--accent)')}
-    </div>`;
+  const statsCardEl = document.getElementById('ex-review-stats-card');
+  if (statsCardEl) {
+    statsCardEl.innerHTML = `
+      <div class="card-title" style="margin-bottom:14px; font-size:18px;">📊 สรุปรอบ ${moName}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        ${statBox('รออนุมัติ', pending.length, 'var(--yellow)')}
+        ${statBox('อนุมัติแล้ว', approved.length, 'var(--green)')}
+        ${statBox('ปฏิเสธ', rejected.length, 'var(--red)')}
+        ${statBox('ยอดเงินรางวัล', '฿' + totalMoney.toLocaleString(), 'var(--accent)')}
+      </div>`;
+  }
 
-  // ── Compact row renderer ─────────────────────────────────────────────────
-  // ── Card row renderer ──────────────────────────────────────────────────
+  // ── Row Renderer ────────────────────────────────────────────────────────
   const renderRow = (e, showApproveBtn) => {
     const et = getExType(e);
     const reward = EX_REWARD[et] || 100;
     const tcolor = et === 'solo' ? 'var(--green)' : et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
-    const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
     const proofLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '');
     const proofLinks = e.proofLinks || [];
-    const totalLinks = (proofLink ? 1 : 0) + proofLinks.length;
-    const wkNum = weekOpts.indexOf(wkKey(e.date)) + 1;
     const isGrp = isGroupEx(et);
-
-    const allMembers = [
-      { email: e.email, name: e.name, kind: 'submitter' },
-      ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
-    ];
-
+    const wkNum = getWkNum(e.date);
+    const members = e.members || [];
+    const sysM = members.filter(m => m.type === 'sys');
+    const allMembers = [{ email: e.email, name: e.name, type: 'sys' }, ...sysM];
     const chips = allMembers.map(m => {
-      const isSub = m.kind === 'submitter';
-      const icon = isSub ? 'fa-crown' : 'fa-user';
-      const iconColor = isSub ? 'var(--yellow)' : '#b37fff';
-      return `
-        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:3px 12px;border-radius:12px;font-size:14px;color:var(--text2);border:1px solid rgba(255,255,255,0.02);">
-          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:12px;"></i>
-          <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-        </div>`;
+      const u = getUsers().find(x => x.email === m.email);
+      const nick = u ? (u.nickname || u.name.split(' ')[0]) : m.name.split(' ')[0];
+      return `<div class="member-chip" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.03);padding:2px 8px;border-radius:8px;font-size:14px;display:flex;align-items:center;gap:4px;color:#fff;">
+        <i class="fa-solid fa-user" style="font-size:10px;opacity:0.5;"></i> ${nick}
+      </div>`;
     }).join('');
-
-    const indicatorColor = showApproveBtn === 'pending' ? 'var(--yellow)' : 'var(--green)';
 
     return `
       <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-        <!-- Top Row: Name & Reward -->
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:13px; color:var(--text3); font-weight:700; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:6px; font-family:var(--mono); border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
             <span style="font-size:22px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
             <span style="font-size:17px; color:#9094b8; font-weight:500;">(${EX_LABEL[et]})</span>
             <span style="background:#f5c842; color:#000; padding:1px 8px; border-radius:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Week ${wkNum}</span>
           </div>
           <div style="font-size:22px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${reward.toLocaleString()}</div>
         </div>
-
-        <!-- Meta Row: Date -->
         <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:16px; margin-bottom:12px; font-weight:500;">
           <i class="fa-regular fa-calendar" style="font-size:15px;"></i>
           <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -1443,21 +1610,21 @@ function renderExR() {
               </a>` : ''}
             
             ${showApproveBtn === 'pending' ? `
-              <button class="btn btn-green btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();apprEx(${e.id})">
+              <button class="btn btn-green btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();apprEx('${e.id}')">
                 <i class="fa-solid fa-check" style="font-size:13px;"></i> อนุมัติ
               </button>
-              <button class="btn btn-red btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();rejEx(${e.id})">
+              <button class="btn btn-red btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px;" onclick="event.stopPropagation();rejEx('${e.id}')">
                 <i class="fa-solid fa-xmark" style="font-size:13px;"></i> ไม่อนุมัติ
               </button>
             ` : ''}
 
             ${showApproveBtn === 'approved' ? `
-              <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px;" onclick="event.stopPropagation();revertExToPending(${e.id})">
+              <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px;" onclick="event.stopPropagation();revertExToPending('${e.id}')">
                 <i class="fa-solid fa-angles-left"></i> รออนุมัติ
               </button>
             ` : ''}
 
-            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail(${e.id})">
+            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail('${e.id}')">
                 <i class="fa-solid fa-magnifying-glass" style="font-size:13px;"></i> รายละเอียด
             </button>
           </div>
@@ -1465,72 +1632,69 @@ function renderExR() {
       </div>`;
   };
 
-  // ── Section builder ──────────────────────────────────────────────────────
-  const section = (title, items, showApprove, isGrid = false) => {
-    if (!items.length) return `
-      <div style="margin-bottom:20px;">
-        <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div>
-        <div style="padding:16px; font-size:16px; color:#5a5e7a; background:rgba(255,255,255,0.01); border-radius:12px; border:1px dashed rgba(255,255,255,0.05); text-align:center;">— ไม่มีรายการ —</div>
-      </div>`;
-    return `
-      <div style="margin-bottom:32px;">
-        <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div>
-        <div class="${isGrid ? 'review-grid' : 'group-grid'}">
-          ${items.map(e => renderRow(e, showApprove)).join('')}
-        </div>
-      </div>`;
+  const getItemDept = (e) => {
+    if (e.dept) return e.dept;
+    const u = getUsers().find(x => x.email === e.email);
+    return (u && u.dept) ? u.dept : 'ไม่ระบุ';
   };
 
-  const pendingGroup = pending.filter(e => isGroupEx(getExType(e)));
-  const pendingSolo = pending.filter(e => !isGroupEx(getExType(e)));
-  const apprGroup = approved.filter(e => isGroupEx(getExType(e)));
-  const apprSolo = approved.filter(e => !isGroupEx(getExType(e)));
+  const section = (title, items, status, isGrid = false) => {
+    const showApprove = status === 'pending';
+    if (isGrid && items.length > 0) {
+      const depts = ['ทั้งหมด', ...new Set(items.map(e => getItemDept(e)).filter(Boolean))].sort((a, b) => a === 'ไม่ระบุ' ? 1 : b === 'ไม่ระบุ' ? -1 : a.localeCompare(b, 'th'));
+      if (!depts.includes(_exReviewDeptTab)) _exReviewDeptTab = 'ทั้งหมด';
+
+      const filteredItems = _exReviewDeptTab === 'ทั้งหมด' ? items : items.filter(e => getItemDept(e) === _exReviewDeptTab);
+
+      const deptTabs = `
+        <div style="display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none; -ms-overflow-style:none;">
+          <style>
+            .dept-tabs::-webkit-scrollbar { display: none; }
+          </style>
+          <div class="dept-tabs" style="display:flex; gap:10px;">
+            ${depts.map(d => `
+              <button onclick="setExReviewDeptTab('${d}')" style="white-space:nowrap; padding:8px 18px; border-radius:12px; border:1px solid ${d === _exReviewDeptTab ? 'var(--accent)' : 'rgba(255,255,255,0.05)'}; background:${d === _exReviewDeptTab ? 'rgba(0,123,255,0.1)' : 'rgba(255,255,255,0.02)'}; color:${d === _exReviewDeptTab ? 'var(--accent)' : '#9094b8'}; font-weight:600; cursor:pointer; font-size:14px; transition:all 0.2s; display:flex; align-items:center; gap:8px;">
+                ${d}
+                <span style="font-size:12px; opacity:0.6; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">${d === 'ทั้งหมด' ? items.length : items.filter(e => getItemDept(e) === d).length}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      return `
+        <div style="margin-bottom:40px; border-top:1px solid rgba(255,255,255,0.05); padding-top:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-size:22px; font-weight:700; color:#fff;">${title}</div>
+          </div>
+          ${deptTabs}
+          ${filteredItems.length ? `
+            <div class="review-grid">${filteredItems.map(e => renderRow(e, showApprove)).join('')}</div>
+          ` : `<div style="padding:60px 20px; text-align:center; background:rgba(255,255,255,0.01); border-radius:16px; border:1px dashed rgba(255,255,255,0.05); color:#5a5e7a; font-size:16px;">ไม่พบรายการสำหรับแผนกนี้</div>`}
+        </div>`;
+    }
+
+    if (!items.length) return `<div style="margin-bottom:40px; border-top:1px solid rgba(255,255,255,0.05); padding-top:24px;"><div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:12px;">${title}</div><div style="padding:16px; font-size:16px; color:#5a5e7a; background:rgba(255,255,255,0.01); border-radius:12px; border:1px dashed rgba(255,255,255,0.05); text-align:center;">— ไม่มีรายการ —</div></div>`;
+    return `<div style="margin-bottom:40px; border-top:1px solid rgba(255,255,255,0.05); padding-top:24px;"><div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:16px;">${title}</div><div class="group-grid">${items.map(e => renderRow(e, showApprove)).join('')}</div></div>`;
+  };
+
+  const pendingGroup = pending.filter(e => isGroupEx(getExType(e))), pendingSolo = pending.filter(e => !isGroupEx(getExType(e)));
+  const apprGroup = approved.filter(e => isGroupEx(getExType(e))), apprSolo = approved.filter(e => !isGroupEx(getExType(e)));
 
   const tabsHtml = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
       <div style="display:flex; gap:12px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03); flex:1; min-width:300px;">
-        <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">
-          <i class="fa-solid fa-hourglass-half" style="font-size:15px;"></i> รออนุมัติ
-          <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${pending.length}</span>
-        </button>
-        <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">
-          <i class="fa-solid fa-circle-check" style="font-size:15px;"></i> อนุมัติแล้ว
-          <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px; font-size:14px; font-weight:700;">${approved.length}</span>
-        </button>
+        <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">รออนุมัติ <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px;">${pending.length}</span></button>
+        <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">อนุมัติแล้ว <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px;">${approved.length}</span></button>
       </div>
-
-      <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.02);padding:8px 16px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);height:62px;">
-        <div style="width:32px;height:32px;background:rgba(255,255,255,0.05);color:var(--text3);display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;"><i class="fa-solid fa-arrow-down-wide-short"></i></div>
-        <div>
-          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">เรียงตาม</div>
-          <select onchange="setExReviewSort(this.value)" style="background:transparent;border:none;color:#fff;font-size:15px;font-weight:600;padding:0;cursor:pointer;outline:none;font-family:inherit;">
-            <option value="date" ${_exReviewSort === 'date' ? 'selected' : ''} style="background:#1a1c26;color:#fff;">วันที่ล่าสุด</option>
-            <option value="week" ${_exReviewSort === 'week' ? 'selected' : ''} style="background:#1a1c26;color:#fff;">ตามสัปดาห์</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  `;
-
-  let contentHtml = '';
-  if (_exReviewTab === 'pending') {
-    contentHtml = section('แบบกลุ่ม', pendingGroup, 'pending') + section('แบบเดี่ยว', pendingSolo, 'pending', true);
-  } else {
-    contentHtml = section('แบบกลุ่ม', apprGroup, 'approved') + section('แบบเดี่ยว', apprSolo, 'approved', true);
-  }
-
-  wrap.innerHTML = `
-    <div class="card" style="margin-bottom:16px;">
-      ${monthSel}
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-title" style="margin-bottom:14px; font-size:18px;">📊 สรุปรอบ ${moName}</div>
-      ${statsHtml}
-    </div>
-    <div style="margin-top:32px;">
-      ${tabsHtml}
-      ${contentHtml}
     </div>`;
+
+  const listArea = document.getElementById('ex-review-list-area');
+  if (listArea) {
+    listArea.innerHTML = tabsHtml + (_exReviewTab === 'pending' ? 
+      section('แบบกลุ่ม', pendingGroup, 'pending') + section('แบบเดี่ยว', pendingSolo, 'pending', true) : 
+      section('แบบกลุ่ม', apprGroup, 'approved') + section('แบบเดี่ยว', apprSolo, 'approved', true));
+  }
 }
 function apprEx(id) {
   if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
@@ -1625,7 +1789,7 @@ function renderExShare() {
             <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
             <span style="font-size:11px;opacity:0.6;margin-left:2px;">${m.dept || ''}</span>
           </div>
-          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup(${e.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;">✕</button>` : ''}
+          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup('${e.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;">✕</button>` : ''}
         </div>`;
     }).join('');
 
@@ -1677,12 +1841,12 @@ function renderExShare() {
         <!-- Actions -->
         <div style="margin-top:20px;display:flex;gap:12px;">
           ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
-        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="joinExGroup(${e.id})"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
+        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
         : ''}
           ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter
-        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="leaveExGroup(${e.id})"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
+        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="leaveExGroup('${e.id}')"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
         : ''}
-          <button class="btn btn-ghost" style="flex:1;justify-content:center;height:48px;border-radius:14px;background:var(--surface3);font-size:16px;" onclick="viewExDetail(${e.id})">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:8px;font-size:12px;opacity:0.6;"></i></button>
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;height:48px;border-radius:14px;background:var(--surface3);font-size:16px;" onclick="viewExDetail('${e.id}')">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:8px;font-size:12px;opacity:0.6;"></i></button>
         </div>
       </div>
     </div>`;
@@ -1828,27 +1992,37 @@ function updateLB() {
     });
     return {
       name: u.name, nick: u.nickname || u.name.split(' ')[0],
+      dept: u.dept || '',
+      locationType: u.locationType || 'bkk',
       sC, sR: sC * 100, sAR: sA * 100,
       gexC, gexR: gexC * 500, gexAR: gexA * 500,
       geC, geR: geC * 300, geAR: geA * 300,
+      groupC: gexC + geC,
       total: (sC * 100) + (gexC * 500) + (geC * 300),
       totalA: (sA * 100) + (gexA * 500) + (geA * 300)
     };
+  }).sort((a, b) => {
+    let vA = a[_lbSortField], vB = b[_lbSortField];
+    if (typeof vA === 'string') return _lbSortDir * vA.localeCompare(vB, 'th');
+    return _lbSortDir * (vA - vB);
   });
 
   const summaryEl = document.getElementById('lb-summary-table');
   if (summaryEl) {
+    const sIcon = (f) => _lbSortField === f ? (_lbSortDir === 1 ? ' <i class="fa-solid fa-sort-up"></i>' : ' <i class="fa-solid fa-sort-down"></i>') : ' <i class="fa-solid fa-sort" style="opacity:0.3"></i>';
     summaryEl.innerHTML = `
       <div style="margin-bottom:12px;font-size:16px;color:var(--text3);">รอบการคำนวณเงินรางวัล: ${rangeLabel} <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
       <div class="table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow-x:auto;">
-        <table class="balance-table" style="font-size:15px; min-width: 800px;">
+        <table class="balance-table" style="font-size:15px; min-width: 1000px;">
           <thead style="background:var(--surface3);">
             <tr>
-              <th rowspan="2" style="text-align:left;font-size:16px;">ชื่อ-นามสกุล</th>
-              <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);">แบบเดี่ยว (100)</th>
-              <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);">แบบกลุ่มออก (500)</th>
-              <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);">แบบกลุ่มกิน (300)</th>
-              <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;">รวม (อนุมัติ)</th>
+              <th rowspan="2" style="text-align:left;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('nick')">ชื่อเล่น${sIcon('nick')}</th>
+              <th rowspan="2" style="text-align:left;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('dept')">แผนก${sIcon('dept')}</th>
+              <th rowspan="2" style="text-align:left;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('locationType')">พื้นที่${sIcon('locationType')}</th>
+              <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);cursor:pointer;user-select:none;" onclick="setLBSort('sC')">แบบเดี่ยว (100)${sIcon('sC')}</th>
+              <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);cursor:pointer;user-select:none;" onclick="setLBSort('gexC')">แบบกลุ่มออก (500)${sIcon('gexC')}</th>
+              <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);cursor:pointer;user-select:none;" onclick="setLBSort('geC')">แบบกลุ่มกิน (300)${sIcon('geC')}</th>
+              <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('totalA')">รวม (อนุมัติ)${sIcon('totalA')}</th>
             </tr>
             <tr style="font-size:13px;">
               <th style="background:rgba(61,214,140,0.05);">ครั้ง</th><th style="background:rgba(61,214,140,0.05);">เงิน</th>
@@ -1860,8 +2034,14 @@ function updateLB() {
             ${userStats.map(s => `
               <tr style="${s.total > 0 ? 'background:rgba(255,255,255,0.02);' : 'opacity:0.5;'}">
                 <td style="text-align:left;">
-                  <div style="font-weight:500;">${s.name}</div>
-                  <div style="font-size:14px;color:var(--text3);">*${s.nick}*</div>
+                  <div style="font-weight:500;font-size:17px;color:var(--text);">${s.nick}</div>
+                  <div style="font-size:13px;color:var(--text3);">${s.name}</div>
+                </td>
+                <td style="text-align:left;color:var(--text2);">${s.dept}</td>
+                <td style="text-align:left;">
+                  <span style="color:${s.locationType === 'bkk' ? 'var(--accent)' : 'var(--orange)'};font-weight:600;">
+                    ${s.locationType === 'bkk' ? 'กทม.' : 'ตจว.'}
+                  </span>
                 </td>
                 <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR} <span style="opacity:0.6;font-size:13px;">(${s.sAR})</span></td>
                 <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR} <span style="opacity:0.6;font-size:13px;">(${s.gexAR})</span></td>
@@ -1891,7 +2071,7 @@ function updateDashboard() {
   document.getElementById('d-members').textContent = memberCount;
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
   document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
-  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(' + e.id + ')"><div><div style="font-weight:500;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' (W' + getWkNum(e.date) + ') • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:15px;" onclick="event.stopPropagation();viewExDetail(' + e.id + ')"><i class="fa-solid fa-magnifying-glass"></i> รายละเอียด</button></div></div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
+  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(\'' + e.id + '\')"><div><div style="font-weight:500;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' (W' + getWkNum(e.date) + ') • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:15px;" onclick="event.stopPropagation();viewExDetail(\'' + e.id + '\')"><i class="fa-solid fa-magnifying-glass"></i> รายละเอียด</button></div></div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -1913,9 +2093,32 @@ function getWkLabel() {
   return `สัปดาห์ที่ ${wkNum} (${s.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} – ${e.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })})`;
 }
 let _tt;
+let _lbSortField = 'name';
+let _lbSortDir = 1;
+
+function setLBSort(field) {
+  if (_lbSortField === field) {
+    _lbSortDir *= -1;
+  } else {
+    _lbSortField = field;
+    _lbSortDir = field === 'name' ? 1 : -1;
+  }
+  updateLB();
+}
+
 function toast(msg) { const el = document.getElementById('toast'); el.innerHTML = msg; el.classList.add('show'); clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 3200); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function openConfirm(title, body, okCb) {
+  document.getElementById('conf-title').textContent = title;
+  document.getElementById('conf-body').innerHTML = body;
+  document.getElementById('conf-ok').onclick = () => {
+    okCb();
+    closeModal('modal-confirm');
+  };
+  openModal('modal-confirm');
+}
 
 function toggleSidebar() {
   const sb = document.querySelector('.sidebar');
@@ -1933,7 +2136,7 @@ function closeSidebar() {
 // document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 // ══ EXERCISE DETAILS & DELETE ═════════════════
 function viewExDetail(id) {
-  const es = getExs(), e = es.find(x => x.id === id);
+  const es = getExs(), e = es.find(x => String(x.id) === String(id));
   if (!e) return;
   const et = getExType(e);
   const reward = EX_REWARD[et] || 100;
@@ -1971,7 +2174,10 @@ function viewExDetail(id) {
     <!-- Header Row -->
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
       <div>
-        <div style="font-size:14px;color:#5a5e7a;margin-bottom:6px;font-weight:500;">คำขอเบิกรางวัล</div>
+        <div style="font-size:14px;color:#5a5e7a;margin-bottom:6px;font-weight:500;display:flex;align-items:center;gap:8px;">
+          คำขอเบิกรางวัล 
+          <span style="background:rgba(255,255,255,0.05);color:var(--text3);padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
+        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:0px;">
           <h2 style="font-size:32px;font-weight:500;color:#fff;margin:0;">${e.activity + (e.note ? ` (${e.note.split('\n')[0].substring(0, 20)})` : '')}</h2>
           <span style="background:#f5c842;color:#000;padding:2px 8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;">Week ${wkNum}</span>
@@ -2048,7 +2254,7 @@ function viewExDetail(id) {
         
         <div style="display:flex;gap:12px;margin-top:8px;">
           <input type="text" id="proof-link-input-${e.id}" placeholder="วางลิงก์เพิ่มเติม..." style="flex:1;height:64px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:14px;padding:0 24px;color:#fff;font-size:18px;" />
-          <button class="btn" onclick="saveProofLink(${e.id})" style="height:64px;padding:0 32px;border-radius:14px;font-weight:700;background:rgba(255,255,255,0.08);color:#fff;border:none;font-size:18px;">แนบเพิ่ม</button>
+          <button class="btn" onclick="saveProofLink('${e.id}')" style="height:64px;padding:0 32px;border-radius:14px;font-weight:700;background:rgba(255,255,255,0.08);color:#fff;border:none;font-size:18px;">แนบเพิ่ม</button>
         </div>
       </div>
     </div>
@@ -2056,12 +2262,12 @@ function viewExDetail(id) {
 
   actions.innerHTML = `
     <div style="display:flex;width:100%;justify-content:space-between;align-items:center;margin-top:32px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.03);">
-      <button class="btn" onclick="deleteEx(${e.id})" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
+      <button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
         <i class="fa-solid fa-trash-can" style="margin-right:12px;"></i> ลบ
       </button>
       <div style="display:flex;gap:16px;">
         <button class="btn" onclick="closeModal('modal-ex-detail')" style="background:rgba(255,255,255,0.08);color:#9094b8;border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">ปิด</button>
-        ${canEdit ? `<button class="btn" onclick="editEx(${e.id})" style="border-radius:14px;height:64px;padding:0 40px;font-weight:700;background:#738aff;color:#fff;border:none;display:flex;align-items:center;gap:12px;font-size:20px;"><i class="fa-solid fa-pencil"></i> แก้ไขใบเบิก</button>` : ''}
+        ${canEdit ? `<button class="btn" onclick="editEx('${e.id}')" style="border-radius:14px;height:64px;padding:0 40px;font-weight:700;background:#738aff;color:#fff;border:none;display:flex;align-items:center;gap:12px;font-size:20px;"><i class="fa-solid fa-pencil"></i> แก้ไขใบเบิก</button>` : ''}
       </div>
     </div>
   `;
@@ -2072,15 +2278,17 @@ function viewExDetail(id) {
 function deleteEx(id) {
   if (!confirm('ยืนยันการลบคำขอนี้? (การลบจะทำให้โควต้าและสถิติเปลี่ยนกลับทันที)')) return;
   const es = getExs();
-  const newEs = es.filter(e => e.id !== id);
+  const target = es.find(e => String(e.id) === String(id));
+  const newEs = es.filter(e => String(e.id) !== String(id));
   saveExs(newEs);
-  apiSync('deleteEx', { id });
+  apiSync('deleteEx', { id, _fbKey: target?._fbKey });
   closeModal('modal-ex-detail');
   toast('🗑️ ลบคำขอเรียบร้อย');
   updateDashboard();
   updateLB();
   updateQuota();
   updateBadges();
+  renderExHistory();
   const pageShare = document.getElementById('page-exercise-share');
   if (pageShare && pageShare.classList.contains('active')) renderExShare();
   const pageReview = document.getElementById('page-exercise-review');
@@ -2170,18 +2378,19 @@ function renderExHistory() {
 
   const all = getExs().filter(e => isUserInvolved(e, cu.email));
 
-  // Populate months if first time
-  if (elMonth.options.length === 0) {
-    const months = [...new Set(all.map(e => monthKey(e.date)))].sort().reverse();
-    const curMonth = monthKey(new Date());
-    if (!months.includes(curMonth)) months.unshift(curMonth);
-    elMonth.innerHTML = months.map(m => {
-      const [y, mm] = m.split('-');
-      const d = new Date(y, parseInt(mm) - 1, 1);
-      const label = d.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
-      return `<option value="${m}">${label}</option>`;
-    }).join('');
-  }
+  // Refresh months list every time so it stays in sync after delete/add
+  const prevSel = elMonth.value;
+  const months = [...new Set(all.map(e => monthKey(e.date)).filter(Boolean))].sort().reverse();
+  const curMonth = monthKey(new Date().toISOString().split('T')[0]);
+  if (!months.includes(curMonth)) months.unshift(curMonth);
+  elMonth.innerHTML = months.map(m => {
+    const [y, mm] = m.split('-');
+    const d = new Date(parseInt(y), parseInt(mm) - 1, 1);
+    const label = d.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+    return `<option value="${m}">${label}</option>`;
+  }).join('');
+  // Restore previous selection if still valid, otherwise use most recent
+  if (prevSel && months.includes(prevSel)) elMonth.value = prevSel;
 
   const selMonth = elMonth.value;
   const filtered = all.filter(e => monthKey(e.date) === selMonth).sort((a, b) => b.date.localeCompare(a.date));
@@ -2258,8 +2467,9 @@ function renderExHistory() {
 
       return `
         <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:11px; color:var(--text3); font-weight:700; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
               <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <div style="display:flex; align-items:center; gap:4px; background:${et === 'solo' ? 'rgba(61, 214, 140, 0.12)' : 'rgba(179, 127, 255, 0.12)'}; color:${et === 'solo' ? 'var(--green)' : 'var(--purple)'}; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; border:1px solid ${et === 'solo' ? 'rgba(61, 214, 140, 0.2)' : 'rgba(179, 127, 255, 0.2)'};">
@@ -2282,7 +2492,7 @@ function renderExHistory() {
             <div style="display:flex; flex-wrap:wrap; gap:6px;">
               ${chips}
             </div>
-            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail(${e.id})">
+            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail('${e.id}')">
                 <i class="fa-solid fa-magnifying-glass" style="font-size:13px;"></i> รายละเอียด
             </button>
           </div>

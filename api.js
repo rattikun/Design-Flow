@@ -6,6 +6,8 @@
 const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.app/';
 // [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
+// n8n webhook สำหรับแจ้งเตือน Discord PM
+const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook-test/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 
 const API_STATE = {
   online: true,
@@ -140,7 +142,7 @@ async function api(action, payload = {}) {
     if (action === 'updateEx') {
       const res = await fetch(`${baseUrl}/exercises.json`);
       const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
+      const key = Object.keys(data || {}).find(k => data[k] && data[k].id === payload.id);
       if (key) {
         const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, {
           method: 'PATCH',
@@ -148,18 +150,29 @@ async function api(action, payload = {}) {
         });
         return { ok: res2.ok };
       }
-      return { ok: false, error: 'Exercise not found' };
+      // If not found, fallback to addEx (Upsert)
+      const res3 = await fetch(`${baseUrl}/exercises.json`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return { ok: res3.ok };
     }
 
     if (action === 'deleteEx') {
+      // Use stored Firebase key for direct delete (avoids ID mismatch after migration)
+      if (payload._fbKey) {
+        const res = await fetch(`${baseUrl}/exercises/${payload._fbKey}.json`, { method: 'DELETE' });
+        return { ok: res.ok };
+      }
+      // Fallback: scan all exercises by ID
       const res = await fetch(`${baseUrl}/exercises.json`);
       const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
+      const key = Object.keys(data || {}).find(k => data[k] && String(data[k].id) === String(payload.id));
       if (key) {
         const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, { method: 'DELETE' });
         return { ok: res2.ok };
       }
-      return { ok: true };
+      return { ok: false, error: 'Exercise not found in Firebase' };
     }
 
     // 5. LEAVES
@@ -174,7 +187,7 @@ async function api(action, payload = {}) {
     if (action === 'updateLeave') {
       const res = await fetch(`${baseUrl}/leaves.json`);
       const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
+      const key = Object.keys(data || {}).find(k => data[k] && data[k].id === payload.id);
       if (key) {
         const res2 = await fetch(`${baseUrl}/leaves/${key}.json`, {
           method: 'PATCH',
@@ -182,7 +195,12 @@ async function api(action, payload = {}) {
         });
         return { ok: res2.ok };
       }
-      return { ok: false, error: 'Leave not found' };
+      // If not found, fallback to addLeave (Upsert)
+      const res3 = await fetch(`${baseUrl}/leaves.json`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return { ok: res3.ok };
     }
 
     if (action === 'deleteLeave') {
@@ -237,7 +255,15 @@ async function api(action, payload = {}) {
     const data = await response.json();
 
     // Firebase returns objects if keys are strings, but we need arrays
-    const arrayData = Array.isArray(data) ? data : Object.values(data || {});
+    // For exercises, attach _fbKey so we can delete directly without scanning
+    let arrayData;
+    if (!Array.isArray(data) && path === 'exercises') {
+      arrayData = Object.entries(data || {})
+        .map(([fbKey, val]) => val ? { ...val, _fbKey: fbKey } : null)
+        .filter(Boolean);
+    } else {
+      arrayData = Array.isArray(data) ? data : Object.values(data || {});
+    }
 
     const result = { ok: true };
     result[path] = arrayData;
@@ -404,7 +430,8 @@ function mapExFromAPI(e) {
       if (!raw) return [];
       if (Array.isArray(raw)) return raw;
       try { return JSON.parse(raw); } catch { return []; }
-    })()
+    })(),
+    _fbKey: e._fbKey || null
   };
 }
 
@@ -412,4 +439,72 @@ function normalizeDate(d) {
   if (!d) return '';
   if (typeof d === 'string' && d.includes('T')) return d.split('T')[0];
   return d;
+}
+
+/**
+ * แจ้งเตือน n8n → Discord เมื่อมีการยื่น/เปลี่ยนสถานะวันลา
+ * notifyRole: 'lead' = แจ้งหัวหน้า, 'pm' = แจ้ง PM
+ */
+function notifyLeave(leave, event, notifyRole) {
+  if (!N8N_WEBHOOK_URL) return;
+  const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', ordain: '🙏 ลาบวช', other: '📌 อื่นๆ' };
+  const eventLabel = {
+    new_leave_member: '📥 ใบลาใหม่ — รอหัวหน้าอนุมัติ',
+    new_leave_lead: '📥 ใบลาหัวหน้า — รอ PM อนุมัติ',
+    lead_approved_leave: '✅ หัวหน้าอนุมัติแล้ว — รอ PM อนุมัติ'
+  };
+  const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
+  const displayName = (u && u.nickname) ? u.nickname : leave.name.split(' ')[0];
+  fetch(N8N_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event,
+      eventLabel: eventLabel[event] || event,
+      notifyRole,
+      id: leave.id,
+      name: displayName,
+      email: leave.email,
+      dept: leave.dept || 'ไม่ระบุ',
+      leaveType: LT[leave.type] || leave.type,
+      start: leave.start,
+      end: leave.end,
+      days: leave.days,
+      isHalf: leave.isHalf || false,
+      reason: leave.reason || '',
+      docLink: leave.docName || '',
+      submittedAt: leave.submittedAt
+    })
+  }).catch(() => {});
+}
+
+/**
+ * แจ้งเตือน n8n → Discord เมื่อมี exercise request ใหม่
+ */
+function notifyNewExercise(ex) {
+  if (!N8N_WEBHOOK_URL) return;
+  const typeLabel = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
+  const memberNames = (ex.members || [])
+    .filter(m => m.type === 'sys')
+    .map(m => m.name || m.email)
+    .join(', ');
+
+  fetch(N8N_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'new_exercise',
+      id: ex.id,
+      name: ex.nickname || ex.name,
+      email: ex.email,
+      dept: ex.dept || 'ไม่ระบุ',
+      exType: ex.exType,
+      typeLabel: typeLabel[ex.exType] || ex.exType,
+      activity: ex.activity,
+      date: ex.date,
+      members: memberNames || '-',
+      proofLink: ex.proofLink || ex.proofDoc || '',
+      submittedAt: ex.submittedAt
+    })
+  }).catch(() => {});
 }
