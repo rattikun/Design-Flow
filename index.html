@@ -1538,7 +1538,7 @@
   <div class="modal-overlay" id="modal-leave">
     <div class="modal" style="max-width: 600px;">
       <button class="modal-close" onclick="closeModal('modal-leave')">✕</button>
-      <div class="modal-title"><i class="fa-solid fa-circle-plus"
+      <div class="modal-title" id="modal-leave-title"><i class="fa-solid fa-circle-plus"
           style="margin-right:8px; color:var(--accent);"></i>ยื่นใบลา</div>
       <div class="info-box">&#x1F4CB; ลา &le;3วัน&nbsp;→&nbsp;หัวหน้า &nbsp;|&nbsp; ลา &gt;3วัน
         (ป่วย/กิจ)&nbsp;→&nbsp;PM &#x26A1; &nbsp;|&nbsp; ต้องลาล่วงหน้า 7 วัน <em>ยกเว้นลาป่วย</em></div>
@@ -1604,7 +1604,7 @@
       </div>
 
       <div style="margin-top:16px;display:flex;gap:10px;">
-        <button class="btn btn-primary" onclick="submitLeave()"><i class="fa-solid fa-circle-plus"
+        <button id="modal-leave-submit-btn" class="btn btn-primary" onclick="submitLeave()"><i class="fa-solid fa-circle-plus"
             style="margin-right:6px;"></i> ยื่นใบลา</button>
         <button class="btn btn-ghost" onclick="clearLeaveForm()">ล้างฟอร์ม</button>
       </div>

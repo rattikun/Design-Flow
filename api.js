@@ -8,6 +8,8 @@ const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
 const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
+// n8n webhook สำหรับ sync ข้อมูลการลาที่อนุมัติแล้วไปยัง Google Sheets
+const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook-test/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 
 const API_STATE = {
   online: true,
@@ -474,6 +476,40 @@ function notifyLeave(leave, event, notifyRole) {
       reason: leave.reason || '',
       docLink: leave.docName || '',
       submittedAt: leave.submittedAt
+    })
+  }).catch(() => {});
+}
+
+/**
+ * Sync ข้อมูลใบลาที่ PM อนุมัติแล้วไปยัง Google Sheets ผ่าน n8n
+ */
+function syncLeaveApprovedToSheets(leave, approvedByName) {
+  if (!N8N_SHEETS_WEBHOOK_URL) return;
+  const LT = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน', dental: 'ลาทำฟัน', birthday: 'ลาวันเกิด', funeral: 'ลาฌาปนกิจ', maternity: 'ลาคลอด', training: 'ลาฝึกอบรม', sterilize: 'ลาทำหมัน', ordain: 'ลาบวช', other: 'อื่นๆ' };
+  const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
+  const periodLabel = leave.isHalf ? (leave.period === 'morning' ? 'ครึ่งวันเช้า' : 'ครึ่งวันบ่าย') : 'เต็มวัน';
+  fetch(N8N_SHEETS_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'pm_approved_leave',
+      id: leave.id,
+      name: leave.name,
+      nickname: (u && u.nickname) ? u.nickname : leave.name.split(' ')[0],
+      email: leave.email,
+      dept: (u && u.dept) ? u.dept : (leave.dept || ''),
+      leaveType: LT[leave.type] || leave.type,
+      start: leave.start,
+      end: leave.end,
+      days: leave.days,
+      period: periodLabel,
+      reason: leave.reason || '',
+      docLink: leave.docName || '',
+      submittedAt: leave.submittedAt || '',
+      approvedBy: approvedByName || '',
+      approvedAt: new Date().toISOString(),
+      leadNote: leave.leadNote || '',
+      pmNote: leave.pmNote || ''
     })
   }).catch(() => {});
 }

@@ -236,11 +236,33 @@ function initApp() {
 }
 
 function openLeaveModal() {
+  _editingLeaveId = null;
+  document.getElementById('modal-leave-title').innerHTML = '<i class="fa-solid fa-circle-plus" style="margin-right:8px;color:var(--accent);"></i>ยื่นใบลา';
+  document.getElementById('modal-leave-submit-btn').innerHTML = '<i class="fa-solid fa-circle-plus" style="margin-right:6px;"></i> ยื่นใบลา';
   setupLeaveFormForRole();
   clearLeaveForm();
+  document.getElementById('add-for-member-section').style.display = (cu.role === 'lead' || cu.role === 'pm') ? 'block' : 'none';
   const t = new Date().toISOString().split('T')[0];
   setVal('leave-start', t);
   setVal('leave-end', t);
+  openModal('modal-leave');
+}
+function editLeave(id) {
+  const r = getLeaves().find(x => x.id === id);
+  if (!r || r.email !== cu.email || !r.status.startsWith('pending')) return;
+  _editingLeaveId = id;
+  document.getElementById('modal-leave-title').innerHTML = '<i class="fa-solid fa-pen" style="margin-right:8px;color:var(--yellow);"></i>แก้ไขใบลา';
+  document.getElementById('modal-leave-submit-btn').innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> บันทึกการแก้ไข';
+  setupLeaveFormForRole();
+  document.getElementById('add-for-member-section').style.display = 'none';
+  document.getElementById('leave-name').value = r.name;
+  setVal('leave-type', r.type);
+  setVal('leave-start', r.start);
+  setVal('leave-end', r.end);
+  setVal('leave-period', r.isHalf ? r.period : 'full');
+  document.getElementById('leave-reason').value = r.reason || '';
+  document.getElementById('leave-link').value = r.docName || '';
+  onLeaveChange();
   openModal('modal-leave');
 }
 
@@ -502,13 +524,22 @@ async function handleDoc(input) {
   };
   reader.readAsDataURL(f);
 }
+function leaveConflict(targetEmail, newStart, newEnd, newIsHalf, newPeriod, excludeId) {
+  return getLeaves().find(r =>
+    r.email === targetEmail &&
+    r.status !== 'rejected' &&
+    r.id !== excludeId &&
+    r.start <= newEnd && r.end >= newStart &&
+    !(r.isHalf && newIsHalf && r.start === newStart && r.period !== newPeriod)
+  ) || null;
+}
 function submitLeave() {
   const type = document.getElementById('leave-type').value;
   const start = document.getElementById('leave-start').value;
   const period = document.getElementById('leave-period').value;
   const reason = document.getElementById('leave-reason').value.trim();
   const link = document.getElementById('leave-link').value.trim();
-  const forMemberEmail = (document.getElementById('for-member-select')?.value || '');
+  const forMemberEmail = _editingLeaveId ? '' : (document.getElementById('for-member-select')?.value || '');
   const isHalf = period !== 'full';
   const end = isHalf ? start : document.getElementById('leave-end').value;
   if (!start || !end) { toast('⚠️ กรุณาเลือกวันที่'); return; }
@@ -516,6 +547,25 @@ function submitLeave() {
   if (!isHalf && start > end) { toast('⚠️ วันที่ไม่ถูกต้อง'); return; }
   const rawDays = Math.ceil((new Date(end) - new Date(start)) / 864e5) + 1;
   const diff = isHalf ? 0.5 : rawDays;
+
+  // --- EDIT MODE ---
+  if (_editingLeaveId !== null) {
+    const ls = getLeaves(), idx = ls.findIndex(r => r.id === _editingLeaveId); if (idx < 0) return;
+    const r = ls[idx];
+    const conf = leaveConflict(r.email, start, end, isHalf, period, _editingLeaveId);
+    if (conf) { toast('⚠️ มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
+    if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
+    r.type = type; r.start = start; r.end = end; r.period = period; r.reason = reason;
+    r.days = diff; r.isHalf = isHalf; r.hasDoc = !!link; r.docName = link || null;
+    saveLeaves(ls);
+    apiSync('updateLeave', r);
+    _editingLeaveId = null;
+    updateDashboard(); clearLeaveForm(); renderMyBal(); renderHist('all'); closeModal('modal-leave');
+    toast('✏️ แก้ไขใบลาเรียบร้อยแล้ว');
+    return;
+  }
+
+  // --- ADD MODE ---
   const bypass = type === 'sick' || forMemberEmail !== '';
   if (!bypass) {
     const t = new Date(); t.setHours(0, 0, 0, 0);
@@ -525,6 +575,8 @@ function submitLeave() {
   if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
   let targetEmail = cu.email, targetName = cu.name;
   if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.name; } }
+  const conf = leaveConflict(targetEmail, start, end, isHalf, period, null);
+  if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
   const isPM = cu.role === 'pm';
   const isLead = cu.role === 'lead';
   let initialStatus = 'pending_lead';
@@ -536,10 +588,8 @@ function submitLeave() {
   ls.unshift(newLeave);
   saveLeaves(ls);
 
-  // SYNC TO API
   apiSync('addLeave', newLeave);
 
-  // แจ้งเตือน Discord
   if (!isPM) {
     if (isLead) notifyLeave(newLeave, 'new_leave_lead', 'pm');
     else notifyLeave(newLeave, 'new_leave_member', 'lead');
@@ -663,6 +713,7 @@ function pAct(id, action) {
   r.status = action === 'approve' ? 'approved' : 'rejected';
   saveLeaves(ls);
   apiSync('updateLeave', r);
+  if (action === 'approve') syncLeaveApprovedToSheets(r, cu.name);
   toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ไม่อนุมัติ ' + r.name);
   updateBadges(); updateDashboard(); renderLP();
 }
@@ -679,14 +730,42 @@ function renderHist(f) {
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
   tb.innerHTML = data.map(r => {
     const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
+    const isOwner = r.email === cu.email;
+    const isLeadOfMember = cu.role === 'lead' && r.status.startsWith('pending') && getMyTeamMembers().some(u => u.email === r.email);
+    const canEdit = isOwner && r.status.startsWith('pending');
+    const canDelete = canEdit || isLeadOfMember;
+    const cancelBtn = canDelete ? `<button class="btn btn-red btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>` : '';
+    const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
     return `<tr>
       <td><div class="name">${uName(r.email, r.name)}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td>${ch[r.status] || ''}</td>
-      <td>${bFlow(r)}</td>
+      <td>${bFlow(r)}${editBtn}${cancelBtn}</td>
     </tr>`;
   }).join('');
+}
+function cancelLeave(id) {
+  const ls = getLeaves(), idx = ls.findIndex(r => r.id == id); if (idx < 0) return;
+  const r = ls[idx];
+  const isOwner = r.email === cu.email;
+  const isLeadOfMember = cu.role === 'lead' && getMyTeamMembers().some(u => u.email === r.email);
+  if ((!isOwner && !isLeadOfMember) || !r.status.startsWith('pending')) return;
+  const whoName = r.email !== cu.email ? uName(r.email, r.name) + ' — ' : '';
+  document.getElementById('conf-title').textContent = '🗑 ยกเลิกใบลา';
+  document.getElementById('conf-body').innerHTML =
+    'ต้องการยกเลิกใบลาของ <strong>' + whoName + LT[r.type] + '</strong><br>' +
+    '<span style="font-family:var(--mono);color:var(--text3);">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span> ใช่หรือไม่?';
+  document.getElementById('conf-ok').onclick = () => {
+    closeModal('modal-confirm');
+    const ls2 = getLeaves(), i2 = ls2.findIndex(x => x.id == id); if (i2 < 0) return;
+    ls2.splice(i2, 1);
+    saveLeaves(ls2);
+    apiSync('deleteLeave', { id: r.id });
+    toast('🗑 ยกเลิกใบลาเรียบร้อยแล้ว');
+    updateBadges(); updateDashboard(); renderHist('all'); renderMyBal(); renderLR();
+  };
+  openModal('modal-confirm');
 }
 function bFlow(r) {
   const steps = []; steps.push({ l: 'ยื่น', d: true });
@@ -919,12 +998,13 @@ function renderMyBal() {
   const histEl = document.getElementById('my-leave-hist'), rec = mine.slice(0, 10);
   if (!rec.length) { histEl.innerHTML = '<div style="color:var(--text3);font-size:17px;">ยังไม่มีประวัติการลา</div>'; return; }
   const sc = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th></tr></thead><tbody>' + rec.map(r => '<tr><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td></tr>').join('') + '</tbody></table></div>';
+  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>' + rec.map(r => '<tr><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + (r.status.startsWith('pending') ? '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button><button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
 }
 
 // ══ EXERCISE ═════════════════════════════
 let exMembers = [];
 let _editingExId = null;
+let _editingLeaveId = null;
 function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
   if (!sel) return;
