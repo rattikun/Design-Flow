@@ -495,11 +495,12 @@ function onLeaveChange() {
   if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
   if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
   else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
+  const hasRetro = getRetroPerms().has(cu.email);
+  if (hasRetro && !isMgr && !forMember && da < 0) hs.push('<span style="color:var(--green);">🔓 ได้รับสิทธิ์ย้อนหลังไม่ติดเงื่อนไข — ย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
   if (type === 'sick') {
-    const hasRetro = getRetroPerms().has(cu.email);
     const retroOk = isMgr || forMember || hasRetro || da >= -7;
-    const retroLabel = hasRetro ? ' &nbsp;|&nbsp; <span style="color:var(--green);">🔓 ได้รับสิทธิ์ย้อนหลังไม่จำกัด</span>' : (!retroOk ? ' &nbsp;|&nbsp; เกินกำหนด ' + Math.abs(da) + ' วัน' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : ''));
-    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
+    const retroLabel = !hasRetro ? (!retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '')) : '';
+    hs.push('<span style="color:' + (!retroOk && !hasRetro ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
   }
   if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
   if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
@@ -613,10 +614,12 @@ function submitLeave() {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const da = Math.ceil((new Date(start) - t0) / 864e5);
   const hasRetroPerm = getRetroPerms().has(cu.email);
-  if (type === 'sick' && !isMgrSubmit && !forMemberEmail && !hasRetroPerm) {
-    if (da < -7) { toast('⚠️ ลาป่วยย้อนหลังได้ไม่เกิน 7 วัน'); return; }
-  } else if (type !== 'sick' && !forMemberEmail && !isMgrSubmit) {
-    if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
+  if (!hasRetroPerm && !isMgrSubmit && !forMemberEmail) {
+    if (type === 'sick') {
+      if (da < -7) { toast('⚠️ ลาป่วยย้อนหลังได้ไม่เกิน 7 วัน'); return; }
+    } else {
+      if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
+    }
   }
   if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
   let targetEmail = cu.email, targetName = cu.name;
@@ -1003,7 +1006,7 @@ function openQuotaModal(email) {
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.04);margin-top:8px;">
         <div>
           <div style="font-size:16px;font-weight:700;color:#fff;">🕐 อนุญาตลาย้อนหลังไม่ติดเงื่อนไข</div>
-          <div style="font-size:13px;color:var(--text3);">เปิดให้สมาชิกยื่นลาป่วยย้อนหลังได้โดยไม่จำกัด 7 วัน</div>
+          <div style="font-size:13px;color:var(--text3);">เปิดให้สมาชิกยื่นลาย้อนหลังได้ทุกประเภทโดยไม่ติดเงื่อนไข</div>
         </div>
         <button id="btn-retro-toggle" onclick="toggleRetroPerm('${email}')"
           style="padding:6px 16px;border-radius:20px;font-size:14px;font-weight:700;border:none;cursor:pointer;
