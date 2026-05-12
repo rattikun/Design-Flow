@@ -7,7 +7,7 @@ const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.
 // [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
-const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
+const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook-test/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 // n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
 const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/f42feab5-a454-4c3d-8532-a6b2e398e09b';
 
@@ -72,6 +72,7 @@ async function api(action, payload = {}) {
           email: payload.email,
           name: payload.name,
           nickname: payload.nickname || '',
+          discordId: payload.discordId || '',
           birthday: payload.birthday || '',
           role: payload.role,
           dept: payload.dept || '',
@@ -92,6 +93,7 @@ async function api(action, payload = {}) {
         const updateData = {
           name: payload.name,
           nickname: payload.nickname || '',
+          discordId: payload.discordId || '',
           birthday: payload.birthday || '',
           role: payload.role,
           dept: payload.dept || '',
@@ -478,10 +480,12 @@ function notifyLeave(leave, event, notifyRole) {
   const eventLabel = {
     new_leave_member: '📥 ใบลาใหม่ — รอหัวหน้าอนุมัติ',
     new_leave_lead: '📥 ใบลาหัวหน้า — รอ PM อนุมัติ',
-    lead_approved_leave: '✅ หัวหน้าอนุมัติแล้ว — รอ PM อนุมัติ'
+    lead_approved_leave: '✅ หัวหน้าอนุมัติแล้ว — รอ PM อนุมัติ',
+    pm_approved_leave: '✅ PM อนุมัติใบลาแล้ว'
   };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const displayName = (u && u.nickname) ? u.nickname : leave.name.split(' ')[0];
+  const discordId = u ? (u.discordId || '') : '';
   fetch(N8N_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -490,8 +494,10 @@ function notifyLeave(leave, event, notifyRole) {
       eventLabel: eventLabel[event] || event,
       notifyRole,
       id: leave.id,
+      refNo: leave.refNo || '',
       name: displayName,
       email: leave.email,
+      discordId,
       dept: leave.dept || 'ไม่ระบุ',
       leaveType: LT[leave.type] || leave.type,
       start: leave.start,

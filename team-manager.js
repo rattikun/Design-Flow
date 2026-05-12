@@ -352,7 +352,7 @@ function renderMembers() {
     </tr>`).join('');
 }
 function openAddMember() {
-  ['new-name', 'new-nickname', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
+  ['new-name', 'new-nickname', 'new-discord', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
   document.getElementById('new-role').value = 'junior';
   document.getElementById('add-err').style.display = 'none';
   openModal('modal-add');
@@ -365,8 +365,9 @@ function addMember() {
   if (pass.length < 6) { err.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; err.style.display = 'block'; return; }
   const users = getUsers();
   const nickname = document.getElementById('new-nickname').value.trim(), birth = document.getElementById('new-birth').value;
+  const discordId = document.getElementById('new-discord').value.trim();
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
-  const newUser = { email, name, nickname, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk' };
+  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk' };
   users.push(newUser);
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
@@ -377,6 +378,7 @@ function openEdit(email) {
   document.getElementById('edit-key').value = email;
   document.getElementById('edit-name').value = u.name;
   document.getElementById('edit-nickname').value = u.nickname || '';
+  document.getElementById('edit-discord').value = u.discordId || '';
   setVal('edit-birth', u.birthday || '');
   document.getElementById('edit-email').value = u.email;
   document.getElementById('edit-pass').value = '';
@@ -401,7 +403,8 @@ function saveMember() {
   if (!name) { toast('⚠️ กรุณากรอกชื่อ'); return; } if (pass && pass.length < 6) { toast('⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัว'); return; }
   const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u=>u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
-  users[idx].name = name; users[idx].nickname = nickname; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
+  const discordId = document.getElementById('edit-discord').value.trim();
+  users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
   if (ek === cu.email) { cu = users[idx]; LS.set('tf_sess', cu.email); setupSidebar(); }
@@ -612,8 +615,8 @@ function submitLeave() {
     }
   }
   if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
-  let targetEmail = cu.email, targetName = cu.name;
-  if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.name; } }
+  let targetEmail = cu.email, targetName = cu.nickname || cu.name.split(' ')[0];
+  if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.nickname || m.name.split(' ')[0]; } }
   const conf = leaveConflict(targetEmail, start, end, isHalf, period, null);
   if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
   const isPM = cu.role === 'pm';
@@ -765,7 +768,7 @@ function pAct(id, action) {
   saveLeaves(ls);
   _markLeaveModified(r);
   apiSync('updateLeave', r);
-  if (action === 'approve') syncLeaveApprovedToSheets(r, cu.name);
+  if (action === 'approve') { notifyLeave(r, 'pm_approved_leave', 'member'); syncLeaveApprovedToSheets(r, cu.name); }
   toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ไม่อนุมัติ ' + r.name);
   updateBadges(); updateDashboard(); renderLP();
 }
@@ -846,7 +849,7 @@ function pmDeleteLeave(id) {
     _markLeaveDeleted(leave.id);
     apiSync('deleteLeave', { id: leave.id });
     toast('🗑 ลบใบลาเรียบร้อย' + (leave.status === 'approved' ? ' (คืนโควต้า ' + leave.days + ' วัน)' : ''));
-    updateBadges(); updateDashboard(); renderHist(_histFilter); renderMyBal(); renderLR(); renderLP(); renderBal();
+    updateBadges(); updateDashboard(); renderHist(_histFilter); renderMyBal(); renderLR(); renderLP(); renderBal(); renderTeamHist();
   };
   openModal('modal-confirm');
 }
@@ -869,7 +872,7 @@ function cancelLeave(id) {
     _markLeaveDeleted(r.id);
     apiSync('deleteLeave', { id: r.id });
     toast('🗑 ยกเลิกใบลาเรียบร้อยแล้ว');
-    updateBadges(); updateDashboard(); renderHist('all'); renderMyBal(); renderLR();
+    updateBadges(); updateDashboard(); renderHist('all'); renderMyBal(); renderLR(); renderTeamHist();
   };
   openModal('modal-confirm');
 }
