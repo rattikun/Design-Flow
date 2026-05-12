@@ -1,7 +1,7 @@
 
 // ══ CONSTANTS ════════════════════════════
-const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', ordain: '🙏 ลาบวช', other: '📌 อื่นๆ' };
-const LQ = { sick: { q: 30, n: '' }, personal: { q: 3, n: '' }, vacation: { q: 7, n: '' }, dental: { q: 2, n: 'ส่งบิล' }, birthday: { q: 1, n: '' }, funeral: { q: 7, n: '' }, maternity: { q: 98, n: '' }, training: { q: null, n: 'แจ้ง/อนุมัติ' }, sterilize: { q: null, n: 'แจ้ง/อนุมัติ' }, ordain: { q: null, n: 'แจ้ง/อนุมัติ' }, other: { q: null, n: '' } };
+const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', ordain: '🙏 ลาบวช', accumulated: '📅 วันลาสะสม', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', other: '📌 อื่นๆ' };
+const LQ = { sick: { q: 30, n: '' }, personal: { q: 3, n: '' }, vacation: { q: 7, n: '' }, dental: { q: 2, n: 'ส่งบิล' }, birthday: { q: 1, n: '' }, funeral: { q: 7, n: '' }, maternity: { q: 98, n: '' }, ordain: { q: null, n: 'แจ้ง/อนุมัติ' }, accumulated: { q: null, n: 'หัวหน้า/PM เท่านั้น' }, training: { q: null, n: 'แจ้ง/อนุมัติ' }, sterilize: { q: null, n: 'แจ้ง/อนุมัติ' }, other: { q: null, n: '' } };
 const RDOC = ['sick', 'personal'], ESC = ['sick', 'personal'];
 const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project Manager' };
 const RC = { junior: 'var(--accent)', senior: 'var(--purple)', lead: 'var(--yellow)', pm: 'var(--orange)' };
@@ -22,6 +22,8 @@ const getExs = () => LS.get('tf_exs') || [];
 const saveExs = e => LS.set('tf_exs', e);
 const getQs = () => LS.get('tf_qs') || {};
 const saveQs = q => LS.set('tf_qs', q);
+const getRetroPerms = () => new Set(LS.get('tf_retro') || []);
+const saveRetroPerms = s => LS.set('tf_retro', [...s]);
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
@@ -70,6 +72,17 @@ function ensureDefaultAccounts() {
 
 // ══ AUTH ═════════════════════════════════
 let cu = null, lid = 1, eid = 1;
+const _localLeaveChanges = new Map(); // id → updated leave object
+const _deletedLeaveIds = new Set();    // ids removed locally
+function _markLeaveModified(r) { _localLeaveChanges.set(r.id, r); }
+function _markLeaveDeleted(id) { _deletedLeaveIds.add(id); _localLeaveChanges.delete(id); }
+function _applyLocalLeaveChanges() {
+  if (!_localLeaveChanges.size && !_deletedLeaveIds.size) return;
+  let ls = getLeaves();
+  if (_deletedLeaveIds.size) ls = ls.filter(r => !_deletedLeaveIds.has(r.id));
+  if (_localLeaveChanges.size) ls = ls.map(r => _localLeaveChanges.has(r.id) ? _localLeaveChanges.get(r.id) : r);
+  saveLeaves(ls);
+}
 
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
@@ -148,6 +161,7 @@ async function tryRestore() {
     bootstrap().then(res => {
       if (res.ok) {
         migrateExIds();
+        _applyLocalLeaveChanges(); // re-apply local changes overwritten by bootstrap
         initIDs(); // Update lid from fresh data
         // refresh visible page หลัง sync เสร็จ
         const active = document.querySelector('.page.active');
@@ -215,7 +229,7 @@ function showPage(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + id); if (pg) pg.classList.add('active');
   const nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
-  ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => renderHist('all'), 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota })[id]?.();
+  ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota })[id]?.();
 }
 
 // ══ INIT ═════════════════════════════════
@@ -241,6 +255,7 @@ function openLeaveModal() {
   document.getElementById('modal-leave-submit-btn').innerHTML = '<i class="fa-solid fa-circle-plus" style="margin-right:6px;"></i> ยื่นใบลา';
   setupLeaveFormForRole();
   clearLeaveForm();
+  document.getElementById('leave-name').value = cu.name;
   document.getElementById('add-for-member-section').style.display = (cu.role === 'lead' || cu.role === 'pm') ? 'block' : 'none';
   const t = new Date().toISOString().split('T')[0];
   setVal('leave-start', t);
@@ -266,6 +281,7 @@ function editLeave(id) {
   openModal('modal-leave');
 }
 
+const MGMT_ONLY_TYPES = ['funeral', 'maternity', 'training', 'sterilize', 'ordain', 'other', 'accumulated'];
 function setupLeaveFormForRole() {
   const isMgr = cu.role === 'lead' || cu.role === 'pm';
   document.getElementById('add-for-member-section').style.display = isMgr ? 'block' : 'none';
@@ -275,6 +291,24 @@ function setupLeaveFormForRole() {
     sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
   }
+  const typeSel = document.getElementById('leave-type');
+  Array.from(typeSel.options).forEach(opt => {
+    const restricted = MGMT_ONLY_TYPES.includes(opt.value);
+    opt.hidden = restricted && !isMgr;
+    opt.disabled = restricted && !isMgr;
+  });
+  if (!isMgr && MGMT_ONLY_TYPES.includes(typeSel.value)) typeSel.value = 'sick';
+}
+
+function fpAddTodayBtn(fp) {
+  const monthsEl = fp.calendarContainer.querySelector('.flatpickr-months');
+  const nextBtn = fp.calendarContainer.querySelector('.flatpickr-next-month');
+  if (!monthsEl || !nextBtn || monthsEl.querySelector('.fp-today-btn')) return;
+  const btn = document.createElement('span');
+  btn.className = 'fp-today-btn';
+  btn.textContent = 'Today';
+  btn.addEventListener('click', (e) => { e.stopPropagation(); fp.setDate(new Date(), true); });
+  monthsEl.insertBefore(btn, nextBtn);
 }
 
 function initDatePickers() {
@@ -282,9 +316,11 @@ function initDatePickers() {
     locale: 'th',
     dateFormat: 'Y-m-d',
     disableMobile: "true",
-    static: true, // Make calendar follow the input in scrolling containers
+    static: true,
     nextArrow: '<i class="fa-solid fa-chevron-right"></i>',
-    prevArrow: '<i class="fa-solid fa-chevron-left"></i>'
+    prevArrow: '<i class="fa-solid fa-chevron-left"></i>',
+    monthSelectorType: 'dropdown',
+    onReady: function(s, d, fp) { fpAddTodayBtn(fp); }
   };
 
   flatpickr('#leave-start', common);
@@ -445,24 +481,31 @@ function onLeaveChange() {
   if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
   const rawDays = Math.ceil((new Date(isHalf ? start : end) - new Date(start)) / 864e5) + 1;
   const diff = isHalf ? 0.5 : rawDays;
-  const needDoc = RDOC.includes(type) && diff >= 3;
+  const needDoc = (type === 'sick' && diff >= 2) || type === 'dental';
   const willEsc = ESC.includes(type) && diff > 3;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const da = Math.ceil((new Date(start) - today) / 864e5);
   const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
-  const needAdv = type !== 'sick' && !forMember;
+  const isMgr = cu.role === 'pm' || cu.role === 'lead';
+  const needAdv = type !== 'sick' && !forMember && !isMgr;
   const advOk = !needAdv || da >= 7;
   docG.style.display = needDoc ? 'block' : 'none';
   let hs = [];
   if (isHalf) hs.push('<span style="color:var(--accent);">🌓 ลาครึ่งวัน' + (period === 'morning' ? ' (เช้า)' : ' (บ่าย)') + ' = 0.5 วัน</span>');
+  if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
   if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
-  else if (needAdv && advOk && !isHalf) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
-  if (type === 'sick') hs.push('<span style="color:var(--accent);">💊 ลาป่วย — ไม่ต้องลาล่วงหน้า</span>');
-  if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
+  else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
+  if (type === 'sick') {
+    const hasRetro = getRetroPerms().has(cu.email);
+    const retroOk = isMgr || forMember || hasRetro || da >= -7;
+    const retroLabel = hasRetro ? ' &nbsp;|&nbsp; <span style="color:var(--green);">🔓 ได้รับสิทธิ์ย้อนหลังไม่จำกัด</span>' : (!retroOk ? ' &nbsp;|&nbsp; เกินกำหนด ' + Math.abs(da) + ' วัน' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : ''));
+    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
+  }
+  if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
+  if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
+  else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
   if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
-  if (needDoc) hs.push('<span style="color:var(--red);">📄 ต้องใส่ลิงก์หลักฐาน / ใบรับรองแพทย์</span>');
   if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
-  if (type === 'dental') hs.push('<span style="color:var(--accent);">🦷 หัวหน้าพิจารณาเสมอ</span>');
   hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
 }
 async function handleDoc(input) {
@@ -554,7 +597,7 @@ function submitLeave() {
     const r = ls[idx];
     const conf = leaveConflict(r.email, start, end, isHalf, period, _editingLeaveId);
     if (conf) { toast('⚠️ มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
-    if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
+    if (((type === 'sick' && diff >= 2) || type === 'dental') && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
     r.type = type; r.start = start; r.end = end; r.period = period; r.reason = reason;
     r.days = diff; r.isHalf = isHalf; r.hasDoc = !!link; r.docName = link || null;
     saveLeaves(ls);
@@ -566,10 +609,13 @@ function submitLeave() {
   }
 
   // --- ADD MODE ---
-  const bypass = type === 'sick' || forMemberEmail !== '';
-  if (!bypass) {
-    const t = new Date(); t.setHours(0, 0, 0, 0);
-    const da = Math.ceil((new Date(start) - t) / 864e5);
+  const isMgrSubmit = cu.role === 'pm' || cu.role === 'lead';
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const da = Math.ceil((new Date(start) - t0) / 864e5);
+  const hasRetroPerm = getRetroPerms().has(cu.email);
+  if (type === 'sick' && !isMgrSubmit && !forMemberEmail && !hasRetroPerm) {
+    if (da < -7) { toast('⚠️ ลาป่วยย้อนหลังได้ไม่เกิน 7 วัน'); return; }
+  } else if (type !== 'sick' && !forMemberEmail && !isMgrSubmit) {
     if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
   }
   if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
@@ -584,7 +630,12 @@ function submitLeave() {
   else if (isLead) initialStatus = 'pending_pm';
 
   const ls = getLeaves();
-  const newLeave = { id: lid++, name: targetName, email: targetEmail, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
+  const targetUser = getUsers().find(u => u.email === targetEmail);
+  const targetDept = (targetUser && targetUser.dept) ? targetUser.dept : (cu.dept || '');
+  const _newId = lid++;
+  const _yr = new Date().getFullYear();
+  const _refNo = 'LV' + _yr + '-' + String(_newId).padStart(4, '0');
+  const newLeave = { id: _newId, refNo: _refNo, name: targetName, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
   ls.unshift(newLeave);
   saveLeaves(ls);
 
@@ -626,7 +677,7 @@ function renderLR() {
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span>${r.refNo ? ` <span style="font-size:14px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 8px;border-radius:20px;">${r.refNo}</span>` : ''}</div>
           <div style="font-size:17px;color:var(--text3);font-family:var(--mono);margin-top:2px;">
             ${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} 
             <strong style="color:var(--yellow);">(${dLabel})</strong>
@@ -644,9 +695,10 @@ function renderLR() {
         <span class="flow-step">○ PM</span>
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ (ไม่บังคับ)</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="ln-${r.id}" style="margin-top:6px;" /></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-green btn-sm" onclick="lAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
         <button class="btn btn-red btn-sm" onclick="lAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:auto;color:var(--text3);border-color:var(--border2);font-size:13px;padding:3px 10px;"><i class="fa-solid fa-trash"></i> ลบใบลา</button>
       </div>
     </div>`;
   }).join('');
@@ -664,6 +716,7 @@ function lAct(id, action) {
     toast('✕ ไม่อนุมัติ ' + r.name);
   }
   saveLeaves(ls);
+  _markLeaveModified(r);
   apiSync('updateLeave', r);
   updateBadges(); updateDashboard(); renderLR();
 }
@@ -678,7 +731,7 @@ function renderLP() {
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span></div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span>${r.refNo ? ` <span style="font-size:14px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 8px;border-radius:20px;">${r.refNo}</span>` : ''}</div>
           <div style="font-size:17px;color:var(--text3);font-family:var(--mono);margin-top:2px;">
             ${LT[r.type]} • ${r.start}${r.start !== r.end ? ' → ' + r.end : ''} 
             <strong style="color:var(--yellow);">(${dLabel})</strong>
@@ -712,6 +765,7 @@ function pAct(id, action) {
   r.pmAction = action;
   r.status = action === 'approve' ? 'approved' : 'rejected';
   saveLeaves(ls);
+  _markLeaveModified(r);
   apiSync('updateLeave', r);
   if (action === 'approve') syncLeaveApprovedToSheets(r, cu.name);
   toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ไม่อนุมัติ ' + r.name);
@@ -719,10 +773,31 @@ function pAct(id, action) {
 }
 
 // ══ LEAVE HISTORY ════════════════════════
-function filterHist(f, btn) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); if (btn) btn.classList.add('active'); renderHist(f); }
+let _histFilter = 'pending';
+function filterHist(f, btn) {
+  if (f !== null) _histFilter = f;
+  const card = document.getElementById('hist-tbody')?.closest('.card');
+  if (card) card.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderHist(_histFilter);
+}
 function renderHist(f) {
   const ve = getVisibleEmails();
   let data = getLeaves().filter(r => ve === null || ve.has(r.email));
+
+  // populate year dropdown
+  const yrSel = document.getElementById('hist-year');
+  if (yrSel) {
+    const years = [...new Set(data.map(r => r.start?.slice(0, 4)).filter(Boolean))].sort((a, b) => b - a);
+    const curYear = String(new Date().getFullYear());
+    if (yrSel.options.length === 0 || yrSel.dataset.built !== years.join(',')) {
+      yrSel.innerHTML = years.map(y => `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`).join('');
+      yrSel.dataset.built = years.join(',');
+    }
+    const selYear = yrSel.value;
+    if (selYear) data = data.filter(r => r.start?.startsWith(selYear));
+  }
+
   if (f === 'pending') data = data.filter(r => r.status.startsWith('pending'));
   else if (f !== 'all') data = data.filter(r => r.status === f);
   const tb = document.getElementById('hist-tbody');
@@ -737,7 +812,7 @@ function renderHist(f) {
     const cancelBtn = canDelete ? `<button class="btn btn-red btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>` : '';
     const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td>${ch[r.status] || ''}</td>
@@ -761,6 +836,7 @@ function cancelLeave(id) {
     const ls2 = getLeaves(), i2 = ls2.findIndex(x => x.id == id); if (i2 < 0) return;
     ls2.splice(i2, 1);
     saveLeaves(ls2);
+    _markLeaveDeleted(r.id);
     apiSync('deleteLeave', { id: r.id });
     toast('🗑 ยกเลิกใบลาเรียบร้อยแล้ว');
     updateBadges(); updateDashboard(); renderHist('all'); renderMyBal(); renderLR();
@@ -792,34 +868,84 @@ function getVisibleEmails() {
   return new Set([cu.email]);
 }
 let selMember = null;
+let _balSort = { col: 'name', dir: 'asc' };
 function renderBal() {
-  document.getElementById('bal-year').textContent = new Date().getFullYear();
-  const isPM = cu.role === 'pm'; document.getElementById('pm-reset-wrap').style.display = isPM ? 'flex' : 'none';
+  const isPM = cu.role === 'pm';
+  document.getElementById('pm-reset-wrap').style.display = isPM ? 'flex' : 'none';
   const members = getMyTeamMembers();
-  const tabs = document.getElementById('bal-tabs'), nd = document.getElementById('bal-nodata'), cont = document.getElementById('bal-content');
+  const nd = document.getElementById('bal-nodata');
+  const tabs = document.getElementById('bal-tabs');
   if (!members.length) {
     nd.style.display = 'block'; nd.innerHTML = '<div style="color:var(--text3);text-align:center;padding:32px;"><div style="font-size:36px;">👥</div><div style="font-size:18px;color:var(--text2);margin-top:8px;">ยังไม่มีสมาชิกในทีม</div></div>';
-    cont.innerHTML = ''; tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; return;
+    if (tabs) tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; return;
   }
   nd.style.display = 'none';
-  renderBalOverview(members, isPM);
+
+  // populate year dropdown
+  const yrSel = document.getElementById('bal-year-sel');
+  const allLeaves = getLeaves();
+  const years = [...new Set(allLeaves.map(r => r.start?.slice(0, 4)).filter(Boolean))].sort((a, b) => b - a);
+  const curYear = String(new Date().getFullYear());
+  if (!years.includes(curYear)) years.unshift(curYear);
+  if (yrSel.dataset.built !== years.join(',')) {
+    yrSel.innerHTML = years.map(y => `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`).join('');
+    yrSel.dataset.built = years.join(',');
+  }
+  const selYear = yrSel.value || curYear;
+  document.getElementById('bal-year').textContent = selYear;
+
+  renderBalOverview(members, isPM, selYear);
 }
-function renderBalOverview(members, isPM) {
-  const ls = getLeaves(), qs = getQs(), yr = new Date().getFullYear();
+function _balSortBy(col) {
+  if (_balSort.col === col) _balSort.dir = _balSort.dir === 'asc' ? 'desc' : 'asc';
+  else { _balSort.col = col; _balSort.dir = 'asc'; }
+  renderBal();
+}
+function renderBalOverview(members, isPM, selYear) {
+  const isMgr = isPM || cu.role === 'lead';
+  const ls = getLeaves().filter(r => r.start?.startsWith(selYear)), qs = getQs();
   const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
-  const rows = members.map(u => {
-    const cells = fixedTypes.map(type => {
-      const def = LQ[type], cq = qs[u.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
+  const nullTypes = Object.keys(LQ).filter(t => LQ[t].q === null);
+  const allTypes = isMgr ? [...fixedTypes, ...nullTypes] : fixedTypes;
+
+  // compute data for sorting
+  const memberData = members.map(u => {
+    const cols = {};
+    allTypes.forEach(type => {
+      const def = LQ[type], cq = qs[u.email]?.[type] ?? null;
       const used = ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
-      const rem = Math.max(0, effQ - used), c = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      return '<td style="text-align:center;font-family:var(--mono);font-size:17px;"><span style="font-weight:700;color:' + c + ';">' + rem + '</span><span style="color:var(--text3);font-size:15px;">/' + effQ + '</span></td>';
+      if (def.q === null && cq === null) { cols[type] = { display: (ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').length || 0), isCount: true }; }
+      else { const effQ = cq !== null ? cq : def.q; cols[type] = { rem: Math.max(0, effQ - used), effQ, used }; }
+    });
+    return { u, cols };
+  });
+
+  // sort
+  memberData.sort((a, b) => {
+    let va, vb;
+    if (_balSort.col === 'name') { va = uName(a.u.email, a.u.name).toLowerCase(); vb = uName(b.u.email, b.u.name).toLowerCase(); }
+    else { va = a.cols[_balSort.col]?.rem ?? a.cols[_balSort.col]?.display ?? 0; vb = b.cols[_balSort.col]?.rem ?? b.cols[_balSort.col]?.display ?? 0; }
+    return _balSort.dir === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+  });
+
+  const arrow = col => _balSort.col === col ? (_balSort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+  const thStyle = 'text-align:center;white-space:nowrap;cursor:pointer;user-select:none;';
+
+  const rows = memberData.map(({ u, cols }) => {
+    const cells = allTypes.map(type => {
+      const d = cols[type];
+      if (d.isCount) return '<td style="text-align:center;font-family:var(--mono);font-size:17px;"><span style="color:var(--text2);">' + (d.display || '—') + '</span>' + (d.display ? '<span style="color:var(--text3);font-size:13px;"> ครั้ง</span>' : '') + '</td>';
+      const c = d.rem === 0 ? 'var(--red)' : d.rem <= 2 ? 'var(--yellow)' : 'var(--green)';
+      return '<td style="text-align:center;font-family:var(--mono);font-size:17px;"><span style="font-weight:700;color:' + c + ';">' + d.rem + '</span><span style="color:var(--text3);font-size:15px;">/' + d.effQ + '</span></td>';
     }).join('');
-    const action = isPM ? '<td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="openQuotaModal(\'' + u.email + '\')" style="padding:6px 14px;border-radius:10px;font-size:15px;color:var(--yellow);border-color:rgba(245, 200, 66, 0.2);background:rgba(245, 200, 66, 0.05);"><i class="fa-solid fa-pencil"></i> แก้ไข</button></td>' : '';
+    const action = isPM ? '<td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="openQuotaModal(\'' + u.email + '\')" style="padding:6px 14px;border-radius:10px;font-size:15px;color:var(--yellow);border-color:rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);"><i class="fa-solid fa-pencil"></i> แก้ไข</button></td>' : '';
     return '<tr><td><div class="name">' + uName(u.email, u.name) + '</div><div class="meta">' + u.email + '</div></td>' + cells + action + '</tr>';
   }).join('');
-  const ths = fixedTypes.map(t => '<th style="text-align:center;white-space:nowrap;">' + LT[t].replace(/^\S+\s/, '') + '</th>').join('');
+
+  const nameTh = '<th style="cursor:pointer;user-select:none;" onclick="_balSortBy(\'name\')">สมาชิก' + arrow('name') + '</th>';
+  const ths = allTypes.map(t => '<th style="' + thStyle + '" onclick="_balSortBy(\'' + t + '\')">' + LT[t].replace(/^\S+\s/, '') + arrow(t) + '</th>').join('');
   const actionTh = isPM ? '<th style="text-align:right;">โควต้า</th>' : '';
-  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + yr + '</div><div style="font-size:16px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย</div><div class="table-wrap"><table><thead><tr><th>สมาชิก</th>' + ths + actionTh + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  document.getElementById('bal-overview').innerHTML = '<div class="card" style="margin-bottom:16px;"><div class="card-title">◈ ภาพรวมวันลาทั้งทีม — ปี ' + selYear + '</div><div style="font-size:16px;color:var(--text3);margin-bottom:12px;">ตัวเลข = วันคงเหลือ/โควต้า &nbsp;|&nbsp; <span style="color:var(--red);">แดง</span>=หมด &nbsp;<span style="color:var(--yellow);">เหลือง</span>=น้อย &nbsp;|&nbsp; คลิก header เพื่อเรียงลำดับ</div><div class="table-wrap"><table><thead><tr>' + nameTh + ths + actionTh + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 
 
@@ -831,7 +957,7 @@ function openQuotaModal(email) {
   document.getElementById('quota-target-email').textContent = user.email;
 
   const ls = getLeaves(), qs = getQs();
-  const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
+  const allTypes = Object.keys(LQ);
 
   const body = document.getElementById('quota-modal-body');
   body.innerHTML = `
@@ -840,8 +966,8 @@ function openQuotaModal(email) {
       <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">ทั้งหมด</div>
       <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">คงเหลือ</div>
     </div>
-    ${fixedTypes.map(type => {
-    const def = LQ[type], cq = qs[email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
+    ${allTypes.map(type => {
+    const def = LQ[type], cq = qs[email]?.[type] ?? null, effQ = cq !== null ? cq : (def.q ?? 0);
     const used = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const rem = Math.max(0, effQ - used);
 
@@ -852,20 +978,53 @@ function openQuotaModal(email) {
           <div style="font-size:12px; color:var(--text3);">ใช้ไปแล้ว ${used} วัน</div>
         </div>
         <div>
-          <input type="number" class="quota-total-input" data-type="${type}" data-used="${used}" value="${effQ}" min="${used}" max="365" 
+          <input type="number" class="quota-total-input" data-type="${type}" data-used="${used}" value="${effQ}" min="${used}" max="365"
             oninput="syncQuota(this, 'rem')"
             style="width:100%; height:38px; background:var(--surface3); border:1px solid var(--border); border-radius:8px; color:#fff; text-align:center; font-size:16px; font-family:var(--mono); font-weight:700; outline:none;" />
         </div>
         <div>
-          <input type="number" class="quota-rem-input" data-type="${type}" data-used="${used}" value="${rem}" min="0" max="365" 
+          <input type="number" class="quota-rem-input" data-type="${type}" data-used="${used}" value="${rem}" min="0" max="365"
             oninput="syncQuota(this, 'total')"
             style="width:100%; height:38px; background:rgba(61, 214, 140, 0.05); border:1px solid rgba(61, 214, 140, 0.2); border-radius:8px; color:var(--green); text-align:center; font-size:16px; font-family:var(--mono); font-weight:700; outline:none;" />
         </div>
       </div>`;
   }).join('')}`;
 
+  // retro permission toggle
+  const retro = getRetroPerms();
+  const hasRetro = retro.has(email);
+  const retroEl = document.getElementById('quota-retro-wrap');
+  if (retroEl) {
+    retroEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.04);margin-top:8px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#fff;">🕐 อนุญาตลาย้อนหลังไม่ติดเงื่อนไข</div>
+          <div style="font-size:13px;color:var(--text3);">เปิดให้สมาชิกยื่นลาป่วยย้อนหลังได้โดยไม่จำกัด 7 วัน</div>
+        </div>
+        <button id="btn-retro-toggle" onclick="toggleRetroPerm('${email}')"
+          style="padding:6px 16px;border-radius:20px;font-size:14px;font-weight:700;border:none;cursor:pointer;
+          background:${hasRetro ? 'var(--green)' : 'var(--surface3)'};color:${hasRetro ? '#000' : 'var(--text3)'};">
+          ${hasRetro ? '✓ เปิดอยู่' : 'ปิดอยู่'}
+        </button>
+      </div>`;
+  }
+
   document.getElementById('btn-save-quota').onclick = () => saveQuotas(email);
   openModal('modal-quota');
+}
+function toggleRetroPerm(email) {
+  const retro = getRetroPerms();
+  if (retro.has(email)) retro.delete(email); else retro.add(email);
+  saveRetroPerms(retro);
+  // re-render toggle button
+  const hasRetro = retro.has(email);
+  const btn = document.getElementById('btn-retro-toggle');
+  if (btn) {
+    btn.textContent = hasRetro ? '✓ เปิดอยู่' : 'ปิดอยู่';
+    btn.style.background = hasRetro ? 'var(--green)' : 'var(--surface3)';
+    btn.style.color = hasRetro ? '#000' : 'var(--text3)';
+  }
+  toast(hasRetro ? '✅ เปิดสิทธิ์ลาย้อนหลังให้ ' + email : '🔒 ปิดสิทธิ์ลาย้อนหลังของ ' + email);
 }
 
 function syncQuota(el, target) {
@@ -905,11 +1064,16 @@ function saveQuotas(email) {
 
 
 function openTeamQuotaModal() {
-  const fixedTypes = Object.keys(LQ).filter(t => LQ[t].q !== null);
+  const allTypes = Object.keys(LQ);
   const body = document.getElementById('team-quota-body');
+  const qs = getQs();
+  const members = getMyTeamMembers();
+  const refEmail = members[0]?.email;
 
-  body.innerHTML = fixedTypes.map(type => {
+  body.innerHTML = allTypes.map(type => {
     const def = LQ[type];
+    const saved = refEmail && qs[refEmail]?.[type] != null ? qs[refEmail][type] : (def.q ?? 0);
+    const defaultVal = saved;
     return `
       <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
         <div>
@@ -917,7 +1081,7 @@ function openTeamQuotaModal() {
           <div style="font-size:13px; color:var(--text3);">${def.n || ''}</div>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
-          <input type="number" class="team-quota-input" data-type="${type}" value="${def.q}" min="0" max="365" 
+          <input type="number" class="team-quota-input" data-type="${type}" value="${defaultVal}" min="0" max="365"
             style="width:80px; height:38px; background:var(--surface3); border:1px solid var(--border); border-radius:8px; color:#fff; text-align:center; font-size:17px; font-family:var(--mono); font-weight:700; outline:none;" />
           <span style="color:var(--text3); font-size:14px; font-weight:500;">วัน/ปี</span>
         </div>
@@ -950,7 +1114,7 @@ function saveTeamQuotas() {
     });
 
     saveQs(qs);
-    apiSync('updateTeamQuotas', { data: updates });
+    members.forEach(m => apiSync('updateQuotas', { email: m.email, data: qs[m.email] }, { silent: true }));
     closeModal('modal-team-quota');
     toast(`✅ อัปเดตโควต้าสมาชิก ${members.length} คนเรียบร้อย`);
     renderBal();
@@ -964,23 +1128,30 @@ function confirmReset() {
     renderBal();
   });
 }
+function confirmClearLeaves() {
+  openConfirm(
+    '⚠️ ล้างข้อมูลการลาทั้งหมด',
+    '<span style="color:var(--red);font-weight:700;">คำเตือน:</span> ข้อมูลการลาทุกรายการจะถูกลบออกจากระบบถาวร ไม่สามารถกู้คืนได้<br><br>ยืนยันที่จะดำเนินการหรือไม่?',
+    () => {
+      saveLeaves([]);
+      _localLeaveChanges.clear();
+      _deletedLeaveIds.clear();
+      apiSync('clearAllLeaves', {});
+      updateBadges(); updateDashboard();
+      renderBal(); renderLR(); renderLP();
+      toast('🗑 ล้างข้อมูลการลาทั้งหมดเรียบร้อย');
+    }
+  );
+}
 
 // ══ MY BALANCE (member) ══════════════════
 function renderMyBal() {
   const yr = new Date().getFullYear(); document.getElementById('my-bal-year').textContent = yr;
   const ls = getLeaves(), qs = getQs(), mine = ls.filter(r => r.email === cu.email);
-  const chips = [];
-  Object.keys(LQ).filter(t => LQ[t].q !== null).forEach(type => {
-    const def = LQ[type], cq = qs[cu.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
-    const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
-    const rem = Math.max(0, effQ - used);
-    if (rem === 0) chips.push({ label: LT[type], rem, effQ, color: 'var(--red)', bg: 'var(--red-bg)', icon: '⚠️' });
-    else if (rem <= 2) chips.push({ label: LT[type], rem, effQ, color: 'var(--yellow)', bg: 'var(--yellow-bg)', icon: '⏰' });
-  });
-  document.getElementById('my-bal-chips').innerHTML = chips.length
-    ? chips.map(c => '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:' + c.bg + ';border:1px solid ' + c.color + '40;display:flex;align-items:center;gap:8px;"><span>' + c.icon + '</span><div><div style="font-size:17px;font-weight:700;color:' + c.color + ';">' + c.label + '</div><div style="font-size:15px;color:' + c.color + ';font-family:var(--mono);">เหลือ ' + c.rem + '/' + c.effQ + '</div></div></div>').join('')
-    : '<div style="padding:10px 16px;border-radius:var(--radius-sm);background:var(--green-bg);border:1px solid rgba(61,214,140,.3);display:flex;align-items:center;gap:8px;"><span>✅</span><div style="font-size:17px;font-weight:500;color:var(--green);">วันลาทุกประเภทยังเหลือพอ</div></div>';
-  const rows = Object.keys(LQ).map(type => {
+  const isMgr = cu.role === 'pm' || cu.role === 'lead';
+  const hiddenForMember = ['training', 'sterilize', 'ordain', 'other', 'maternity', 'funeral', 'accumulated'];
+  const visibleTypes = Object.keys(LQ).filter(t => isMgr || !hiddenForMember.includes(t));
+  const rows = visibleTypes.map(type => {
     const def = LQ[type], cq = qs[cu.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
     const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const pend = mine.filter(r => r.type === type && r.status.startsWith('pending')).length;
@@ -998,7 +1169,7 @@ function renderMyBal() {
   const histEl = document.getElementById('my-leave-hist'), rec = mine.slice(0, 10);
   if (!rec.length) { histEl.innerHTML = '<div style="color:var(--text3);font-size:17px;">ยังไม่มีประวัติการลา</div>'; return; }
   const sc = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>' + rec.map(r => '<tr><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + (r.status.startsWith('pending') ? '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button><button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>' + rec.map(r => '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + (r.status.startsWith('pending') ? '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button><button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
 }
 
 // ══ EXERCISE ═════════════════════════════

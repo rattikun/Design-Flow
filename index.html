@@ -545,33 +545,138 @@
       padding: 12px 6px !important;
       font-family: inherit !important;
       width: 324px !important;
-      /* Fixed width to prevent cutting off Sunday */
     }
 
-    .flatpickr-day {
-      border-radius: 10px !important;
+    /* Header row — flex so Today btn fits between month label & arrows */
+    .flatpickr-months {
+      display: flex !important;
+      align-items: center !important;
+      padding: 0 4px 8px !important;
+      height: auto !important;
+    }
+    .flatpickr-months .flatpickr-month {
+      flex: 1 !important;
+      height: auto !important;
+      color: var(--text) !important;
+      fill: var(--text) !important;
+    }
+    .flatpickr-prev-month,
+    .flatpickr-next-month {
+      position: static !important;
+      top: auto !important;
+      height: auto !important;
+      padding: 4px 5px !important;
+      line-height: 1 !important;
       color: var(--text2) !important;
+      fill: var(--text2) !important;
+    }
+    .flatpickr-prev-month:hover,
+    .flatpickr-next-month:hover {
+      color: var(--text) !important;
+      fill: var(--text) !important;
+      background: var(--surface2) !important;
+      border-radius: 8px !important;
     }
 
+    /* Today button injected via JS */
+    .fp-today-btn {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--accent-bg);
+      user-select: none;
+      white-space: nowrap;
+      margin-right: 4px;
+      transition: background .15s, color .15s;
+    }
+    .fp-today-btn:hover {
+      background: var(--accent) !important;
+      color: #fff !important;
+    }
+
+    .flatpickr-current-month {
+      display: flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months {
+      font-weight: 700 !important;
+      font-size: 15px !important;
+      cursor: pointer !important;
+      border-radius: 8px !important;
+      padding: 2px 6px !important;
+      background: var(--surface2) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border2) !important;
+      appearance: auto !important;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months:hover {
+      background: var(--surface3) !important;
+    }
+    .flatpickr-current-month .numInputWrapper {
+      display: inline-flex !important;
+      align-items: center !important;
+      background: var(--surface2) !important;
+      border: 1px solid var(--border2) !important;
+      border-radius: 8px !important;
+      padding: 2px 4px !important;
+    }
+    .flatpickr-current-month input.cur-year {
+      font-weight: 700 !important;
+      font-size: 15px !important;
+      color: var(--text) !important;
+      width: 56px !important;
+    }
+    .flatpickr-current-month .numInputWrapper span {
+      border: none !important;
+      opacity: 0.6 !important;
+    }
+    .flatpickr-current-month .numInputWrapper span:hover {
+      opacity: 1 !important;
+      background: var(--surface3) !important;
+    }
+
+    /* Day cells — circle shape */
+    .flatpickr-day {
+      border-radius: 50% !important;
+      color: var(--text2) !important;
+      border: 2px solid transparent !important;
+    }
+    .flatpickr-day:hover {
+      background: var(--surface2) !important;
+      border-color: transparent !important;
+    }
+
+    /* Today — orange/red filled circle */
     .flatpickr-day.today {
-      border-color: var(--accent) !important;
+      background: rgba(255, 95, 75, 0.13) !important;
+      border-color: transparent !important;
+      color: #ff6b55 !important;
+      font-weight: 700 !important;
+    }
+    .flatpickr-day.today:hover {
+      background: rgba(255, 95, 75, 0.25) !important;
+      color: #ff6b55 !important;
     }
 
+    /* Selected — blue filled circle */
     .flatpickr-day.selected,
     .flatpickr-day.selected:hover {
       background: var(--accent) !important;
       border-color: var(--accent) !important;
       color: #fff !important;
-      box-shadow: 0 4px 12px rgba(108, 138, 255, 0.3) !important;
+      box-shadow: 0 4px 14px rgba(108, 138, 255, 0.4) !important;
     }
 
-    .flatpickr-months .flatpickr-month {
-      color: var(--text) !important;
-      fill: var(--text) !important;
-    }
-
-    .flatpickr-current-month .flatpickr-monthDropdown-months {
-      font-weight: 700 !important;
+    /* Today + selected — blue wins */
+    .flatpickr-day.today.selected,
+    .flatpickr-day.today.selected:hover {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: #fff !important;
     }
 
     .flatpickr-weekday {
@@ -579,14 +684,15 @@
       font-weight: 600 !important;
     }
 
-    .flatpickr-day:hover {
-      background: var(--surface2) !important;
-    }
-
     .flatpickr-day.flatpickr-disabled,
     .flatpickr-day.flatpickr-disabled:hover {
       color: var(--text3) !important;
       opacity: 0.3;
+    }
+    .flatpickr-day.prevMonthDay,
+    .flatpickr-day.nextMonthDay {
+      color: var(--text3) !important;
+      opacity: 0.45 !important;
     }
 
     .flatpickr-calendar.arrowTop:after,
@@ -1204,12 +1310,10 @@
             class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติ (PM)<span class="badge"
             id="badge-pm">0</span></div>
         <div class="nav-item" onclick="showPage('leave-history')"><span class="nav-icon"><i
-              class="fa-solid fa-clock-rotate-left"></i></span> ประวัติการลา
+              class="fa-solid fa-clock-rotate-left"></i></span> วันลาของฉัน
         </div>
         <div class="nav-item" id="nav-balance" onclick="showPage('leave-balance')" style="display:none;"><span
             class="nav-icon"><i class="fa-solid fa-people-line"></i></span> วันลาของทีม</div>
-        <div class="nav-item" id="nav-my-balance" onclick="showPage('my-balance')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-address-card"></i></span> วันลาของฉัน</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ออกกำลังกาย</div>
@@ -1364,12 +1468,35 @@
             <div class="page-sub">// ทุกรายการในระบบ</div>
           </div>
         </div>
+
+        <!-- Summary chips -->
+        <!-- Main balance table -->
         <div class="card">
-          <div class="tabs">
-            <button class="tab active" onclick="filterHist('all',this)">ทั้งหมด</button>
-            <button class="tab" onclick="filterHist('pending',this)">รอดำเนินการ</button>
-            <button class="tab" onclick="filterHist('approved',this)">อนุมัติ</button>
-            <button class="tab" onclick="filterHist('rejected',this)">ปฏิเสธ</button>
+          <div class="card-title">&#x25C8; สรุปวันลาคงเหลือ</div>
+          <div class="table-wrap">
+            <table class="balance-table">
+              <thead>
+                <tr>
+                  <th>ประเภทการลา</th>
+                  <th>โควต้า/ปี</th>
+                  <th>ใช้ไปแล้ว</th>
+                  <th>คงเหลือ</th>
+                  <th>การใช้งาน</th>
+                </tr>
+              </thead>
+              <tbody id="my-bal-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+            <div class="tabs" style="margin-bottom:0;">
+              <button class="tab active" onclick="filterHist('pending',this)">รออนุมัติ</button>
+              <button class="tab" onclick="filterHist('approved',this)">อนุมัติแล้ว</button>
+              <button class="tab" onclick="filterHist('rejected',this)">ปฏิเสธ</button>
+            </div>
+            <select id="hist-year" onchange="filterHist(null,null)" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
           </div>
           <div class="table-wrap">
             <table>
@@ -1395,9 +1522,13 @@
             <div class="page-title">วันลาของทีม</div>
             <div class="page-sub">// ปี <span id="bal-year"></span></div>
           </div>
-          <div id="pm-reset-wrap" style="display:none; gap:10px;">
-            <button class="btn btn-ghost btn-sm" onclick="openTeamQuotaModal()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-users-gear"></i> ปรับโควต้าทั้งทีม</button>
-            <button class="btn btn-ghost btn-sm" onclick="confirmReset()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-rotate"></i> รีเซตประจำปี</button>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <select id="bal-year-sel" onchange="renderBal()" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
+            <div id="pm-reset-wrap" style="display:none;gap:10px;">
+              <button class="btn btn-ghost btn-sm" onclick="openTeamQuotaModal()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-users-gear"></i> ปรับโควต้าทั้งทีม</button>
+              <button class="btn btn-ghost btn-sm" onclick="confirmReset()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-rotate"></i> รีเซตประจำปี</button>
+              <button class="btn btn-ghost btn-sm" onclick="confirmClearLeaves()" style="border-color:rgba(255,80,80,0.3);color:var(--red);"><i class="fa-solid fa-trash"></i> ล้างข้อมูลการลาทั้งหมด</button>
+            </div>
           </div>
         </div>
         <div id="bal-tabs" style="margin-bottom:24px;"></div>
@@ -1415,28 +1546,6 @@
           </div>
           <button class="btn btn-primary" onclick="openLeaveModal()"><i class="fa-solid fa-circle-plus"
               style="margin-right:6px;"></i> ยื่นใบลา</button>
-        </div>
-
-        <!-- Summary chips -->
-        <div id="my-bal-chips" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"></div>
-
-        <!-- Main balance table -->
-        <div class="card">
-          <div class="card-title">&#x25C8; สรุปวันลาคงเหลือ</div>
-          <div class="table-wrap">
-            <table class="balance-table">
-              <thead>
-                <tr>
-                  <th>ประเภทการลา</th>
-                  <th>โควต้า/ปี</th>
-                  <th>ใช้ไปแล้ว</th>
-                  <th>คงเหลือ</th>
-                  <th>การใช้งาน</th>
-                </tr>
-              </thead>
-              <tbody id="my-bal-tbody"></tbody>
-            </table>
-          </div>
         </div>
 
         <!-- Recent leave history for this user -->
@@ -1558,6 +1667,7 @@
             <option value="training">&#x1F4DA; ลาฝึกอบรม (แจ้ง/อนุมัติ)</option>
             <option value="sterilize">&#x2695;&#xFE0F; ลาทำหมัน (แจ้ง/อนุมัติ)</option>
             <option value="ordain">&#x1F64F; ลาบวช (แจ้ง/อนุมัติ)</option>
+            <option value="accumulated">&#x1F4C5; วันลาสะสม</option>
             <option value="other">&#x1F4CC; อื่นๆ</option>
           </select>
         </div>
@@ -1715,6 +1825,7 @@
       <div id="quota-modal-body" style="display:flex; flex-direction:column; gap:20px;">
         <!-- Dynamic quota inputs here -->
       </div>
+      <div id="quota-retro-wrap"></div>
       <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
         <button class="btn btn-ghost" onclick="closeModal('modal-quota')" style="height:54px; padding:0 24px; font-weight:700; border:none; background:rgba(255,255,255,0.05); color:#9094b8;">ยกเลิก</button>
         <button class="btn btn-primary" id="btn-save-quota" style="height:54px; padding:0 32px; font-weight:700; background:var(--yellow); color:#000;">บันทึกโควต้า</button>

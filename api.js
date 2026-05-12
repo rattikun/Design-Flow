@@ -8,8 +8,9 @@ const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
 const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
-// n8n webhook สำหรับ sync ข้อมูลการลาที่อนุมัติแล้วไปยัง Google Sheets
-const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook-test/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
+// n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
+// TODO: ใส่ production URL ของ Webhook1 ใน n8n ที่นี่ (ต้อง activate ก่อน)
+const N8N_SHEETS_WEBHOOK_URL = '';
 
 const API_STATE = {
   online: true,
@@ -216,6 +217,14 @@ async function api(action, payload = {}) {
       return { ok: true };
     }
 
+    if (action === 'clearAllLeaves') {
+      const res = await fetch(`${baseUrl}/leaves.json`, {
+        method: 'PUT',
+        body: JSON.stringify(null)
+      });
+      return { ok: res.ok };
+    }
+
     // 6. QUOTAS
     if (action === 'updateQuotas') {
       // payload: { email: '...', data: { sick: 1, ... } }
@@ -367,6 +376,7 @@ function mapUserFromAPI(u) {
 function mapLeaveFromAPI(l) {
   return {
     id: l.id,
+    refNo: l.refNo || null,
     email: l.email,
     name: l.name,
     type: l.type,
@@ -487,6 +497,10 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
   if (!N8N_SHEETS_WEBHOOK_URL) return;
   const LT = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน', dental: 'ลาทำฟัน', birthday: 'ลาวันเกิด', funeral: 'ลาฌาปนกิจ', maternity: 'ลาคลอด', training: 'ลาฝึกอบรม', sterilize: 'ลาทำหมัน', ordain: 'ลาบวช', other: 'อื่นๆ' };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
+  const fullName = (u && u.name) ? u.name : (leave.name || '');
+  const email = (u && u.email) ? u.email : (leave.email || '');
+  const nickname = (u && u.nickname) ? u.nickname : (fullName.split(' ')[0] || '');
+  const dept = (u && u.dept) ? u.dept : (leave.dept || '');
   const periodLabel = leave.isHalf ? (leave.period === 'morning' ? 'ครึ่งวันเช้า' : 'ครึ่งวันบ่าย') : 'เต็มวัน';
   fetch(N8N_SHEETS_WEBHOOK_URL, {
     method: 'POST',
@@ -494,10 +508,10 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
     body: JSON.stringify({
       event: 'pm_approved_leave',
       id: leave.id,
-      name: leave.name,
-      nickname: (u && u.nickname) ? u.nickname : leave.name.split(' ')[0],
-      email: leave.email,
-      dept: (u && u.dept) ? u.dept : (leave.dept || ''),
+      name: fullName,
+      nickname,
+      email,
+      dept,
       leaveType: LT[leave.type] || leave.type,
       start: leave.start,
       end: leave.end,
