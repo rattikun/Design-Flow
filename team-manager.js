@@ -22,8 +22,6 @@ const getExs = () => LS.get('tf_exs') || [];
 const saveExs = e => LS.set('tf_exs', e);
 const getQs = () => LS.get('tf_qs') || {};
 const saveQs = q => LS.set('tf_qs', q);
-const getRetroPerms = () => new Set(LS.get('tf_retro') || []);
-const saveRetroPerms = s => LS.set('tf_retro', [...s]);
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
@@ -453,6 +451,61 @@ async function doChangePass() {
 }
 
 // ══ LEAVE FORM ═══════════════════════════
+function fmtDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y.slice(2)}`;
+}
+
+function countWorkingDays(startStr, endStr) {
+  if (!startStr || !endStr || startStr > endStr) return 0;
+  let count = 0;
+  const d = new Date(startStr + 'T00:00:00');
+  const end = new Date(endStr + 'T00:00:00');
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+function calcEndDateByDays(startStr, numDays) {
+  if (!startStr || !numDays || numDays < 1) return '';
+  const d = new Date(startStr + 'T00:00:00');
+  let count = 0;
+  while (count < numDays) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) {
+      count++;
+      if (count === numDays) break;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return d.toISOString().split('T')[0];
+}
+
+function onLeaveDaysChange() {
+  const start = document.getElementById('leave-start').value;
+  const val = document.getElementById('leave-days').value;
+  const periodEl = document.getElementById('leave-period');
+  const endEl = document.getElementById('leave-end');
+  if (!val) { onLeaveChange(); return; }
+  if (val === 'morning' || val === 'afternoon') {
+    periodEl.value = val;
+    endEl.value = start || '';
+    endEl.disabled = true;
+  } else {
+    periodEl.value = 'full';
+    endEl.disabled = false;
+    const numDays = parseInt(val);
+    if (start && numDays >= 1) {
+      endEl.value = calcEndDateByDays(start, numDays);
+    }
+  }
+  onLeaveChange();
+}
+
 function onLeaveChange() {
   const type = document.getElementById('leave-type').value;
   const start = document.getElementById('leave-start').value;
@@ -460,19 +513,19 @@ function onLeaveChange() {
   const period = document.getElementById('leave-period').value;
   const hints = document.getElementById('leave-hints');
   const docG = document.getElementById('doc-group');
-  if (!start || !end || start > end) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
-  const isDiff = start && end && start !== end;
-  const pGrp = document.getElementById('leave-period-group');
-  if (isDiff) {
-    pGrp.style.display = 'none';
-    document.getElementById('leave-period').value = 'full';
-  } else {
-    pGrp.style.display = 'block';
+  // recalc end date when start changes, based on leave-days dropdown
+  const leaveVal = document.getElementById('leave-days')?.value;
+  if (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon' && start) {
+    const numDays = parseInt(leaveVal);
+    if (numDays >= 1) document.getElementById('leave-end').value = calcEndDateByDays(start, numDays);
   }
+  const endCurrent = document.getElementById('leave-end').value;
+  if (!start || !endCurrent || start > endCurrent) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
+  document.getElementById('leave-period-group').style.display = 'none';
   const isHalf = document.getElementById('leave-period').value !== 'full';
   const endEl = document.getElementById('leave-end');
   if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
-  const rawDays = Math.ceil((new Date(isHalf ? start : end) - new Date(start)) / 864e5) + 1;
+  const rawDays = countWorkingDays(start, isHalf ? start : endCurrent);
   const diff = isHalf ? 0.5 : rawDays;
   const needDoc = (type === 'sick' && diff >= 2) || type === 'dental';
   const willEsc = ESC.includes(type) && diff > 3;
@@ -488,12 +541,10 @@ function onLeaveChange() {
   if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
   if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
   else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
-  const hasRetro = getRetroPerms().has(cu.email);
-  if (hasRetro && !isMgr && !forMember && da < 0) hs.push('<span style="color:var(--green);">🔓 ได้รับสิทธิ์ย้อนหลังไม่ติดเงื่อนไข — ย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
   if (type === 'sick') {
-    const retroOk = isMgr || forMember || hasRetro || da >= -7;
-    const retroLabel = !hasRetro ? (!retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '')) : '';
-    hs.push('<span style="color:' + (!retroOk && !hasRetro ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
+    const retroOk = isMgr || forMember || da >= -7;
+    const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
+    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
   }
   if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
   if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
@@ -582,7 +633,7 @@ function submitLeave() {
   if (!start || !end) { toast('⚠️ กรุณาเลือกวันที่'); return; }
   if (!reason) { toast('⚠️ กรุณาระบุหมายเหตุ / เหตุผล'); return; }
   if (!isHalf && start > end) { toast('⚠️ วันที่ไม่ถูกต้อง'); return; }
-  const rawDays = Math.ceil((new Date(end) - new Date(start)) / 864e5) + 1;
+  const rawDays = countWorkingDays(start, end);
   const diff = isHalf ? 0.5 : rawDays;
 
   // --- EDIT MODE ---
@@ -606,8 +657,7 @@ function submitLeave() {
   const isMgrSubmit = cu.role === 'pm' || cu.role === 'lead';
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const da = Math.ceil((new Date(start) - t0) / 864e5);
-  const hasRetroPerm = getRetroPerms().has(cu.email);
-  if (!hasRetroPerm && !isMgrSubmit && !forMemberEmail) {
+  if (!isMgrSubmit && !forMemberEmail) {
     if (type === 'sick') {
       if (da < -7) { toast('⚠️ ลาป่วยย้อนหลังได้ไม่เกิน 7 วัน'); return; }
     } else {
@@ -656,7 +706,7 @@ function submitLeave() {
   toast(msg);
 }
 function clearLeaveForm() {
-  ['leave-reason', 'leave-link', 'leave-start', 'leave-end'].forEach(id => {
+  ['leave-reason', 'leave-link', 'leave-start', 'leave-end', 'leave-days'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -1154,41 +1204,9 @@ function openQuotaModal(email) {
       </div>`;
   }).join('')}`;
 
-  // retro permission toggle
-  const retro = getRetroPerms();
-  const hasRetro = retro.has(email);
-  const retroEl = document.getElementById('quota-retro-wrap');
-  if (retroEl) {
-    retroEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.04);margin-top:8px;">
-        <div>
-          <div style="font-size:16px;font-weight:700;color:#fff;">🕐 อนุญาตลาย้อนหลังไม่ติดเงื่อนไข</div>
-          <div style="font-size:13px;color:var(--text3);">เปิดให้สมาชิกยื่นลาย้อนหลังได้ทุกประเภทโดยไม่ติดเงื่อนไข</div>
-        </div>
-        <button id="btn-retro-toggle" onclick="toggleRetroPerm('${email}')"
-          style="padding:6px 16px;border-radius:20px;font-size:14px;font-weight:700;border:none;cursor:pointer;
-          background:${hasRetro ? 'var(--green)' : 'var(--surface3)'};color:${hasRetro ? '#000' : 'var(--text3)'};">
-          ${hasRetro ? '✓ เปิดอยู่' : 'ปิดอยู่'}
-        </button>
-      </div>`;
-  }
 
   document.getElementById('btn-save-quota').onclick = () => saveQuotas(email);
   openModal('modal-quota');
-}
-function toggleRetroPerm(email) {
-  const retro = getRetroPerms();
-  if (retro.has(email)) retro.delete(email); else retro.add(email);
-  saveRetroPerms(retro);
-  // re-render toggle button
-  const hasRetro = retro.has(email);
-  const btn = document.getElementById('btn-retro-toggle');
-  if (btn) {
-    btn.textContent = hasRetro ? '✓ เปิดอยู่' : 'ปิดอยู่';
-    btn.style.background = hasRetro ? 'var(--green)' : 'var(--surface3)';
-    btn.style.color = hasRetro ? '#000' : 'var(--text3)';
-  }
-  toast(hasRetro ? '✅ เปิดสิทธิ์ลาย้อนหลังให้ ' + email : '🔒 ปิดสิทธิ์ลาย้อนหลังของ ' + email);
 }
 
 function syncQuota(el, target) {

@@ -554,12 +554,14 @@
       padding: 0 4px 8px !important;
       height: auto !important;
     }
+
     .flatpickr-months .flatpickr-month {
       flex: 1 !important;
       height: auto !important;
       color: var(--text) !important;
       fill: var(--text) !important;
     }
+
     .flatpickr-prev-month,
     .flatpickr-next-month {
       position: static !important;
@@ -570,6 +572,7 @@
       color: var(--text2) !important;
       fill: var(--text2) !important;
     }
+
     .flatpickr-prev-month:hover,
     .flatpickr-next-month:hover {
       color: var(--text) !important;
@@ -592,6 +595,7 @@
       margin-right: 4px;
       transition: background .15s, color .15s;
     }
+
     .fp-today-btn:hover {
       background: var(--accent) !important;
       color: #fff !important;
@@ -602,6 +606,7 @@
       align-items: center !important;
       gap: 4px !important;
     }
+
     .flatpickr-current-month .flatpickr-monthDropdown-months {
       font-weight: 700 !important;
       font-size: 15px !important;
@@ -613,9 +618,11 @@
       border: 1px solid var(--border2) !important;
       appearance: auto !important;
     }
+
     .flatpickr-current-month .flatpickr-monthDropdown-months:hover {
       background: var(--surface3) !important;
     }
+
     .flatpickr-current-month .numInputWrapper {
       display: inline-flex !important;
       align-items: center !important;
@@ -624,16 +631,19 @@
       border-radius: 8px !important;
       padding: 2px 4px !important;
     }
+
     .flatpickr-current-month input.cur-year {
       font-weight: 700 !important;
       font-size: 15px !important;
       color: var(--text) !important;
       width: 56px !important;
     }
+
     .flatpickr-current-month .numInputWrapper span {
       border: none !important;
       opacity: 0.6 !important;
     }
+
     .flatpickr-current-month .numInputWrapper span:hover {
       opacity: 1 !important;
       background: var(--surface3) !important;
@@ -645,6 +655,7 @@
       color: var(--text2) !important;
       border: 2px solid transparent !important;
     }
+
     .flatpickr-day:hover {
       background: var(--surface2) !important;
       border-color: transparent !important;
@@ -657,6 +668,7 @@
       color: #ff6b55 !important;
       font-weight: 700 !important;
     }
+
     .flatpickr-day.today:hover {
       background: rgba(255, 95, 75, 0.25) !important;
       color: #ff6b55 !important;
@@ -689,6 +701,7 @@
       color: var(--text3) !important;
       opacity: 0.3;
     }
+
     .flatpickr-day.prevMonthDay,
     .flatpickr-day.nextMonthDay {
       color: var(--text3) !important;
@@ -1492,13 +1505,15 @@
         </div>
 
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+          <div
+            style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
             <div class="tabs" style="margin-bottom:0;">
               <button class="tab active" onclick="filterHist('pending',this)">รออนุมัติ</button>
               <button class="tab" onclick="filterHist('approved',this)">อนุมัติแล้ว</button>
               <button class="tab" onclick="filterHist('rejected',this)">ปฏิเสธ</button>
             </div>
-            <select id="hist-year" onchange="filterHist(null,null)" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
+            <select id="hist-year" onchange="filterHist(null,null)"
+              style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
           </div>
           <div class="table-wrap">
             <table>
@@ -1526,16 +1541,21 @@
             <div class="page-sub">// ข้อมูลการลาของสมาชิกทั้งหมด</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <select id="team-hist-year" onchange="renderTeamHist()" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
+            <select id="team-hist-year" onchange="renderTeamHist()"
+              style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-          <select id="team-hist-dept-sel" onchange="filterTeamHistDept(this.value)" style="width:auto;font-size:15px;padding:6px 14px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
+          <select id="team-hist-dept-sel" onchange="filterTeamHistDept(this.value)"
+            style="width:auto;font-size:15px;padding:6px 14px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
             <option value="all">ทุกแผนก</option>
           </select>
           <div style="position:relative;">
-            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;"></i>
-            <input type="text" id="team-hist-search" placeholder="ค้นหาเลขใบลา เช่น LV2026-0001" oninput="renderTeamHist()" style="padding:6px 12px 6px 32px;font-size:15px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);width:260px;" />
+            <i class="fa-solid fa-magnifying-glass"
+              style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;"></i>
+            <input type="text" id="team-hist-search" placeholder="ค้นหาเลขใบลา เช่น LV2026-0001"
+              oninput="renderTeamHist()"
+              style="padding:6px 12px 6px 32px;font-size:15px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);width:260px;" />
           </div>
         </div>
         <div class="tabs" id="team-hist-status-tabs" style="margin-bottom:20px;">
@@ -1547,12 +1567,18 @@
           <table>
             <thead id="team-hist-thead">
               <tr>
-                <th onclick="_teamHistSortBy('refNo')" style="cursor:pointer;user-select:none;">เลขที่ <span id="th-refNo">↕</span></th>
-                <th onclick="_teamHistSortBy('name')" style="cursor:pointer;user-select:none;">ชื่อ <span id="th-name">↕</span></th>
-                <th onclick="_teamHistSortBy('dept')" style="cursor:pointer;user-select:none;">แผนก <span id="th-dept">↕</span></th>
-                <th onclick="_teamHistSortBy('type')" style="cursor:pointer;user-select:none;">ประเภท <span id="th-type">↕</span></th>
-                <th onclick="_teamHistSortBy('start')" style="cursor:pointer;user-select:none;">วันที่ <span id="th-start">↓</span></th>
-                <th onclick="_teamHistSortBy('days')" style="cursor:pointer;user-select:none;">จำนวน <span id="th-days">↕</span></th>
+                <th onclick="_teamHistSortBy('refNo')" style="cursor:pointer;user-select:none;">เลขที่ <span
+                    id="th-refNo">↕</span></th>
+                <th onclick="_teamHistSortBy('name')" style="cursor:pointer;user-select:none;">ชื่อ <span
+                    id="th-name">↕</span></th>
+                <th onclick="_teamHistSortBy('dept')" style="cursor:pointer;user-select:none;">แผนก <span
+                    id="th-dept">↕</span></th>
+                <th onclick="_teamHistSortBy('type')" style="cursor:pointer;user-select:none;">ประเภท <span
+                    id="th-type">↕</span></th>
+                <th onclick="_teamHistSortBy('start')" style="cursor:pointer;user-select:none;">วันที่ <span
+                    id="th-start">↓</span></th>
+                <th onclick="_teamHistSortBy('days')" style="cursor:pointer;user-select:none;">จำนวน <span
+                    id="th-days">↕</span></th>
                 <th>เหตุผล</th>
                 <th>สถานะ</th>
                 <th></th>
@@ -1570,11 +1596,17 @@
             <div class="page-sub">// ปี <span id="bal-year"></span></div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <select id="bal-year-sel" onchange="renderBal()" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
+            <select id="bal-year-sel" onchange="renderBal()"
+              style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
             <div id="pm-reset-wrap" style="display:none;gap:10px;">
-              <button class="btn btn-ghost btn-sm" onclick="openTeamQuotaModal()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-users-gear"></i> ปรับโควต้าทั้งทีม</button>
-              <button class="btn btn-ghost btn-sm" onclick="confirmReset()" style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-rotate"></i> รีเซตประจำปี</button>
-              <button class="btn btn-ghost btn-sm" onclick="confirmClearLeaves()" style="border-color:rgba(255,80,80,0.3);color:var(--red);"><i class="fa-solid fa-trash"></i> ล้างข้อมูลการลาทั้งหมด</button>
+              <button class="btn btn-ghost btn-sm" onclick="openTeamQuotaModal()"
+                style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-users-gear"></i>
+                ปรับโควต้าทั้งทีม</button>
+              <button class="btn btn-ghost btn-sm" onclick="confirmReset()"
+                style="border-color:rgba(255,255,255,0.1);"><i class="fa-solid fa-rotate"></i> รีเซตประจำปี</button>
+              <button class="btn btn-ghost btn-sm" onclick="confirmClearLeaves()"
+                style="border-color:rgba(255,80,80,0.3);color:var(--red);"><i class="fa-solid fa-trash"></i>
+                ล้างข้อมูลการลาทั้งหมด</button>
             </div>
           </div>
         </div>
@@ -1696,8 +1728,7 @@
       <button class="modal-close" onclick="closeModal('modal-leave')">✕</button>
       <div class="modal-title" id="modal-leave-title"><i class="fa-solid fa-circle-plus"
           style="margin-right:8px; color:var(--accent);"></i>ยื่นใบลา</div>
-      <div class="info-box">&#x1F4CB; ลา &le;3วัน&nbsp;→&nbsp;หัวหน้า &nbsp;|&nbsp; ลา &gt;3วัน
-        (ป่วย/กิจ)&nbsp;→&nbsp;PM &#x26A1; &nbsp;|&nbsp; ต้องลาล่วงหน้า 7 วัน <em>ยกเว้นลาป่วย</em></div>
+      <div class="info-box" style="font-size:16px"> ลาล่วงหน้า 7 วัน ยกเว้นกรณีลาป่วย </div>
 
       <div class="form-grid">
         <div class="form-group"><label>ชื่อผู้ยื่นลา</label><input type="text" id="leave-name" readonly
@@ -1718,18 +1749,27 @@
             <option value="other">&#x1F4CC; อื่นๆ</option>
           </select>
         </div>
-        <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start"
+        <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start" lang="sv"
             onchange="onLeaveChange()" /></div>
-        <div class="form-group"><label>วันที่สิ้นสุด</label><input type="date" id="leave-end"
-            onchange="onLeaveChange()" /></div>
-        <div class="form-group" id="leave-period-group">
-          <label>ช่วงเวลา</label>
-          <select id="leave-period" onchange="onLeaveChange()">
-            <option value="full">เต็มวัน</option>
-            <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
-            <option value="afternoon">ครึ่งวันบ่าย (0.5 วัน)</option>
+        <div class="form-group"><label>จำนวนวัน <span style="font-size:13px;color:var(--text3);">(ไม่นับ
+              เสาร์-อาทิตย์)</span></label>
+          <select id="leave-days" onchange="onLeaveDaysChange()">
+            <option value="">— เลือกจำนวนวัน —</option>
+            <option value="morning">🌅 ครึ่งวันเช้า (0.5 วัน)</option>
+            <option value="afternoon">🌇 ครึ่งวันบ่าย (0.5 วัน)</option>
+            <option value="1">1 วัน</option>
+            <option value="2">2 วัน</option>
+            <option value="3">3 วัน</option>
           </select>
         </div>
+        <div class="form-group"><label>วันที่สิ้นสุด <span
+              style="font-size:13px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
+            id="leave-end" lang="sv" onchange="onLeaveChange()" /></div>
+        <select id="leave-period" style="display:none;">
+          <option value="full">เต็มวัน</option>
+          <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
+          <option value="afternoon">ครึ่งวันบ่าย (0.5 วัน)</option>
+        </select>
         <div class="form-group full"><label>หมายเหตุ / เหตุผล <span
               style="color:var(--red);">*จำเป็น</span></label><textarea id="leave-reason"
             placeholder="กรุณาระบุเหตุผลการลา..." required></textarea></div>
@@ -1761,8 +1801,8 @@
       </div>
 
       <div style="margin-top:16px;display:flex;gap:10px;">
-        <button id="modal-leave-submit-btn" class="btn btn-primary" onclick="submitLeave()"><i class="fa-solid fa-circle-plus"
-            style="margin-right:6px;"></i> ยื่นใบลา</button>
+        <button id="modal-leave-submit-btn" class="btn btn-primary" onclick="submitLeave()"><i
+            class="fa-solid fa-circle-plus" style="margin-right:6px;"></i> ยื่นใบลา</button>
         <button class="btn btn-ghost" onclick="clearLeaveForm()">ล้างฟอร์ม</button>
       </div>
     </div>
@@ -1778,7 +1818,8 @@
         </div>
         <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="new-nickname" placeholder="ชื่อเล่น" />
         </div>
-        <div class="form-group"><label>Discord ID</label><input type="text" id="new-discord" placeholder="เช่น 123456789012345678" /></div>
+        <div class="form-group"><label>Discord ID</label><input type="text" id="new-discord"
+            placeholder="เช่น 123456789012345678" /></div>
         <div class="form-group"><label>วันเกิด</label><input type="date" id="new-birth" /></div>
         <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
             placeholder="member@company.com" /></div>
@@ -1825,7 +1866,8 @@
       <div class="form-grid">
         <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="edit-name" /></div>
         <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="edit-nickname" /></div>
-        <div class="form-group"><label>Discord ID</label><input type="text" id="edit-discord" placeholder="เช่น 123456789012345678" /></div>
+        <div class="form-group"><label>Discord ID</label><input type="text" id="edit-discord"
+            placeholder="เช่น 123456789012345678" /></div>
         <div class="form-group"><label>วันเกิด</label><input type="date" id="edit-birth" /></div>
         <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
             style="opacity:.6;" /></div>
@@ -1866,7 +1908,8 @@
   <div class="modal-overlay" id="modal-quota">
     <div class="modal" style="width:100%;max-width:620px; padding:32px; border-radius:24px; background:#1a1c26;">
       <div class="modal-header" style="margin-bottom:24px;">
-        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-pen-to-square" style="margin-right:10px; color:var(--yellow);"></i>แก้ไขโควต้าวันลา</div>
+        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-pen-to-square"
+            style="margin-right:10px; color:var(--yellow);"></i>แก้ไขโควต้าวันลา</div>
         <button class="modal-close" onclick="closeModal('modal-quota')">✕</button>
       </div>
       <div style="margin-bottom:24px; padding:16px; background:rgba(255,255,255,0.03); border-radius:16px;">
@@ -1876,10 +1919,12 @@
       <div id="quota-modal-body" style="display:flex; flex-direction:column; gap:20px;">
         <!-- Dynamic quota inputs here -->
       </div>
-      <div id="quota-retro-wrap"></div>
-      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
-        <button class="btn btn-ghost" onclick="closeModal('modal-quota')" style="height:54px; padding:0 24px; font-weight:700; border:none; background:rgba(255,255,255,0.05); color:#9094b8;">ยกเลิก</button>
-        <button class="btn btn-primary" id="btn-save-quota" style="height:54px; padding:0 32px; font-weight:700; background:var(--yellow); color:#000;">บันทึกโควต้า</button>
+      <div
+        style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
+        <button class="btn btn-ghost" onclick="closeModal('modal-quota')"
+          style="height:54px; padding:0 24px; font-weight:700; border:none; background:rgba(255,255,255,0.05); color:#9094b8;">ยกเลิก</button>
+        <button class="btn btn-primary" id="btn-save-quota"
+          style="height:54px; padding:0 32px; font-weight:700; background:var(--yellow); color:#000;">บันทึกโควต้า</button>
       </div>
     </div>
   </div>
@@ -1887,16 +1932,20 @@
   <div class="modal-overlay" id="modal-team-quota">
     <div class="modal" style="width:100%;max-width:550px; padding:32px; border-radius:24px; background:#1a1c26;">
       <div class="modal-header" style="margin-bottom:24px;">
-        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-users-gear" style="margin-right:10px; color:var(--accent);"></i>ปรับโควต้าทั้งทีม</div>
+        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-users-gear"
+            style="margin-right:10px; color:var(--accent);"></i>ปรับโควต้าทั้งทีม</div>
         <button class="modal-close" onclick="closeModal('modal-team-quota')">✕</button>
       </div>
-      <div class="info-box" style="margin-bottom:24px; background:rgba(108,138,255,0.1); border-color:rgba(108,138,255,0.2);">
-        <i class="fa-solid fa-circle-info" style="margin-right:8px;"></i> การตั้งค่านี้จะถูกนำไปใช้กับสมาชิกทุกคนในทีมปัจจุบัน
+      <div class="info-box"
+        style="margin-bottom:24px; background:rgba(108,138,255,0.1); border-color:rgba(108,138,255,0.2);">
+        <i class="fa-solid fa-circle-info" style="margin-right:8px;"></i>
+        การตั้งค่านี้จะถูกนำไปใช้กับสมาชิกทุกคนในทีมปัจจุบัน
       </div>
       <div id="team-quota-body" style="display:flex; flex-direction:column; gap:16px;">
         <!-- Dynamic inputs -->
       </div>
-      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
+      <div
+        style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05);">
         <button class="btn btn-ghost" onclick="closeModal('modal-team-quota')">ยกเลิก</button>
         <button class="btn btn-primary" onclick="saveTeamQuotas()">อัปเดตโควต้าทั้งทีม</button>
       </div>
