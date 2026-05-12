@@ -9,8 +9,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HK
 // n8n webhook สำหรับแจ้งเตือน Discord PM
 const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 // n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
-// TODO: ใส่ production URL ของ Webhook1 ใน n8n ที่นี่ (ต้อง activate ก่อน)
-const N8N_SHEETS_WEBHOOK_URL = '';
+const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/f42feab5-a454-4c3d-8532-a6b2e398e09b';
 
 const API_STATE = {
   online: true,
@@ -508,6 +507,7 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
     body: JSON.stringify({
       event: 'pm_approved_leave',
       id: leave.id,
+      refNo: leave.refNo || '',
       name: fullName,
       nickname,
       email,

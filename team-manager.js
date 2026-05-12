@@ -632,7 +632,11 @@ function submitLeave() {
   const ls = getLeaves();
   const targetUser = getUsers().find(u => u.email === targetEmail);
   const targetDept = (targetUser && targetUser.dept) ? targetUser.dept : (cu.dept || '');
-  const _newId = lid++;
+  const _maxFromLeaves = ls.length ? Math.max(...ls.map(l => l.id || 0)) : 0;
+  const _savedCounter = parseInt(LS.get('tf_lid_counter') || '0', 10);
+  const _newId = Math.max(_maxFromLeaves, _savedCounter) + 1;
+  lid = _newId + 1;
+  LS.set('tf_lid_counter', String(_newId));
   const _yr = new Date().getFullYear();
   const _refNo = 'LV' + _yr + '-' + String(_newId).padStart(4, '0');
   const newLeave = { id: _newId, refNo: _refNo, name: targetName, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
