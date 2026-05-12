@@ -1314,6 +1314,8 @@
         </div>
         <div class="nav-item" id="nav-balance" onclick="showPage('leave-balance')" style="display:none;"><span
             class="nav-icon"><i class="fa-solid fa-people-line"></i></span> วันลาของทีม</div>
+        <div class="nav-item" id="nav-team-hist" onclick="showPage('team-hist')" style="display:none;"><span
+            class="nav-icon"><i class="fa-solid fa-rectangle-list"></i></span> ประวัติการลาทีม</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ออกกำลังกาย</div>
@@ -1517,6 +1519,50 @@
       </div>
 
       <!-- LEAVE BALANCE -->
+      <div id="page-team-hist" class="page">
+        <div class="page-header">
+          <div>
+            <div class="page-title">ประวัติการลาทีม</div>
+            <div class="page-sub">// ข้อมูลการลาของสมาชิกทั้งหมด</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <select id="team-hist-year" onchange="renderTeamHist()" style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+          <select id="team-hist-dept-sel" onchange="filterTeamHistDept(this.value)" style="width:auto;font-size:15px;padding:6px 14px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
+            <option value="all">ทุกแผนก</option>
+          </select>
+          <div style="position:relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;"></i>
+            <input type="text" id="team-hist-search" placeholder="ค้นหาเลขใบลา เช่น LV2026-0001" oninput="renderTeamHist()" style="padding:6px 12px 6px 32px;font-size:15px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);width:260px;" />
+          </div>
+        </div>
+        <div class="tabs" id="team-hist-status-tabs" style="margin-bottom:20px;">
+          <button class="tab" onclick="filterTeamHist('pending',this)">รออนุมัติ</button>
+          <button class="tab active" onclick="filterTeamHist('approved',this)">อนุมัติแล้ว</button>
+          <button class="tab" onclick="filterTeamHist('rejected',this)">ปฏิเสธ</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="team-hist-thead">
+              <tr>
+                <th onclick="_teamHistSortBy('refNo')" style="cursor:pointer;user-select:none;">เลขที่ <span id="th-refNo">↕</span></th>
+                <th onclick="_teamHistSortBy('name')" style="cursor:pointer;user-select:none;">ชื่อ <span id="th-name">↕</span></th>
+                <th onclick="_teamHistSortBy('dept')" style="cursor:pointer;user-select:none;">แผนก <span id="th-dept">↕</span></th>
+                <th onclick="_teamHistSortBy('type')" style="cursor:pointer;user-select:none;">ประเภท <span id="th-type">↕</span></th>
+                <th onclick="_teamHistSortBy('start')" style="cursor:pointer;user-select:none;">วันที่ <span id="th-start">↓</span></th>
+                <th onclick="_teamHistSortBy('days')" style="cursor:pointer;user-select:none;">จำนวน <span id="th-days">↕</span></th>
+                <th>เหตุผล</th>
+                <th>สถานะ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="team-hist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="page-leave-balance" class="page">
         <div class="page-header">
           <div>

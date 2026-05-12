@@ -1,7 +1,7 @@
 
 // ══ CONSTANTS ════════════════════════════
-const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', ordain: '🙏 ลาบวช', accumulated: '📅 วันลาสะสม', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', other: '📌 อื่นๆ' };
-const LQ = { sick: { q: 30, n: '' }, personal: { q: 3, n: '' }, vacation: { q: 7, n: '' }, dental: { q: 2, n: 'ส่งบิล' }, birthday: { q: 1, n: '' }, funeral: { q: 7, n: '' }, maternity: { q: 98, n: '' }, ordain: { q: null, n: 'แจ้ง/อนุมัติ' }, accumulated: { q: null, n: 'หัวหน้า/PM เท่านั้น' }, training: { q: null, n: 'แจ้ง/อนุมัติ' }, sterilize: { q: null, n: 'แจ้ง/อนุมัติ' }, other: { q: null, n: '' } };
+const LT = { personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', birthday: '🎂 ลาวันเกิด', dental: '🦷 ลาทำฟัน', accumulated: '📅 วันลาสะสม', sick: '🤒 ลาป่วย', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', ordain: '🙏 ลาบวช', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', other: '📌 อื่นๆ' };
+const LQ = { personal: { q: 3, n: '' }, vacation: { q: 7, n: '' }, birthday: { q: 1, n: '' }, dental: { q: 2, n: 'ส่งบิล' }, accumulated: { q: null, n: 'หัวหน้า/PM เท่านั้น' }, sick: { q: 30, n: '' }, funeral: { q: 7, n: '' }, maternity: { q: 98, n: '' }, ordain: { q: null, n: 'แจ้ง/อนุมัติ' }, training: { q: null, n: 'แจ้ง/อนุมัติ' }, sterilize: { q: null, n: 'แจ้ง/อนุมัติ' }, other: { q: null, n: '' } };
 const RDOC = ['sick'], ESC = ['sick', 'personal'];
 const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project Manager' };
 const RC = { junior: 'var(--accent)', senior: 'var(--purple)', lead: 'var(--yellow)', pm: 'var(--orange)' };
@@ -42,32 +42,17 @@ function uNick(email, fallback) {
 }
 
 function initUsers() {
-  const u = [
-    { email: 'pm@team.com', name: 'คุณ PM', role: 'pm', dept: 'Management', pass: hp('admin123'), addedBy: 'system', addedAt: new Date().toISOString() },
-    { email: 'lead.uxui@team.com', name: 'คุณหัวหน้า UXUI', role: 'lead', dept: 'UXUI', pass: hp('lead123'), addedBy: 'system', addedAt: new Date().toISOString() },
-    { email: 'lead.media@team.com', name: 'คุณหัวหน้า Media', role: 'lead', dept: 'Media', pass: hp('lead123'), addedBy: 'system', addedAt: new Date().toISOString() },
-    { email: 'lead.art@team.com', name: 'คุณหัวหน้า Art', role: 'lead', dept: 'Art', pass: hp('lead123'), addedBy: 'system', addedAt: new Date().toISOString() }
-  ];
+  const u = [];
   saveUsers(u); return u;
 }
 
+const _REMOVED_DEFAULT_EMAILS = ['pm@team.com', 'lead.uxui@team.com', 'lead.media@team.com', 'lead.art@team.com'];
+
 function ensureDefaultAccounts() {
   let users = LS.get('tf_users');
-  if (!users || !Array.isArray(users) || !users.length) { initUsers(); return; }
-  const adm = hp('admin123'), led = hp('lead123');
-  let changed = false;
-  const defaults = [
-    { email: 'pm@team.com', name: 'คุณ PM', role: 'pm', dept: 'Management', pass: adm },
-    { email: 'lead.uxui@team.com', name: 'คุณหัวหน้า UXUI', role: 'lead', dept: 'UXUI', pass: led },
-    { email: 'lead.media@team.com', name: 'คุณหัวหน้า Media', role: 'lead', dept: 'Media', pass: led },
-    { email: 'lead.art@team.com', name: 'คุณหัวหน้า Art', role: 'lead', dept: 'Art', pass: led }
-  ];
-  defaults.forEach(d => {
-    const existing = users.find(u => u.email === d.email);
-    if (existing) { if (existing.pass !== d.pass) { existing.pass = d.pass; changed = true; } }
-    else { users.push({ ...d, addedBy: 'system', addedAt: new Date().toISOString() }); changed = true; }
-  });
-  if (changed) saveUsers(users);
+  if (!users || !Array.isArray(users)) { saveUsers([]); return; }
+  const filtered = users.filter(u => !_REMOVED_DEFAULT_EMAILS.includes(u.email));
+  if (filtered.length !== users.length) saveUsers(filtered);
 }
 
 // ══ AUTH ═════════════════════════════════
@@ -218,6 +203,7 @@ function setupSidebar() {
   document.getElementById('nav-leave-pm').style.display = r === 'pm' ? 'flex' : 'none';
   document.getElementById('nav-ex-review').style.display = r === 'pm' ? 'flex' : 'none';
   document.getElementById('nav-balance').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
+  document.getElementById('nav-team-hist').style.display = (r === 'pm' || r === 'lead') ? 'flex' : 'none';
   document.getElementById('nav-my-balance').style.display = 'flex';
   document.getElementById('nav-leaderboard').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
 }
@@ -229,7 +215,7 @@ function showPage(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + id); if (pg) pg.classList.add('active');
   const nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
-  ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota })[id]?.();
+  ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
 }
 
 // ══ INIT ═════════════════════════════════
@@ -710,7 +696,7 @@ function renderLR() {
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-green btn-sm" onclick="lAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
         <button class="btn btn-red btn-sm" onclick="lAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
-        <button class="btn btn-ghost btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:auto;color:var(--text3);border-color:var(--border2);font-size:13px;padding:3px 10px;"><i class="fa-solid fa-trash"></i> ลบใบลา</button>
+        <button class="btn btn-ghost btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:auto;color:var(--red);border-color:rgba(255,80,80,0.3);font-size:13px;padding:3px 10px;"><i class="fa-solid fa-trash"></i> ลบใบลา</button>
       </div>
     </div>`;
   }).join('');
@@ -822,15 +808,47 @@ function renderHist(f) {
     const canDelete = canEdit || isLeadOfMember;
     const cancelBtn = canDelete ? `<button class="btn btn-red btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>` : '';
     const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
+    const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
     return `<tr>
       <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
       <td>${ch[r.status] || ''}</td>
-      <td>${bFlow(r)}${editBtn}${cancelBtn}</td>
+      <td>${bFlow(r)}${editBtn}${cancelBtn}${pmDelBtn}</td>
     </tr>`;
   }).join('');
+}
+function pmDeleteLeave(id) {
+  if (cu.role !== 'pm') return;
+  const ls = getLeaves(), idx = ls.findIndex(r => r.id == id); if (idx < 0) return;
+  const r = ls[idx];
+  document.getElementById('conf-title').textContent = '🗑 ลบใบลา (PM)';
+  document.getElementById('conf-body').innerHTML =
+    'ลบใบลาของ <strong>' + uName(r.email, r.name) + ' — ' + LT[r.type] + '</strong><br>' +
+    '<span style="font-family:var(--mono);color:var(--text3);">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span><br>' +
+    (r.status === 'approved' ? '<span style="color:var(--yellow);font-size:14px;">⚠️ ใบลานี้อนุมัติแล้ว โควต้าจะถูกคืนให้เจ้าของ</span>' : '');
+  document.getElementById('conf-ok').onclick = () => {
+    closeModal('modal-confirm');
+    const ls2 = getLeaves(), i2 = ls2.findIndex(x => x.id == id); if (i2 < 0) return;
+    const leave = ls2[i2];
+    if (leave.status === 'approved') {
+      const qs = getQs();
+      if (!qs[leave.email]) qs[leave.email] = {};
+      const def = LQ[leave.type];
+      const curQ = qs[leave.email][leave.type] ?? (def?.q ?? 0);
+      qs[leave.email][leave.type] = curQ + leave.days;
+      saveQs(qs);
+      apiSync('updateQuotas', { email: leave.email, data: qs[leave.email] });
+    }
+    ls2.splice(i2, 1);
+    saveLeaves(ls2);
+    _markLeaveDeleted(leave.id);
+    apiSync('deleteLeave', { id: leave.id });
+    toast('🗑 ลบใบลาเรียบร้อย' + (leave.status === 'approved' ? ' (คืนโควต้า ' + leave.days + ' วัน)' : ''));
+    updateBadges(); updateDashboard(); renderHist(_histFilter); renderMyBal(); renderLR(); renderLP(); renderBal();
+  };
+  openModal('modal-confirm');
 }
 function cancelLeave(id) {
   const ls = getLeaves(), idx = ls.findIndex(r => r.id == id); if (idx < 0) return;
@@ -881,6 +899,97 @@ function getVisibleEmails() {
 }
 let selMember = null;
 let _balSort = { col: 'name', dir: 'asc' };
+let _teamHistDept = 'all', _teamHistStatus = 'approved', _teamHistSort = { col: 'start', dir: 'desc' };
+function _teamHistSortBy(col) {
+  if (_teamHistSort.col === col) _teamHistSort.dir = _teamHistSort.dir === 'asc' ? 'desc' : 'asc';
+  else { _teamHistSort.col = col; _teamHistSort.dir = 'asc'; }
+  renderTeamHist();
+}
+function filterTeamHist(status, btn) {
+  if (btn) { document.querySelectorAll('#team-hist-status-tabs .tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+  _teamHistStatus = status;
+  renderTeamHist();
+}
+function filterTeamHistDept(dept) {
+  _teamHistDept = dept;
+  renderTeamHist();
+}
+function renderTeamHist() {
+  const yrSel = document.getElementById('team-hist-year');
+  const allLeaves = getLeaves();
+  const years = [...new Set(allLeaves.map(r => r.start?.slice(0,4)).filter(Boolean))].sort((a,b) => b-a);
+  const curYear = String(new Date().getFullYear());
+  if (!years.includes(curYear)) years.unshift(curYear);
+  if (yrSel.dataset.built !== years.join(',')) {
+    yrSel.innerHTML = years.map(y => `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`).join('');
+    yrSel.dataset.built = years.join(',');
+  }
+  const selYear = yrSel.value || curYear;
+
+  const users = getUsers();
+  const isPM = cu.role === 'pm';
+  const isLead = cu.role === 'lead';
+  const myTeamEmails = isLead ? new Set([cu.email, ...getMyTeamMembers().map(u => u.email)]) : null;
+
+  const deptSel = document.getElementById('team-hist-dept-sel');
+  if (deptSel) {
+    deptSel.parentElement.style.display = isPM ? 'flex' : 'none';
+    if (isPM) {
+      const depts = [...new Set(users.map(u => u.dept).filter(Boolean))].sort();
+      if (deptSel.dataset.built !== depts.join(',')) {
+        deptSel.innerHTML = '<option value="all">ทุกแผนก</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+        deptSel.dataset.built = depts.join(',');
+      }
+      deptSel.value = _teamHistDept;
+    }
+  }
+
+  let data = allLeaves.filter(r => r.start?.startsWith(selYear) && (_teamHistStatus === 'pending' ? r.status.startsWith('pending') : r.status === _teamHistStatus));
+  if (isLead) {
+    data = data.filter(r => myTeamEmails.has(r.email));
+  } else if (_teamHistDept !== 'all') {
+    const deptEmails = new Set(users.filter(u => u.dept === _teamHistDept).map(u => u.email));
+    data = data.filter(r => deptEmails.has(r.email));
+  }
+  const searchQ = (document.getElementById('team-hist-search')?.value || '').trim().toLowerCase();
+  if (searchQ) data = data.filter(r => (r.refNo || '').toLowerCase().includes(searchQ));
+  const _sc = _teamHistSort.col, _sd = _teamHistSort.dir;
+  data.sort((a, b) => {
+    let va, vb;
+    if (_sc === 'start') { va = a.start || ''; vb = b.start || ''; }
+    else if (_sc === 'name') { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
+    else if (_sc === 'dept') { va = (a.dept || '').toLowerCase(); vb = (b.dept || '').toLowerCase(); }
+    else if (_sc === 'type') { va = a.type || ''; vb = b.type || ''; }
+    else if (_sc === 'days') { va = a.days || 0; vb = b.days || 0; }
+    else if (_sc === 'refNo') { va = a.refNo || ''; vb = b.refNo || ''; }
+    else { va = ''; vb = ''; }
+    return _sd === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+  });
+
+  ['refNo','name','dept','type','start','days'].forEach(col => {
+    const el = document.getElementById('th-' + col);
+    if (el) el.textContent = _teamHistSort.col === col ? (_teamHistSort.dir === 'asc' ? '↑' : '↓') : '↕';
+  });
+  const tb = document.getElementById('team-hist-tbody');
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">ไม่มีรายการ</td></tr>'; return; }
+  const ch = { approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>', pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>' };
+  tb.innerHTML = data.map(r => {
+    const u = users.find(x => x.email === r.email);
+    const dept = u?.dept || r.dept || '—';
+    const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
+    return `<tr>
+      <td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">${r.refNo || '—'}</span></td>
+      <td><div class="name">${uName(r.email, r.name)}</div><div class="meta">${r.email}</div></td>
+      <td><span style="font-size:14px;color:var(--text2);">${dept}</span></td>
+      <td>${LT[r.type] || r.type}</td>
+      <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span></td>
+      <td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${dLabel}</span></td>
+      <td style="color:var(--text2);font-size:14px;max-width:180px;">${r.reason || '—'}</td>
+      <td>${ch[r.status] || ''}</td>
+      <td>${isPM ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i></button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
 function renderBal() {
   const isPM = cu.role === 'pm';
   document.getElementById('pm-reset-wrap').style.display = isPM ? 'flex' : 'none';
