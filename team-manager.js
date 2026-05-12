@@ -2,7 +2,7 @@
 // ══ CONSTANTS ════════════════════════════
 const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', ordain: '🙏 ลาบวช', accumulated: '📅 วันลาสะสม', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', other: '📌 อื่นๆ' };
 const LQ = { sick: { q: 30, n: '' }, personal: { q: 3, n: '' }, vacation: { q: 7, n: '' }, dental: { q: 2, n: 'ส่งบิล' }, birthday: { q: 1, n: '' }, funeral: { q: 7, n: '' }, maternity: { q: 98, n: '' }, ordain: { q: null, n: 'แจ้ง/อนุมัติ' }, accumulated: { q: null, n: 'หัวหน้า/PM เท่านั้น' }, training: { q: null, n: 'แจ้ง/อนุมัติ' }, sterilize: { q: null, n: 'แจ้ง/อนุมัติ' }, other: { q: null, n: '' } };
-const RDOC = ['sick', 'personal'], ESC = ['sick', 'personal'];
+const RDOC = ['sick'], ESC = ['sick', 'personal'];
 const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project Manager' };
 const RC = { junior: 'var(--accent)', senior: 'var(--purple)', lead: 'var(--yellow)', pm: 'var(--orange)' };
 const EX_LABEL = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
@@ -284,6 +284,8 @@ function editLeave(id) {
 const MGMT_ONLY_TYPES = ['funeral', 'maternity', 'training', 'sterilize', 'ordain', 'other', 'accumulated'];
 function setupLeaveFormForRole() {
   const isMgr = cu.role === 'lead' || cu.role === 'pm';
+  const qs = getQs();
+  const hasAccumulated = isMgr || (qs[cu.email]?.accumulated != null && qs[cu.email].accumulated > 0);
   document.getElementById('add-for-member-section').style.display = isMgr ? 'block' : 'none';
   if (isMgr) {
     const sel = document.getElementById('for-member-select');
@@ -293,11 +295,13 @@ function setupLeaveFormForRole() {
   }
   const typeSel = document.getElementById('leave-type');
   Array.from(typeSel.options).forEach(opt => {
-    const restricted = MGMT_ONLY_TYPES.includes(opt.value);
-    opt.hidden = restricted && !isMgr;
-    opt.disabled = restricted && !isMgr;
+    let restricted;
+    if (opt.value === 'accumulated') restricted = !hasAccumulated;
+    else restricted = MGMT_ONLY_TYPES.includes(opt.value) && !isMgr;
+    opt.hidden = restricted;
+    opt.disabled = restricted;
   });
-  if (!isMgr && MGMT_ONLY_TYPES.includes(typeSel.value)) typeSel.value = 'sick';
+  if (typeSel.options[typeSel.selectedIndex]?.disabled) typeSel.value = 'sick';
 }
 
 function fpAddTodayBtn(fp) {
@@ -409,7 +413,7 @@ function saveMember() {
   const ek = document.getElementById('edit-key').value, name = document.getElementById('edit-name').value.trim();
   const pass = document.getElementById('edit-pass').value, role = document.getElementById('edit-role').value, dept = document.getElementById('edit-dept').value.trim();
   if (!name) { toast('⚠️ กรุณากรอกชื่อ'); return; } if (pass && pass.length < 6) { toast('⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัว'); return; }
-  const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) return;
+  const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u=>u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
   users[idx].name = name; users[idx].nickname = nickname; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
   saveUsers(users);
@@ -629,7 +633,8 @@ function submitLeave() {
   const isPM = cu.role === 'pm';
   const isLead = cu.role === 'lead';
   let initialStatus = 'pending_lead';
-  if (isPM) initialStatus = 'approved';
+  if (isPM && forMemberEmail) initialStatus = 'approved';
+  else if (isPM) initialStatus = 'pending_pm';
   else if (isLead) initialStatus = 'pending_pm';
 
   const ls = getLeaves();
@@ -789,8 +794,7 @@ function filterHist(f, btn) {
   renderHist(_histFilter);
 }
 function renderHist(f) {
-  const ve = getVisibleEmails();
-  let data = getLeaves().filter(r => ve === null || ve.has(r.email));
+  let data = getLeaves().filter(r => r.email === cu.email);
 
   // populate year dropdown
   const yrSel = document.getElementById('hist-year');
@@ -822,6 +826,7 @@ function renderHist(f) {
       <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
+      <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
       <td>${ch[r.status] || ''}</td>
       <td>${bFlow(r)}${editBtn}${cancelBtn}</td>
     </tr>`;
@@ -978,6 +983,46 @@ function openQuotaModal(email) {
     const used = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const rem = Math.max(0, effQ - used);
 
+    if (type === 'accumulated') {
+      const history = qs[email]?.accuHistory || [];
+      const totalDays = history.reduce((s, h) => s + (h.days || 0), 0);
+      const histRows = history.map((h, i) => `
+        <div style="display:grid;grid-template-columns:1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
+          <span style="font-size:13px;color:var(--text2);font-family:var(--mono);">${h.date}</span>
+          <span style="font-size:13px;color:var(--text2);">${h.scope}</span>
+          <span style="font-size:13px;color:var(--yellow);font-family:var(--mono);font-weight:700;text-align:center;">${h.days}d</span>
+          <button onclick="removeAccuHistory('${email}',${i})" style="background:rgba(255,80,80,0.15);border:none;border-radius:6px;color:var(--red);cursor:pointer;font-size:14px;width:28px;height:28px;">✕</button>
+        </div>`).join('');
+      return `
+        <div style="padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.01);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:#fff;">${LT['accumulated']}</div>
+              <div style="font-size:12px;color:var(--text3);">รวม ${totalDays} วัน · ใช้ไปแล้ว ${used} วัน · คงเหลือ ${Math.max(0, totalDays - used)} วัน</div>
+            </div>
+            <input type="hidden" class="quota-total-input" data-type="accumulated" data-used="${used}" value="${totalDays}" />
+          </div>
+          ${history.length ? `<div style="margin-bottom:10px;">${histRows}</div>` : '<div style="font-size:13px;color:var(--text3);margin-bottom:10px;">ยังไม่มีรายการ</div>'}
+          <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:8px;">+ เพิ่มรายการใหม่</div>
+            <div style="display:grid;grid-template-columns:1fr 2fr 80px;gap:8px;align-items:end;">
+              <div>
+                <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">📅 วันที่เบิกวันหยุด</div>
+                <input type="date" id="quota-accu-date" style="width:100%;height:34px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:#fff;padding:0 8px;font-size:13px;" />
+              </div>
+              <div>
+                <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">📋 ขอบเขตชิ้นงาน</div>
+                <input type="text" id="quota-accu-scope" placeholder="ระบุชิ้นงาน..." style="width:100%;height:34px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:#fff;padding:0 8px;font-size:13px;" />
+              </div>
+              <div>
+                <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">จำนวนวัน</div>
+                <input type="number" id="quota-accu-days" value="1" min="0.5" step="0.5" style="width:100%;height:34px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:#fff;text-align:center;font-size:14px;font-family:var(--mono);" />
+              </div>
+            </div>
+            <button onclick="addAccuHistory('${email}')" style="margin-top:8px;padding:6px 16px;background:var(--accent-bg);color:var(--accent);border:1px solid rgba(108,99,255,0.3);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">+ เพิ่ม</button>
+          </div>
+        </div>`;
+    }
     return `
       <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
         <div>
@@ -1056,9 +1101,7 @@ function saveQuotas(email) {
   inputs.forEach(input => {
     const type = input.getAttribute('data-type');
     const val = parseFloat(input.value);
-    if (!isNaN(val) && val >= 0) {
-      qs[email][type] = val;
-    }
+    if (!isNaN(val) && val >= 0) qs[email][type] = val;
   });
 
   saveQs(qs);
@@ -1066,6 +1109,35 @@ function saveQuotas(email) {
   closeModal('modal-quota');
   toast('✅ บันทึกโควต้าสำเร็จ');
   renderBal();
+  setupLeaveFormForRole();
+}
+function addAccuHistory(email) {
+  const date = document.getElementById('quota-accu-date').value;
+  const scope = document.getElementById('quota-accu-scope').value.trim();
+  const days = parseFloat(document.getElementById('quota-accu-days').value);
+  if (!date) { toast('⚠️ กรุณาระบุวันที่เบิกวันหยุด'); return; }
+  if (!scope) { toast('⚠️ กรุณาระบุขอบเขตชิ้นงาน'); return; }
+  if (!days || days <= 0) { toast('⚠️ กรุณาระบุจำนวนวัน'); return; }
+  const qs = getQs();
+  if (!qs[email]) qs[email] = {};
+  if (!qs[email].accuHistory) qs[email].accuHistory = [];
+  qs[email].accuHistory.push({ date, scope, days, addedBy: cu.name, addedAt: new Date().toISOString() });
+  qs[email].accumulated = qs[email].accuHistory.reduce((s, h) => s + (h.days || 0), 0);
+  saveQs(qs);
+  apiSync('updateQuotas', { email, data: qs[email] });
+  toast('✅ เพิ่มวันลาสะสม ' + days + ' วัน เรียบร้อย');
+  renderBal(); renderMyBal(); updateDashboard(); setupLeaveFormForRole();
+  openQuotaModal(email);
+}
+function removeAccuHistory(email, idx) {
+  const qs = getQs();
+  if (!qs[email]?.accuHistory) return;
+  qs[email].accuHistory.splice(idx, 1);
+  qs[email].accumulated = qs[email].accuHistory.reduce((s, h) => s + (h.days || 0), 0);
+  saveQs(qs);
+  apiSync('updateQuotas', { email, data: qs[email] });
+  renderBal(); renderMyBal(); updateDashboard(); setupLeaveFormForRole();
+  openQuotaModal(email);
 }
 
 
@@ -1156,17 +1228,18 @@ function renderMyBal() {
   const yr = new Date().getFullYear(); document.getElementById('my-bal-year').textContent = yr;
   const ls = getLeaves(), qs = getQs(), mine = ls.filter(r => r.email === cu.email);
   const isMgr = cu.role === 'pm' || cu.role === 'lead';
-  const hiddenForMember = ['training', 'sterilize', 'ordain', 'other', 'maternity', 'funeral', 'accumulated'];
+  const hiddenForMember = ['training', 'sterilize', 'ordain', 'other', 'maternity', 'funeral'];
   const visibleTypes = Object.keys(LQ).filter(t => isMgr || !hiddenForMember.includes(t));
   const rows = visibleTypes.map(type => {
     const def = LQ[type], cq = qs[cu.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
     const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const pend = mine.filter(r => r.type === type && r.status.startsWith('pending')).length;
     const pb = pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '';
-    if (def.q !== null) {
-      const rem = Math.max(0, effQ - used), pct = effQ > 0 ? Math.min(100, (used / effQ) * 100) : 0;
+    if (def.q !== null || cq !== null) {
+      const effQ2 = effQ ?? 0;
+      const rem = Math.max(0, effQ2 - used), pct = effQ2 > 0 ? Math.min(100, (used / effQ2) * 100) : 0;
       const bc = pct >= 90 ? 'bar-danger' : pct >= 60 ? 'bar-warn' : 'bar-ok', rc = rem === 0 ? 'var(--red)' : rem <= 2 ? 'var(--yellow)' : 'var(--green)';
-      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td style="font-family:var(--mono);color:var(--text2);">' + effQ + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + pb + '</td><td><span style="font-size:24px;font-weight:500;font-family:var(--mono);color:' + rc + ';">' + rem.toFixed(1).replace(/\.0$/, '') + '</span><span style="font-size:15px;color:var(--text3);"> วัน</span></td><td style="min-width:120px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:14px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
+      return '<tr><td>' + LT[type] + (def.n ? ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span>' : '') + '</td><td style="font-family:var(--mono);color:var(--text2);">' + effQ2 + '</td><td style="font-family:var(--mono);color:var(--text2);">' + used.toFixed(1).replace(/\.0$/, '') + pb + '</td><td><span style="font-size:24px;font-weight:500;font-family:var(--mono);color:' + rc + ';">' + rem.toFixed(1).replace(/\.0$/, '') + '</span><span style="font-size:15px;color:var(--text3);"> วัน</span></td><td style="min-width:120px;"><div class="bar-track"><div class="bar-fill ' + bc + '" style="width:' + pct.toFixed(0) + '%"></div></div><div style="font-size:14px;color:var(--text3);margin-top:3px;font-family:var(--mono);">' + pct.toFixed(0) + '%</div></td></tr>';
     } else {
       const appr = mine.filter(r => r.type === type && r.status === 'approved').length;
       return '<tr><td>' + LT[type] + ' <span style="font-size:15px;color:var(--text3);">(' + def.n + ')</span></td><td><span class="notify-badge">แจ้ง/อนุมัติ</span></td><td style="font-family:var(--mono);color:var(--text2);">' + appr + ' ครั้ง' + pb + '</td><td>—</td><td>—</td></tr>';

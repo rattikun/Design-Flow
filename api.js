@@ -233,7 +233,11 @@ async function api(action, payload = {}) {
       
       const updateData = { email: payload.email };
       Object.keys(payload.data).forEach(k => {
-        updateData[k + '_used'] = payload.data[k];
+        if (k === 'accuHistory') {
+          updateData.accuHistory_json = JSON.stringify(payload.data[k]);
+        } else {
+          updateData[k + '_used'] = payload.data[k];
+        }
       });
 
       if (key) {
@@ -334,14 +338,26 @@ async function bootstrap() {
     }
 
     if (quotasRes.ok) {
+      const existing = LS.get('tf_qs') || {};
       const qMap = {};
       (quotasRes.quotas || []).forEach(q => {
         if (!q.email) return;
         if (!qMap[q.email]) qMap[q.email] = {};
         ['sick', 'personal', 'vacation', 'dental', 'birthday', 'funeral',
-          'maternity', 'training', 'sterilize', 'ordain', 'other'].forEach(k => {
+          'maternity', 'training', 'sterilize', 'ordain', 'other', 'accumulated'].forEach(k => {
             if (q[k + '_used'] !== undefined) qMap[q.email][k] = q[k + '_used'];
           });
+        if (q.accuHistory_json) {
+          try { qMap[q.email].accuHistory = JSON.parse(q.accuHistory_json); } catch {}
+        } else if (existing[q.email]?.accuHistory) {
+          qMap[q.email].accuHistory = existing[q.email].accuHistory;
+        }
+        if (qMap[q.email].accumulated == null && existing[q.email]?.accumulated != null) {
+          qMap[q.email].accumulated = existing[q.email].accumulated;
+        }
+      });
+      Object.keys(existing).forEach(email => {
+        if (!qMap[email]) qMap[email] = existing[email];
       });
       LS.set('tf_qs', qMap);
     }
