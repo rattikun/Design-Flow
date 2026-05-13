@@ -1166,6 +1166,7 @@ function renderAccuHistoryPanel(members) {
         <table>
           <thead>
             <tr>
+              <th>รหัส</th>
               <th>สมาชิก</th>
               <th>วันที่</th>
               <th>ชิ้นงาน / เหตุผล</th>
@@ -1177,6 +1178,7 @@ function renderAccuHistoryPanel(members) {
           <tbody>
             ${rows.map(({ u, h }) => `
               <tr>
+                <td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">${h.refNo || '—'}</span></td>
                 <td><span style="font-weight:600;color:var(--text);">${uName(u.email, u.name)}</span><br><span style="font-size:13px;color:var(--text3);">${u.dept || ''}</span></td>
                 <td><span style="font-family:var(--mono);font-size:14px;color:var(--text2);">${h.date || '—'}</span></td>
                 <td style="color:var(--text2);">${h.scope || '—'}</td>
@@ -1269,7 +1271,8 @@ function openQuotaModal(email) {
       const history = qs[email]?.accuHistory || [];
       const totalDays = history.reduce((s, h) => s + (h.days || 0), 0);
       const histRows = history.map((h, i) => `
-        <div style="display:grid;grid-template-columns:1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
+        <div style="display:grid;grid-template-columns:auto 1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
+          <span style="font-size:12px;color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;font-family:var(--mono);white-space:nowrap;">${h.refNo || '—'}</span>
           <span style="font-size:13px;color:var(--text2);font-family:var(--mono);">${h.date}</span>
           <span style="font-size:13px;color:var(--text2);">${h.scope}</span>
           <span style="font-size:13px;color:var(--yellow);font-family:var(--mono);font-weight:700;text-align:center;">${h.days}d</span>
@@ -1371,10 +1374,18 @@ function addAccuHistory(email) {
   const qs = getQs();
   if (!qs[email]) qs[email] = {};
   if (!qs[email].accuHistory) qs[email].accuHistory = [];
-  qs[email].accuHistory.push({ date, scope, days, addedBy: cu.name, addedAt: new Date().toISOString() });
+  const _yr = new Date().getFullYear();
+  const _maxFromQs = Object.values(qs).flatMap(q => q.accuHistory || []).map(h => parseInt((h.refNo || '').split('-')[1]) || 0).reduce((a, b) => Math.max(a, b), 0);
+  const _savedAcCtr = parseInt(LS.get('tf_accu_counter') || '0', 10);
+  const _acId = Math.max(_maxFromQs, _savedAcCtr) + 1;
+  LS.set('tf_accu_counter', String(_acId));
+  const refNo = 'AC' + _yr + '-' + String(_acId).padStart(4, '0');
+  const entry = { refNo, date, scope, days, addedBy: cu.name, addedAt: new Date().toISOString() };
+  qs[email].accuHistory.push(entry);
   qs[email].accumulated = qs[email].accuHistory.reduce((s, h) => s + (h.days || 0), 0);
   saveQs(qs);
   apiSync('updateQuotas', { email, data: qs[email] });
+  if (typeof notifyAccuHistory === 'function') notifyAccuHistory(email, entry);
   toast('✅ เพิ่มวันลาสะสม ' + days + ' วัน เรียบร้อย');
   renderBal(); renderMyBal(); updateDashboard(); setupLeaveFormForRole();
   openQuotaModal(email);

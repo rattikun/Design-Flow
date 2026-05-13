@@ -551,6 +551,47 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
 }
 
 /**
+ * แจ้งเตือน n8n เมื่อ PM เพิ่มวันลาสะสมให้สมาชิก
+ */
+function notifyAccuHistory(targetEmail, entry) {
+  const ACCU_URL = N8N_SHEETS_WEBHOOK_URL;
+  if (!ACCU_URL) return;
+  const users = (typeof getUsers === 'function') ? getUsers() : [];
+  const target = users.find(u => u.email === targetEmail);
+  const fullName = target?.name || targetEmail;
+  const nickname = target?.nickname || fullName.split(' ')[0];
+  const discordId = target?.discordId || '';
+  const dept = target?.dept || '';
+  fetch(ACCU_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'accu_history_added',
+      eventLabel: '📅 เพิ่มวันลาสะสม',
+      refNo: entry.refNo || '',
+      name: fullName,
+      nickname,
+      email: targetEmail,
+      discordId,
+      dept,
+      date: entry.date,
+      scope: entry.scope,
+      days: entry.days,
+      addedBy: entry.addedBy,
+      addedAt: (() => {
+        if (!entry.addedAt) return '';
+        const d = new Date(new Date(entry.addedAt).getTime() + 7 * 60 * 60 * 1000);
+        const date = d.toISOString().slice(0, 10);
+        const h = d.getUTCHours();
+        const m = String(d.getUTCMinutes()).padStart(2, '0');
+        const s = String(d.getUTCSeconds()).padStart(2, '0');
+        return `${date} | ${h}:${m}:${s}`;
+      })()
+    })
+  }).catch(() => {});
+}
+
+/**
  * แจ้งเตือน n8n → Discord เมื่อมี exercise request ใหม่
  */
 function notifyNewExercise(ex) {
