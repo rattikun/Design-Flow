@@ -482,7 +482,10 @@ function calcEndDateByDays(startStr, numDays) {
     }
     d.setDate(d.getDate() + 1);
   }
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 function onLeaveDaysChange() {
@@ -499,8 +502,13 @@ function onLeaveDaysChange() {
     periodEl.value = 'full';
     endEl.disabled = false;
     const numDays = parseInt(val);
-    if (start && numDays >= 1) {
-      endEl.value = calcEndDateByDays(start, numDays);
+    const endGroup = document.getElementById('leave-end-group');
+    if (numDays === 1) {
+      if (start) endEl.value = start;
+      if (endGroup) endGroup.style.display = 'none';
+    } else {
+      if (endGroup) endGroup.style.display = 'block';
+      if (start && numDays >= 2) endEl.value = calcEndDateByDays(start, numDays);
     }
   }
   onLeaveChange();
