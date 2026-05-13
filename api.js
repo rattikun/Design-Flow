@@ -10,12 +10,22 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HK
 const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 // n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
 const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/f42feab5-a454-4c3d-8532-a6b2e398e09b';
+// n8n webhook สำหรับ sync ข้อมูลการยื่นออกกำลังกายไปยัง Google Sheets
+const N8N_EX_SHEETS_WEBHOOK_URL = '';
 
 const API_STATE = {
   online: true,
   lastSync: null,
   lastError: null
 };
+
+// ── N8N MODE ─────────────────────────────────
+// true = ส่งไป webhook-test (ทดสอบ), false = production
+const N8N_TEST_MODE = false;
+function n8nUrl(url) {
+  if (!url) return url;
+  return N8N_TEST_MODE ? url.replace('/webhook/', '/webhook-test/') : url;
+}
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
@@ -144,6 +154,14 @@ async function api(action, payload = {}) {
     }
 
     if (action === 'updateEx') {
+      // Use _fbKey for direct update when available (avoids full-scan and supports ID changes)
+      if (payload._fbKey) {
+        const res = await fetch(`${baseUrl}/exercises/${payload._fbKey}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        return { ok: res.ok };
+      }
       const res = await fetch(`${baseUrl}/exercises.json`);
       const data = await res.json();
       const key = Object.keys(data || {}).find(k => data[k] && data[k].id === payload.id);
@@ -476,6 +494,7 @@ function normalizeDate(d) {
  */
 function notifyLeave(leave, event, notifyRole) {
   if (!N8N_WEBHOOK_URL) return;
+  const _url = n8nUrl(N8N_WEBHOOK_URL);
   const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', ordain: '🙏 ลาบวช', other: '📌 อื่นๆ' };
   const eventLabel = {
     new_leave_member: '📥 ใบลาใหม่ — รอหัวหน้าอนุมัติ',
@@ -486,7 +505,7 @@ function notifyLeave(leave, event, notifyRole) {
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const displayName = (u && u.nickname) ? u.nickname : leave.name.split(' ')[0];
   const discordId = u ? (u.discordId || '') : '';
-  fetch(N8N_WEBHOOK_URL, {
+  fetch(_url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -516,6 +535,7 @@ function notifyLeave(leave, event, notifyRole) {
  */
 function syncLeaveApprovedToSheets(leave, approvedByName) {
   if (!N8N_SHEETS_WEBHOOK_URL) return;
+  const _url = n8nUrl(N8N_SHEETS_WEBHOOK_URL);
   const LT = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน', dental: 'ลาทำฟัน', birthday: 'ลาวันเกิด', funeral: 'ลาฌาปนกิจ', maternity: 'ลาคลอด', training: 'ลาฝึกอบรม', sterilize: 'ลาทำหมัน', ordain: 'ลาบวช', other: 'อื่นๆ' };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const fullName = (u && u.name) ? u.name : (leave.name || '');
@@ -523,7 +543,7 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
   const nickname = (u && u.nickname) ? u.nickname : (fullName.split(' ')[0] || '');
   const dept = (u && u.dept) ? u.dept : (leave.dept || '');
   const periodLabel = leave.isHalf ? (leave.period === 'morning' ? 'ครึ่งวันเช้า' : 'ครึ่งวันบ่าย') : 'เต็มวัน';
-  fetch(N8N_SHEETS_WEBHOOK_URL, {
+  fetch(_url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -554,7 +574,9 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
  * แจ้งเตือน n8n เมื่อ PM เพิ่มวันลาสะสมให้สมาชิก
  */
 function notifyAccuHistory(targetEmail, entry) {
-  const ACCU_URL = N8N_SHEETS_WEBHOOK_URL;
+  const ACCU_URL = n8nUrl(N8N_SHEETS_WEBHOOK_URL);
+  console.log('[notifyAccuHistory] URL:', ACCU_URL);
+  console.log('[notifyAccuHistory] entry:', entry);
   if (!ACCU_URL) return;
   const users = (typeof getUsers === 'function') ? getUsers() : [];
   const target = users.find(u => u.email === targetEmail);
@@ -567,6 +589,7 @@ function notifyAccuHistory(targetEmail, entry) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event: 'accu_history_added',
+
       eventLabel: '📅 เพิ่มวันลาสะสม',
       refNo: entry.refNo || '',
       name: fullName,
@@ -588,7 +611,11 @@ function notifyAccuHistory(targetEmail, entry) {
         return `${date} | ${h}:${m}:${s}`;
       })()
     })
-  }).catch(() => {});
+  }).then(res => {
+    console.log('[notifyAccuHistory] response status:', res.status);
+  }).catch(err => {
+    console.error('[notifyAccuHistory] fetch error:', err);
+  });
 }
 
 /**
@@ -602,7 +629,7 @@ function notifyNewExercise(ex) {
     .map(m => m.name || m.email)
     .join(', ');
 
-  fetch(N8N_WEBHOOK_URL, {
+  fetch(n8nUrl(N8N_WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -618,6 +645,82 @@ function notifyNewExercise(ex) {
       members: memberNames || '-',
       proofLink: ex.proofLink || ex.proofDoc || '',
       submittedAt: ex.submittedAt
+    })
+  }).catch(() => {});
+}
+
+/**
+ * Sync ข้อมูลการยื่นออกกำลังกายไปยัง Google Sheets ผ่าน n8n
+ * event: 'exercise_submitted' | 'exercise_approved'
+ */
+function syncExerciseToSheets(ex, event) {
+  const EX_HOOK = n8nUrl(N8N_EX_SHEETS_WEBHOOK_URL || N8N_SHEETS_WEBHOOK_URL);
+  if (!EX_HOOK) return;
+  const EX_LABEL = { solo: 'เดี่ยว', group_ex: 'กลุ่มออกกำลังกาย', group_eat: 'กลุ่มกินข้าว' };
+  const EX_REWARD = { solo: 200, group_ex: 500, group_eat: 300 };
+
+  const users = (typeof getUsers === 'function') ? getUsers() : [];
+  const u = users.find(x => x.email === ex.email);
+  const fullName = u?.name || ex.name || '';
+  const nickname = u?.nickname || ex.nickname || fullName.split(' ')[0];
+  const dept = u?.dept || ex.dept || '';
+
+  const sysMems = (ex.members || []).filter(m => m.type === 'sys');
+  const memberCount = 1 + sysMems.length;
+  const allMembers = [
+    { name: fullName, nickname, email: ex.email, dept },
+    ...sysMems.map(m => {
+      const mu = users.find(x => x.email === m.email);
+      return {
+        name: mu?.name || m.name || m.email,
+        nickname: mu?.nickname || m.name?.split(' ')[0] || m.email,
+        email: m.email,
+        dept: mu?.dept || m.dept || ''
+      };
+    })
+  ];
+  const memberNames = allMembers.map(m => m.name).join(', ');
+  const memberNicknames = allMembers.map(m => m.nickname).join(', ');
+  const memberEmails = allMembers.map(m => m.email).join(', ');
+  const reward = EX_REWARD[ex.exType] || 0;
+  const totalReward = reward * memberCount;
+
+  const toThaiDateTime = (iso) => {
+    if (!iso) return '';
+    const d = new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000);
+    const date = d.toISOString().slice(0, 10);
+    const h = String(d.getUTCHours()).padStart(2, '0');
+    const m = String(d.getUTCMinutes()).padStart(2, '0');
+    const s = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${date} ${h}:${m}:${s}`;
+  };
+
+  fetch(EX_HOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event,
+      id: ex.id,
+      name: fullName,
+      nickname,
+      email: ex.email,
+      dept,
+      exType: ex.exType,
+      exTypeLabel: EX_LABEL[ex.exType] || ex.exType,
+      activity: ex.activity,
+      date: ex.date,
+      memberCount,
+      memberNames: memberNames || '-',
+      memberNicknames: memberNicknames || '-',
+      memberEmails: memberEmails || '-',
+      reward,
+      totalReward,
+      proofLink: ex.proofLink || ex.proofDoc || '',
+      note: ex.note || '',
+      status: ex.status || 'pending',
+      submittedAt: toThaiDateTime(ex.submittedAt),
+      approvedBy: ex.approvedBy || '',
+      approvedAt: event === 'exercise_approved' ? toThaiDateTime(new Date().toISOString()) : ''
     })
   }).catch(() => {});
 }

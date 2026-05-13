@@ -150,14 +150,16 @@ async function tryRestore() {
     bootstrap().then(res => {
       if (res.ok) {
         migrateExIds();
-        _applyLocalLeaveChanges(); // re-apply local changes overwritten by bootstrap
-        initIDs(); // Update lid from fresh data
-        // refresh visible page หลัง sync เสร็จ
-        const active = document.querySelector('.page.active');
-        if (active) {
-          const id = active.id.replace('page-', '');
-          if (typeof showPage === 'function') showPage(id);
-        }
+        migrateOldExIds().then(() => {
+          _applyLocalLeaveChanges(); // re-apply local changes overwritten by bootstrap
+          initIDs(); // Update lid from fresh data
+          // refresh visible page หลัง sync เสร็จ
+          const active = document.querySelector('.page.active');
+          if (active) {
+            const id = active.id.replace('page-', '');
+            if (typeof showPage === 'function') showPage(id);
+          }
+        });
       }
     });
   }
@@ -1959,6 +1961,7 @@ async function doSubmitEx(data) {
   // SYNC TO API
   await apiSync('addEx', newEx);
   notifyNewExercise(newEx);
+  syncExerciseToSheets(newEx, 'exercise_submitted');
 
   // Close modals FIRST to ensure popup always closes
   closeModal('modal-confirm');
@@ -1992,34 +1995,66 @@ function setExReviewSort(s) { _exReviewSort = s; renderExR(); }
 function setExReviewSearch(v) { _exReviewSearch = v; renderExR(); }
 function setExReviewDeptTab(d) { _exReviewDeptTab = d; renderExR(); }
 function generateDSID() {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  return 'DS' + mm + dd + hh + min;
+}
+
+function _makeDSFromDate(date, suffix) {
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return 'DS' + mm + dd + hh + min + (suffix ? String(suffix).padStart(2, '0') : '');
+}
+
+async function migrateOldExIds() {
   const es = getExs();
-  let max = 0;
-  es.forEach(e => {
-    if (typeof e.id === 'string' && e.id.startsWith('DS')) {
-      const num = parseInt(e.id.substring(2));
-      if (!isNaN(num) && num > max) max = num;
-    }
-  });
-  return 'DS' + (max + 1).toString().padStart(4, '0');
+  const seen = new Set(es.map(e => e.id).filter(id => typeof id === 'string' && id.startsWith('DS') && id.length > 6));
+  let changed = false;
+
+  for (const e of es) {
+    const isOldFormat = typeof e.id === 'string' && /^DS\d{1,4}$/.test(e.id);
+    if (!isOldFormat) continue;
+
+    const date = e.submittedAt ? new Date(e.submittedAt) : new Date();
+    let newId = _makeDSFromDate(date, null);
+    let suffix = 1;
+    while (seen.has(newId)) newId = _makeDSFromDate(date, suffix++);
+    seen.add(newId);
+
+    console.log(`[migrateOldExIds] ${e.id} → ${newId}`);
+    e.id = newId;
+    changed = true;
+    if (e._fbKey) apiSync('updateEx', e, { silent: true });
+  }
+
+  if (changed) saveExs(es);
 }
 
 function migrateExIds() {
   const es = getExs();
   let changed = false;
-  let max = 0;
-  es.forEach(e => {
-    if (typeof e.id === 'string' && e.id.startsWith('DS')) {
-      const num = parseInt(e.id.substring(2));
-      if (!isNaN(num) && num > max) max = num;
-    }
-  });
+  const seen = new Set();
+  es.forEach((e, idx) => {
+    const needsNewId = !e.id || typeof e.id === 'number' ||
+      (typeof e.id === 'string' && !e.id.startsWith('DS')) ||
+      (typeof e.id === 'string' && seen.has(e.id));
 
-  es.forEach(e => {
-    if (!e.id || typeof e.id === 'number' || (typeof e.id === 'string' && !e.id.startsWith('DS'))) {
-      max++;
-      e.id = 'DS' + max.toString().padStart(4, '0');
+    if (needsNewId) {
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      e.id = 'DS' + mm + dd + hh + min + ss + String(idx).padStart(2, '0');
       changed = true;
     }
+    seen.add(e.id);
   });
   if (changed) saveExs(es);
 }
@@ -2307,8 +2342,10 @@ function apprEx(id) {
     }
   }
   es[i].status = 'approved';
+  es[i].approvedBy = cu.name;
   saveExs(es);
   apiSync('updateEx', es[i]);
+  syncExerciseToSheets(es[i], 'exercise_approved');
   toast('✅ อนุมัติแล้ว'); updateDashboard(); updateLB(); updateQuota(); renderExR();
 }
 function rejEx(id) {
