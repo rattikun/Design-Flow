@@ -57,13 +57,19 @@ function ensureDefaultAccounts() {
 let cu = null, lid = 1, eid = 1;
 const _localLeaveChanges = new Map(); // id → updated leave object
 const _deletedLeaveIds = new Set();    // ids removed locally
+const _pendingNewLeaves = new Map();   // id → new leave not yet confirmed in Firebase
 function _markLeaveModified(r) { _localLeaveChanges.set(r.id, r); }
-function _markLeaveDeleted(id) { _deletedLeaveIds.add(id); _localLeaveChanges.delete(id); }
+function _markLeaveDeleted(id) { _deletedLeaveIds.add(id); _localLeaveChanges.delete(id); _pendingNewLeaves.delete(id); }
 function _applyLocalLeaveChanges() {
-  if (!_localLeaveChanges.size && !_deletedLeaveIds.size) return;
+  const hasChanges = _localLeaveChanges.size || _deletedLeaveIds.size || _pendingNewLeaves.size;
+  if (!hasChanges) return;
   let ls = getLeaves();
   if (_deletedLeaveIds.size) ls = ls.filter(r => !_deletedLeaveIds.has(r.id));
   if (_localLeaveChanges.size) ls = ls.map(r => _localLeaveChanges.has(r.id) ? _localLeaveChanges.get(r.id) : r);
+  if (_pendingNewLeaves.size) {
+    const existingIds = new Set(ls.map(r => r.id));
+    _pendingNewLeaves.forEach((r, id) => { if (!existingIds.has(id)) ls.unshift(r); });
+  }
   saveLeaves(ls);
 }
 
@@ -161,10 +167,37 @@ function initIDs() {
   const ls = getLeaves(); if (ls.length) lid = Math.max(...ls.map(x => x.id || 0)) + 1;
   console.log('[initIDs] eid:', eid, 'lid:', lid);
 }
+let _lastSyncAt = 0;
+function _bgSync() {
+  const now = Date.now();
+  if (now - _lastSyncAt < 30000) return; // ไม่ sync ถี่กว่า 30 วินาที
+  _lastSyncAt = now;
+  if (typeof bootstrap !== 'function') return;
+  bootstrap().then(res => {
+    if (!res.ok) return;
+    migrateExIds();
+    _applyLocalLeaveChanges();
+    initIDs();
+    const active = document.querySelector('.page.active');
+    if (active) {
+      const pageId = active.id.replace('page-', '');
+      if (typeof showPage === 'function') showPage(pageId);
+    }
+  });
+}
+
 function launchApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   setupSidebar(); initApp();
+
+  // sync ทุก 60 วินาที
+  setInterval(_bgSync, 60000);
+
+  // sync ทันทีที่ผู้ใช้กลับมาที่แท็บ
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) _bgSync();
+  });
 }
 
 // ══ SIDEBAR ══════════════════════════════
@@ -278,12 +311,30 @@ function setupLeaveFormForRole() {
     sel.onchange = () => onLeaveChange();
   }
   const typeSel = document.getElementById('leave-type');
+  const ls = getLeaves();
+  const targetEmail = cu.email;
   Array.from(typeSel.options).forEach(opt => {
+    const t = opt.value;
     let restricted;
-    if (opt.value === 'accumulated') restricted = !hasAccumulated;
-    else restricted = MGMT_ONLY_TYPES.includes(opt.value) && !isMgr;
-    opt.hidden = restricted;
+    if (t === 'accumulated') restricted = !hasAccumulated;
+    else restricted = MGMT_ONLY_TYPES.includes(t) && !isMgr;
+
+    if (!restricted && LQ[t]?.q != null) {
+      const effQ = qs[targetEmail]?.[t] ?? LQ[t].q;
+      const used = ls.filter(r => r.email === targetEmail && r.type === t && r.status === 'approved').reduce((s, r) => s + r.days, 0);
+      const rem = effQ - used;
+      if (rem <= 0) {
+        opt.disabled = true;
+        opt.style.color = 'var(--text3)';
+        if (!opt.dataset.origText) opt.dataset.origText = opt.text;
+        opt.text = opt.dataset.origText + ' — หมดโควต้า';
+        return;
+      }
+    }
     opt.disabled = restricted;
+    opt.hidden = restricted;
+    opt.style.color = '';
+    if (opt.dataset.origText) { opt.text = opt.dataset.origText; delete opt.dataset.origText; }
   });
   if (typeSel.options[typeSel.selectedIndex]?.disabled) typeSel.value = 'sick';
 }
@@ -631,6 +682,7 @@ function leaveConflict(targetEmail, newStart, newEnd, newIsHalf, newPeriod, excl
 }
 function submitLeave() {
   const type = document.getElementById('leave-type').value;
+  if (!type) { toast('⚠️ กรุณาเลือกประเภทการลา'); return; }
   const start = document.getElementById('leave-start').value;
   const period = document.getElementById('leave-period').value;
   const reason = document.getElementById('leave-reason').value.trim();
@@ -679,14 +731,14 @@ function submitLeave() {
   if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
   const isPM = cu.role === 'pm';
   const isLead = cu.role === 'lead';
-  let initialStatus = 'pending_lead';
-  if (isPM && forMemberEmail) initialStatus = 'approved';
-  else if (isPM) initialStatus = 'pending_pm';
-  else if (isLead) initialStatus = 'pending_pm';
-
   const ls = getLeaves();
   const targetUser = getUsers().find(u => u.email === targetEmail);
   const targetDept = (targetUser && targetUser.dept) ? targetUser.dept : (cu.dept || '');
+  let initialStatus;
+  if (isPM && forMemberEmail) initialStatus = 'approved';
+  else if (isPM) initialStatus = 'pending_pm';
+  else if (isLead) initialStatus = 'pending_pm';
+  else initialStatus = deptHasLead(targetDept) ? 'pending_lead' : 'pending_pm';
   const _maxFromLeaves = ls.length ? Math.max(...ls.map(l => l.id || 0)) : 0;
   const _savedCounter = parseInt(LS.get('tf_lid_counter') || '0', 10);
   const _newId = Math.max(_maxFromLeaves, _savedCounter) + 1;
@@ -697,8 +749,9 @@ function submitLeave() {
   const newLeave = { id: _newId, refNo: _refNo, name: targetName, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
   ls.unshift(newLeave);
   saveLeaves(ls);
+  _pendingNewLeaves.set(newLeave.id, newLeave);
 
-  apiSync('addLeave', newLeave);
+  apiSync('addLeave', newLeave).then(res => { if (res.ok) _pendingNewLeaves.delete(newLeave.id); });
 
   if (!isPM) {
     if (isLead) notifyLeave(newLeave, 'new_leave_lead', 'pm');
@@ -946,6 +999,11 @@ function bFlow(r) {
 }
 
 // ══ LEAVE BALANCE (team) ═════════════════
+function deptHasLead(dept) {
+  if (!dept) return false;
+  return getUsers().some(u => u.role === 'lead' && u.dept && u.dept.trim().toLowerCase() === dept.trim().toLowerCase());
+}
+
 function getMyTeamMembers() {
   const all = getUsers();
   if (cu.role === 'pm') return all.filter(u => ['junior', 'senior', 'lead'].includes(u.role));
