@@ -1135,7 +1135,61 @@ function renderBal() {
   document.getElementById('bal-year').textContent = selYear;
 
   renderBalOverview(members, isPM, selYear);
+  if (isPM) renderAccuHistoryPanel(members);
 }
+
+function renderAccuHistoryPanel(members) {
+  const panel = document.getElementById('accu-history-panel');
+  if (!panel) return;
+  const qs = getQs();
+
+  const rows = [];
+  members.forEach(u => {
+    const history = qs[u.email]?.accuHistory || [];
+    history.forEach((h, i) => {
+      rows.push({ u, h, idx: i });
+    });
+  });
+
+  if (!rows.length) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  rows.sort((a, b) => (b.h.date || '').localeCompare(a.h.date || ''));
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">📅 ประวัติการเพิ่มวันลาสะสม</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>สมาชิก</th>
+              <th>วันที่</th>
+              <th>ชิ้นงาน / เหตุผล</th>
+              <th style="text-align:center;">วัน</th>
+              <th>เพิ่มโดย</th>
+              <th>เพิ่มเมื่อ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(({ u, h }) => `
+              <tr>
+                <td><span style="font-weight:600;color:var(--text);">${uName(u.email, u.name)}</span><br><span style="font-size:13px;color:var(--text3);">${u.dept || ''}</span></td>
+                <td><span style="font-family:var(--mono);font-size:14px;color:var(--text2);">${h.date || '—'}</span></td>
+                <td style="color:var(--text2);">${h.scope || '—'}</td>
+                <td style="text-align:center;"><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${h.days}d</span></td>
+                <td style="font-size:14px;color:var(--text3);">${h.addedBy || '—'}</td>
+                <td style="font-size:13px;color:var(--text3);font-family:var(--mono);">${h.addedAt ? h.addedAt.slice(0,10) : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 function _balSortBy(col) {
   if (_balSort.col === col) _balSort.dir = _balSort.dir === 'asc' ? 'desc' : 'asc';
   else { _balSort.col = col; _balSort.dir = 'asc'; }
