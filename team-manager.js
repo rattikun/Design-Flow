@@ -948,15 +948,6 @@ function pmDeleteLeave(id) {
     closeModal('modal-confirm');
     const ls2 = getLeaves(), i2 = ls2.findIndex(x => x.id == id); if (i2 < 0) return;
     const leave = ls2[i2];
-    if (leave.status === 'approved') {
-      const qs = getQs();
-      if (!qs[leave.email]) qs[leave.email] = {};
-      const def = LQ[leave.type];
-      const curQ = qs[leave.email][leave.type] ?? (def?.q ?? 0);
-      qs[leave.email][leave.type] = curQ + leave.days;
-      saveQs(qs);
-      apiSync('updateQuotas', { email: leave.email, data: qs[leave.email] });
-    }
     ls2.splice(i2, 1);
     saveLeaves(ls2);
     _markLeaveDeleted(leave.id);
@@ -1073,7 +1064,19 @@ function renderTeamHist() {
     data = data.filter(r => deptEmails.has(r.email));
   }
   const searchQ = (document.getElementById('team-hist-search')?.value || '').trim().toLowerCase();
-  if (searchQ) data = data.filter(r => (r.refNo || '').toLowerCase().includes(searchQ));
+  if (searchQ) {
+    const uMap = new Map(users.map(u => [u.email, u]));
+    data = data.filter(r => {
+      const dept = (uMap.get(r.email)?.dept || r.dept || '').toLowerCase();
+      const typeTh = (LT[r.type] || r.type || '').toLowerCase();
+      return (r.refNo || '').toLowerCase().includes(searchQ)
+          || (r.name || '').toLowerCase().includes(searchQ)
+          || (r.email || '').toLowerCase().includes(searchQ)
+          || dept.includes(searchQ)
+          || typeTh.includes(searchQ)
+          || (r.reason || '').toLowerCase().includes(searchQ);
+    });
+  }
   const _sc = _teamHistSort.col, _sd = _teamHistSort.dir;
   data.sort((a, b) => {
     let va, vb;
@@ -2890,7 +2893,7 @@ function viewExDetail(id) {
   `;
 
   actions.innerHTML = `
-    <div style="display:flex;width:100%;justify-content:space-between;align-items:center;margin-top:32px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.03);">
+    <div style="display:flex;width:100%;justify-content:space-between;align-items:center;padding:24px 0 0;">
       <button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
         <i class="fa-solid fa-trash-can" style="margin-right:12px;"></i> ลบ
       </button>
