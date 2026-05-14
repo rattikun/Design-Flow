@@ -19,6 +19,52 @@ const API_STATE = {
   lastError: null
 };
 
+// ── IAPP THAI HOLIDAY API ────────────────────
+// ลงทะเบียนรับ API Key ได้ที่ https://iapp.co.th/dashboard
+const IAPP_APIKEY = 'iapp_live_9650e0acbcd74d782070808bd3317723282bbf66bb100f8178e5b4f19b0e33fc';
+
+const _HOLIDAY_TTL = 86400000; // cache 24 ชั่วโมง
+
+// ดึงวันหยุดธนาคารไทย 2 ปีข้างหน้า (days_after=730)
+// NOTE: holiday_type=both ทำให้ iApp API คืน 500 จึงใช้ค่า default (public) แทน
+const _HOLIDAY_CACHE_KEY = 'tf_holidays_upcoming';
+
+async function fetchThaiHolidays() {
+  try {
+    const raw = localStorage.getItem(_HOLIDAY_CACHE_KEY);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (Date.now() - c.t < _HOLIDAY_TTL) return c.d;
+    }
+  } catch {}
+  if (!IAPP_APIKEY) return [];
+  try {
+    const r = await fetch(
+      'https://api.iapp.co.th/v3/store/data/thai-holiday?days_after=730',
+      { headers: { apikey: IAPP_APIKEY } }
+    );
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const d = (j.holidays || []).map(h => ({ date: h.date, name: h.name, type: h.type }));
+    localStorage.setItem(_HOLIDAY_CACHE_KEY, JSON.stringify({ d, t: Date.now() }));
+    console.log('[holidays] โหลดแล้ว →', d.length, 'วัน');
+    return d;
+  } catch (e) {
+    console.error('[holidays] error:', e);
+    return [];
+  }
+}
+
+// คืนค่า Set ของ 'YYYY-MM-DD' สำหรับตรวจสอบวันทำงาน (ข้ามวันหยุดธนาคาร)
+function getHolidaySet() {
+  const s = new Set();
+  try {
+    const raw = localStorage.getItem(_HOLIDAY_CACHE_KEY);
+    if (raw) JSON.parse(raw).d.forEach(h => s.add(h.date));
+  } catch {}
+  return s;
+}
+
 // ── N8N MODE ─────────────────────────────────
 // true = ส่งไป webhook-test (ทดสอบ), false = production
 const N8N_TEST_MODE = false;

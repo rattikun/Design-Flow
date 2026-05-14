@@ -193,6 +193,9 @@ function launchApp() {
   document.getElementById('main-app').style.display = 'flex';
   setupSidebar(); initApp();
 
+  // โหลดวันหยุดธนาคารไทยไว้ใน cache ตอน launch
+  fetchThaiHolidays();
+
   // sync ทุก 60 วินาที
   setInterval(_bgSync, 60000);
 
@@ -512,12 +515,14 @@ function fmtDate(d) {
 
 function countWorkingDays(startStr, endStr) {
   if (!startStr || !endStr || startStr > endStr) return 0;
+  const holidays = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
   let count = 0;
   const d = new Date(startStr + 'T00:00:00');
   const end = new Date(endStr + 'T00:00:00');
   while (d <= end) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6) count++;
+    const ds = d.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !holidays.has(ds)) count++;
     d.setDate(d.getDate() + 1);
   }
   return count;
@@ -525,11 +530,13 @@ function countWorkingDays(startStr, endStr) {
 
 function calcEndDateByDays(startStr, numDays) {
   if (!startStr || !numDays || numDays < 1) return '';
+  const holidays = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
   const d = new Date(startStr + 'T00:00:00');
   let count = 0;
   while (count < numDays) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6) {
+    const ds = d.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !holidays.has(ds)) {
       count++;
       if (count === numDays) break;
     }
@@ -567,7 +574,7 @@ function onLeaveDaysChange() {
   onLeaveChange();
 }
 
-function onLeaveChange() {
+function onLeaveChange() { try {
   const type = document.getElementById('leave-type').value;
   const start = document.getElementById('leave-start').value;
   const end = document.getElementById('leave-end').value;
@@ -576,27 +583,57 @@ function onLeaveChange() {
   const docG = document.getElementById('doc-group');
   // recalc end date when start changes, based on leave-days dropdown
   const leaveVal = document.getElementById('leave-days')?.value;
-  if (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon' && start) {
-    const numDays = parseInt(leaveVal);
-    if (numDays >= 1) document.getElementById('leave-end').value = calcEndDateByDays(start, numDays);
+  const selectedNumDays = (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon') ? parseInt(leaveVal) : null;
+  if (selectedNumDays !== null && selectedNumDays >= 1 && start) {
+    document.getElementById('leave-end').value = calcEndDateByDays(start, selectedNumDays);
   }
   const endCurrent = document.getElementById('leave-end').value;
-  if (!start || !endCurrent || start > endCurrent) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
-  document.getElementById('leave-period-group').style.display = 'none';
+  // Allow continuing if we have a valid selected-days value even if endCurrent is temporarily empty
+  if (!start || (!endCurrent && selectedNumDays === null)) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
+  if (endCurrent && start > endCurrent) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
+  document.getElementById('leave-period-group')?.style && (document.getElementById('leave-period-group').style.display = 'none');
   const isHalf = document.getElementById('leave-period').value !== 'full';
   const endEl = document.getElementById('leave-end');
   if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
-  const rawDays = countWorkingDays(start, isHalf ? start : endCurrent);
-  const diff = isHalf ? 0.5 : rawDays;
-  const needDoc = (type === 'sick' && diff >= 2) || type === 'dental';
+  const rawDays = countWorkingDays(start, isHalf ? start : (endCurrent || start));
+  // Use the dropdown-selected days as the authoritative count (user explicitly chose this many days)
+  // Fall back to calculated working days only when no dropdown value is selected
+  const diff = isHalf ? 0.5 : (selectedNumDays !== null ? selectedNumDays : rawDays);
+  const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
+  const forMemberEmail = document.getElementById('for-member-select')?.value || '';
+  const checkEmail = forMemberEmail ? forMemberEmail : cu.email;
+  // ตรวจสอบว่าวันก่อนหน้า start มีใบลาของคนนี้อยู่แล้วหรือไม่
+  const _prevDate = new Date(start + 'T00:00:00'); _prevDate.setDate(_prevDate.getDate() - 1);
+  const _prevDay = _prevDate.toISOString().slice(0, 10);
+  const prevDayHasLeave = type === 'sick' && start ? getLeaves().some(r =>
+    r.email === checkEmail && r.status !== 'rejected' &&
+    r.start <= _prevDay && r.end >= _prevDay
+  ) : false;
+  const needDoc = (type === 'sick' && (diff >= 2 || prevDayHasLeave)) || type === 'dental';
   const willEsc = ESC.includes(type) && diff > 3;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const da = Math.ceil((new Date(start) - today) / 864e5);
-  const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
   const isMgr = cu.role === 'pm' || cu.role === 'lead';
   const needAdv = type !== 'sick' && !forMember && !isMgr;
   const advOk = !needAdv || da >= 7;
+  // Show doc-group and set contextual reason
   docG.style.display = needDoc ? 'block' : 'none';
+  if (needDoc) {
+    const docReason = document.getElementById('doc-reason');
+    if (docReason) {
+      let reasonText = '📄 ต้องแนบใบรับรองแพทย์';
+      if (type === 'dental') {
+        reasonText = '🦷 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง';
+      } else if (type === 'sick' && prevDayHasLeave && diff >= 2) {
+        reasonText = '📄 ลาป่วย ' + diff + ' วัน และต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
+      } else if (type === 'sick' && prevDayHasLeave) {
+        reasonText = '📄 ต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
+      } else if (type === 'sick' && diff >= 2) {
+        reasonText = '📄 ลาป่วย ' + diff + ' วัน — ต้องแนบใบรับรองแพทย์';
+      }
+      docReason.innerHTML = reasonText;
+    }
+  }
   let hs = [];
   if (isHalf) hs.push('<span style="color:var(--accent);">🌓 ลาครึ่งวัน' + (period === 'morning' ? ' (เช้า)' : ' (บ่าย)') + ' = 0.5 วัน</span>');
   if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
@@ -605,15 +642,33 @@ function onLeaveChange() {
   if (type === 'sick') {
     const retroOk = isMgr || forMember || da >= -7;
     const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
-    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + (diff >= 2 ? ' &nbsp;|&nbsp; <span style="color:var(--red);">📄 ลา 2 วันขึ้นไปต้องแนบใบรับรองแพทย์</span>' : '') + '</span>');
+    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + '</span>');
   }
   if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
   if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
   else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
   if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
   if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
+  // แสดงวันหยุดธนาคารที่ถูกข้ามในช่วงที่เลือก
+  if (!isHalf && start && endCurrent && start <= endCurrent) {
+    const hols = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
+    const skipped = [];
+    const _d = new Date(start + 'T00:00:00'), _e = new Date(endCurrent + 'T00:00:00');
+    while (_d <= _e) {
+      const _ds = _d.toISOString().slice(0, 10), _dw = _d.getDay();
+      if (_dw !== 0 && _dw !== 6 && hols.has(_ds)) skipped.push(_ds);
+      _d.setDate(_d.getDate() + 1);
+    }
+    if (skipped.length) {
+      const names = skipped.map(_ds => {
+        const _hd = new Date(_ds + 'T00:00:00');
+        return _hd.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      }).join(', ');
+      hs.push('<span style="color:var(--yellow);">🏦 ข้ามวันหยุดธนาคาร ' + skipped.length + ' วัน (' + names + ')</span>');
+    }
+  }
   hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
-}
+} catch(e) { console.error('[onLeaveChange error]', e); } }
 async function handleDoc(input) {
   const f = input.files[0]; if (!f) return;
   const label = document.getElementById('doc-text'), box = document.getElementById('doc-box'), icon = document.getElementById('doc-icon');
@@ -696,7 +751,10 @@ function submitLeave() {
   if (!reason) { toast('⚠️ กรุณาระบุหมายเหตุ / เหตุผล'); return; }
   if (!isHalf && start > end) { toast('⚠️ วันที่ไม่ถูกต้อง'); return; }
   const rawDays = countWorkingDays(start, end);
-  const diff = isHalf ? 0.5 : rawDays;
+  // Use dropdown-selected days as the authoritative count (matches what onLeaveChange uses)
+  const _submitLeaveVal = document.getElementById('leave-days')?.value;
+  const _submitSelectedDays = (_submitLeaveVal && _submitLeaveVal !== 'morning' && _submitLeaveVal !== 'afternoon') ? parseInt(_submitLeaveVal) : null;
+  const diff = isHalf ? 0.5 : (_submitSelectedDays !== null ? _submitSelectedDays : rawDays);
 
   // --- EDIT MODE ---
   if (_editingLeaveId !== null) {
@@ -704,7 +762,10 @@ function submitLeave() {
     const r = ls[idx];
     const conf = leaveConflict(r.email, start, end, isHalf, period, _editingLeaveId);
     if (conf) { toast('⚠️ มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
-    if (((type === 'sick' && diff >= 2) || type === 'dental') && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
+    const _ePrev = new Date(start + 'T00:00:00'); _ePrev.setDate(_ePrev.getDate() - 1);
+    const _ePrevDay = _ePrev.toISOString().slice(0, 10);
+    const _ePrevLeave = type === 'sick' ? getLeaves().some(rx => rx.id !== _editingLeaveId && rx.email === r.email && rx.status !== 'rejected' && rx.start <= _ePrevDay && rx.end >= _ePrevDay) : false;
+    if (((type === 'sick' && (diff >= 2 || _ePrevLeave)) || type === 'dental') && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
     r.type = type; r.start = start; r.end = end; r.period = period; r.reason = reason;
     r.days = diff; r.isHalf = isHalf; r.hasDoc = !!link; r.docName = link || null;
     saveLeaves(ls);
@@ -726,9 +787,14 @@ function submitLeave() {
       if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
     }
   }
-  if (RDOC.includes(type) && diff >= 3 && !link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน / ใบรับรองแพทย์'); return; }
   let targetEmail = cu.email, targetName = cu.nickname || cu.name.split(' ')[0];
   if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.nickname || m.name.split(' ')[0]; } }
+  // เช็กวันก่อนหน้า start ว่ามีใบลาของ targetEmail อยู่แล้วหรือไม่
+  const _aPrev = new Date(start + 'T00:00:00'); _aPrev.setDate(_aPrev.getDate() - 1);
+  const _aPrevDay = _aPrev.toISOString().slice(0, 10);
+  const _aPrevLeave = type === 'sick' ? getLeaves().some(r => r.email === targetEmail && r.status !== 'rejected' && r.start <= _aPrevDay && r.end >= _aPrevDay) : false;
+  const needDocAdd = (type === 'sick' && (diff >= 2 || _aPrevLeave)) || type === 'dental';
+  if (needDocAdd && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์' + (_aPrevLeave ? ' (ต่อเนื่องจากการลาวันก่อนหน้า)' : '')); return; }
   const conf = leaveConflict(targetEmail, start, end, isHalf, period, null);
   if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
   const isPM = cu.role === 'pm';
@@ -2269,7 +2335,7 @@ function renderExR() {
   };
 
   const section = (title, items, status, isGrid = false) => {
-    const showApprove = status === 'pending';
+    const showApprove = status; // pass status string ('pending'/'approved') directly to renderRow
     if (isGrid && items.length > 0) {
       const depts = ['ทั้งหมด', ...new Set(items.map(e => getItemDept(e)).filter(Boolean))].sort((a, b) => a === 'ไม่ระบุ' ? 1 : b === 'ไม่ระบุ' ? -1 : a.localeCompare(b, 'th'));
       if (!depts.includes(_exReviewDeptTab)) _exReviewDeptTab = 'ทั้งหมด';
@@ -2704,6 +2770,63 @@ function updateDashboard() {
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
   document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
   document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(\'' + e.id + '\')"><div><div style="font-weight:500;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' (W' + getWkNum(e.date) + ') • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:15px;" onclick="event.stopPropagation();viewExDetail(\'' + e.id + '\')"><i class="fa-solid fa-magnifying-glass"></i> รายละเอียด</button></div></div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
+  renderHolidayWidget();
+}
+
+async function renderHolidayWidget() {
+  const el = document.getElementById('d-holidays');
+  if (!el) return;
+
+  if (!IAPP_APIKEY) {
+    el.innerHTML = `<div style="text-align:center;padding:16px 0;color:var(--text3);font-size:15px;line-height:1.7;">
+      ⚙️ ยังไม่ได้ตั้งค่า <code style="background:var(--surface2);padding:2px 6px;border-radius:6px;color:var(--accent);">IAPP_APIKEY</code> ใน <code style="background:var(--surface2);padding:2px 6px;border-radius:6px;color:var(--accent);">api.js</code><br>
+      <span style="font-size:13px;">ลงทะเบียนได้ที่ <a href="https://iapp.co.th/dashboard" target="_blank" style="color:var(--accent);">iapp.co.th/dashboard</a></span>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = '<div style="color:var(--text3);font-size:15px;padding:10px 0;">🔄 กำลังโหลด...</div>';
+
+  const today = new Date().toISOString().slice(0, 10);
+  const all = await fetchThaiHolidays();
+  const upcoming = all
+    .filter(h => h.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 8);
+
+  if (!upcoming.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:15px;">ไม่พบข้อมูลวันหยุด</div>';
+    return;
+  }
+
+  const todayMs = new Date(today + 'T00:00:00').getTime();
+  const typeLabel = { financial: 'ธนาคาร', public: 'ราชการ' };
+  const typeColor = { financial: 'rgba(108,138,255,.15);color:var(--accent)', public: 'rgba(100,200,120,.12);color:var(--green)' };
+
+  el.innerHTML = upcoming.map(h => {
+    const hDate = new Date(h.date + 'T00:00:00');
+    const diff = Math.round((hDate.getTime() - todayMs) / 86400000);
+    const dateStr = hDate.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+    const diffChip = diff === 0
+      ? `<span style="background:var(--red-bg);color:var(--red);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">วันนี้!</span>`
+      : diff <= 7
+      ? `<span style="background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">อีก ${diff} วัน</span>`
+      : diff <= 30
+      ? `<span style="background:rgba(245,200,66,.12);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">อีก ${diff} วัน</span>`
+      : `<span style="color:var(--text3);font-size:13px;font-family:var(--mono);">อีก ${diff} วัน</span>`;
+    const tc = typeColor[h.type] || typeColor.public;
+    const tl = typeLabel[h.type] || h.type;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:500;color:var(--text);font-size:16px;display:flex;align-items:center;gap:7px;">
+          ${h.name}
+          <span style="background:${tc};padding:1px 7px;border-radius:10px;font-size:12px;white-space:nowrap;flex-shrink:0;">${tl}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${dateStr}</div>
+      </div>
+      <div style="flex-shrink:0;margin-left:10px;">${diffChip}</div>
+    </div>`;
+  }).join('') + `<div style="text-align:right;margin-top:10px;font-size:13px;color:var(--text3);">วันหยุดที่กำลังจะมาถึง ${upcoming.length} วัน • <a href="https://iapp.co.th" target="_blank" style="color:var(--accent);text-decoration:none;">ข้อมูลจาก iApp</a></div>`;
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -2892,11 +3015,12 @@ function viewExDetail(id) {
     </div>
   `;
 
+  const canDelete = cu.role === 'pm' || e.email === cu.email;
   actions.innerHTML = `
     <div style="display:flex;width:100%;justify-content:space-between;align-items:center;padding:24px 0 0;">
-      <button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
+      ${canDelete ? `<button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
         <i class="fa-solid fa-trash-can" style="margin-right:12px;"></i> ลบ
-      </button>
+      </button>` : `<div></div>`}
       <div style="display:flex;gap:16px;">
         <button class="btn" onclick="closeModal('modal-ex-detail')" style="background:rgba(255,255,255,0.08);color:#9094b8;border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">ปิด</button>
         ${canEdit ? `<button class="btn" onclick="editEx('${e.id}')" style="border-radius:14px;height:64px;padding:0 40px;font-weight:700;background:#738aff;color:#fff;border:none;display:flex;align-items:center;gap:12px;font-size:20px;"><i class="fa-solid fa-pencil"></i> แก้ไขใบเบิก</button>` : ''}
@@ -2908,9 +3032,11 @@ function viewExDetail(id) {
 }
 
 function deleteEx(id) {
-  if (!confirm('ยืนยันการลบคำขอนี้? (การลบจะทำให้โควต้าและสถิติเปลี่ยนกลับทันที)')) return;
   const es = getExs();
   const target = es.find(e => String(e.id) === String(id));
+  if (!target) return;
+  if (cu.role !== 'pm' && target.email !== cu.email) { toast('⛔ คุณไม่มีสิทธิ์ลบใบเบิกนี้'); return; }
+  if (!confirm('ยืนยันการลบคำขอนี้? (การลบจะทำให้โควต้าและสถิติเปลี่ยนกลับทันที)')) return;
   const newEs = es.filter(e => String(e.id) !== String(id));
   saveExs(newEs);
   apiSync('deleteEx', { id, _fbKey: target?._fbKey });

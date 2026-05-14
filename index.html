@@ -1328,7 +1328,7 @@
         <div class="nav-item" onclick="openLeaveModal()"><span class="nav-icon"><i
               class="fa-solid fa-circle-plus"></i></span> ยื่นใบลา</div>
         <div class="nav-item" id="nav-leave-review" onclick="showPage('leave-review')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-signature"></i></span> รีวิวการลา<span class="badge"
+            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติการลา<span class="badge"
             id="badge-review">0</span></div>
         <div class="nav-item" id="nav-leave-pm" onclick="showPage('leave-pm')" style="display:none;"><span
             class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติ (PM)<span class="badge"
@@ -1403,7 +1403,7 @@
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value stat-yellow" id="d-pending">0</div>
-            <div class="stat-label">&#x1F4CB; รอรีวิวการลา</div>
+            <div class="stat-label">&#x1F4CB; รออนุมัติการลา</div>
           </div>
           <div class="stat-card">
             <div class="stat-value stat-green" id="d-approved">0</div>
@@ -1428,6 +1428,17 @@
           <div class="card-title">&#x2B1F; ออกกำลังกายล่าสุด</div>
           <div id="d-exs">
             <div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="card-title" style="margin:0;">&#x1F4C5; วันหยุดธนาคารไทย</div>
+            <button class="btn btn-ghost btn-sm" onclick="renderHolidayWidget()"
+              style="padding:4px 12px;font-size:13px;gap:5px;"><i class="fa-solid fa-rotate-right"></i>
+              โหลดใหม่</button>
+          </div>
+          <div id="d-holidays">
+            <div style="color:var(--text3);font-size:17px;">กำลังโหลด...</div>
           </div>
         </div>
       </div>
@@ -1466,7 +1477,7 @@
       <div id="page-leave-review" class="page">
         <div class="page-header">
           <div>
-            <div class="page-title">รีวิวการลา</div>
+            <div class="page-title">อนุมัติการลา</div>
             <div class="page-sub">// สำหรับหัวหน้าทีม</div>
           </div>
         </div>
@@ -1739,80 +1750,86 @@
     <div class="modal" style="max-width: 600px;">
       <button class="modal-close" onclick="closeModal('modal-leave')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title" id="modal-leave-title"><i class="fa-solid fa-circle-plus"
-          style="margin-right:8px; color:var(--accent);"></i>ยื่นใบลา</div>
-      <div class="info-box" style="font-size:16px"> ลาล่วงหน้า 7 วัน ยกเว้นกรณีลาป่วย </div>
+        <div class="modal-title" id="modal-leave-title"><i class="fa-solid fa-circle-plus"
+            style="margin-right:8px; color:var(--accent);"></i>ยื่นใบลา</div>
+        <div class="info-box" style="font-size:16px"> ลาล่วงหน้า 7 วัน ยกเว้นกรณีลาป่วย </div>
 
-      <div class="form-grid">
-        <div class="form-group"><label>ชื่อผู้ยื่นลา</label><input type="text" id="leave-name" readonly
-            style="opacity:.7;" /></div>
-        <div class="form-group"><label>ประเภทการลา</label>
-          <select id="leave-type" onchange="onLeaveChange()">
-            <option value="" disabled selected>— กรุณาเลือกประเภทการลา —</option>
-            <option value="sick">&#x1F912; ลาป่วย (30 วัน/ปี)</option>
-            <option value="personal">&#x1F4CB; ลากิจ (3 วัน/ปี)</option>
-            <option value="vacation">&#x1F3D6; ลาพักร้อน (7 วัน/ปี)</option>
-            <option value="dental">&#x1F9B7; ลาทำฟัน (2 วัน + ส่งบิล)</option>
-            <option value="birthday">&#x1F382; ลาวันเกิด (1 วัน/ปี)</option>
-            <option value="funeral">&#x1F56F; ลาฌาปนกิจ (7 วัน/ปี)</option>
-            <option value="maternity">&#x1F931; ลาคลอด (98 วัน/ปี)</option>
-            <option value="training">&#x1F4DA; ลาฝึกอบรม (แจ้ง/อนุมัติ)</option>
-            <option value="sterilize">&#x2695;&#xFE0F; ลาทำหมัน (แจ้ง/อนุมัติ)</option>
-            <option value="ordain">&#x1F64F; ลาบวช (แจ้ง/อนุมัติ)</option>
-            <option value="accumulated">&#x1F4C5; วันลาสะสม</option>
-            <option value="other">&#x1F4CC; อื่นๆ</option>
-          </select>
-        </div>
-        <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start" lang="sv"
-            onchange="onLeaveChange()" /></div>
-        <div class="form-group"><label>จำนวนวัน <span style="font-size:13px;color:var(--text3);">(ไม่นับ
-              เสาร์-อาทิตย์)</span></label>
-          <select id="leave-days" onchange="onLeaveDaysChange()">
-            <option value="">— เลือกจำนวนวัน —</option>
-            <option value="morning">🌅 ครึ่งวันเช้า (0.5 วัน)</option>
-            <option value="afternoon">🌇 ครึ่งวันบ่าย (0.5 วัน)</option>
-            <option value="1">1 วัน</option>
-            <option value="2">2 วัน</option>
-            <option value="3">3 วัน</option>
-          </select>
-        </div>
-        <div class="form-group" id="leave-end-group" style="display:none;"><label>วันที่สิ้นสุด <span
-              style="font-size:13px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
-            id="leave-end" lang="sv" readonly style="opacity:.7;pointer-events:none;" /></div>
-        <select id="leave-period" style="display:none;">
-          <option value="full">เต็มวัน</option>
-          <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
-          <option value="afternoon">ครึ่งวันบ่าย (0.5 วัน)</option>
-        </select>
-        <div class="form-group full"><label>หมายเหตุ / เหตุผล <span
-              style="color:var(--red);">*จำเป็น</span></label><textarea id="leave-reason"
-            placeholder="กรุณาระบุเหตุผลการลา..." required></textarea></div>
-        <div id="doc-group">
-          <label>ลิงก์หลักฐาน / เอกสาร <span style="color:var(--red);">*จำเป็น</span></label>
-          <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
-            style="width:100%;" />
-          <div style="font-size:15px;color:var(--text3);margin-top:4px;">* กรุณาอัปโหลดไฟล์ขึ้น Google Drive
-            แล้วนำลิงก์มาวาง</div>
-        </div>
-      </div>
-      <div id="leave-hints" style="margin-top:12px;"></div>
-
-      <div id="add-for-member-section"
-        style="display:none; margin-top:16px; padding:16px; background:var(--surface3); border-radius:var(--radius-sm); border:1px solid var(--border2);">
-        <div
-          style="font-size:16px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
-          &#x270E; เพิ่มวันลาให้สมาชิก (หัวหน้า / PM)</div>
         <div class="form-grid">
-          <div class="form-group">
-            <label>เลือกสมาชิก</label>
-            <select id="for-member-select" onchange="onLeaveChange()">
-              <option value="">— ยื่นให้ตัวเอง —</option>
+          <div class="form-group"><label>ชื่อผู้ยื่นลา</label><input type="text" id="leave-name" readonly
+              style="opacity:.7;" /></div>
+          <div class="form-group"><label>ประเภทการลา</label>
+            <select id="leave-type" onchange="onLeaveChange()">
+              <option value="" disabled selected>— กรุณาเลือกประเภทการลา —</option>
+              <option value="sick">&#x1F912; ลาป่วย (30 วัน/ปี)</option>
+              <option value="personal">&#x1F4CB; ลากิจ (3 วัน/ปี)</option>
+              <option value="vacation">&#x1F3D6; ลาพักร้อน (7 วัน/ปี)</option>
+              <option value="dental">&#x1F9B7; ลาทำฟัน (2 วัน + ส่งบิล)</option>
+              <option value="birthday">&#x1F382; ลาวันเกิด (1 วัน/ปี)</option>
+              <option value="funeral">&#x1F56F; ลาฌาปนกิจ (7 วัน/ปี)</option>
+              <option value="maternity">&#x1F931; ลาคลอด (98 วัน/ปี)</option>
+              <option value="training">&#x1F4DA; ลาฝึกอบรม (แจ้ง/อนุมัติ)</option>
+              <option value="sterilize">&#x2695;&#xFE0F; ลาทำหมัน (แจ้ง/อนุมัติ)</option>
+              <option value="ordain">&#x1F64F; ลาบวช (แจ้ง/อนุมัติ)</option>
+              <option value="accumulated">&#x1F4C5; วันลาสะสม</option>
+              <option value="other">&#x1F4CC; อื่นๆ</option>
             </select>
           </div>
+          <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start" lang="sv"
+              onchange="onLeaveChange()" /></div>
+          <div class="form-group"><label>จำนวนวัน <span style="font-size:13px;color:var(--text3);">(ไม่นับ
+                เสาร์-อาทิตย์)</span></label>
+            <select id="leave-days" onchange="onLeaveDaysChange()">
+              <option value="">— เลือกจำนวนวัน —</option>
+              <option value="morning">🌅 ครึ่งวันเช้า (0.5 วัน)</option>
+              <option value="afternoon">🌇 ครึ่งวันบ่าย (0.5 วัน)</option>
+              <option value="1">1 วัน</option>
+              <option value="2">2 วัน</option>
+              <option value="3">3 วัน</option>
+            </select>
+          </div>
+          <div class="form-group" id="leave-end-group" style="display:none;"><label>วันที่สิ้นสุด <span
+                style="font-size:13px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
+              id="leave-end" lang="sv" readonly style="opacity:.7;pointer-events:none;" /></div>
+          <select id="leave-period" style="display:none;">
+            <option value="full">เต็มวัน</option>
+            <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
+            <option value="afternoon">ครึ่งวันบ่าย (0.5 วัน)</option>
+          </select>
+          <div class="form-group full"><label>หมายเหตุ / เหตุผล <span
+                style="color:var(--red);">*จำเป็น</span></label><textarea id="leave-reason"
+              placeholder="กรุณาระบุเหตุผลการลา..." required></textarea></div>
+          <div id="doc-group"
+            style="display:none; grid-column:1/-1; background:var(--surface3); border:1px solid var(--red); border-radius:var(--radius-sm); padding:14px 16px; margin-top:4px;">
+            <div id="doc-reason"
+              style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:15px;font-weight:600;color:var(--red);">
+              📄 ต้องแนบใบรับรองแพทย์
+            </div>
+            <label style="font-size:15px;color:var(--text2);margin-bottom:6px;display:block;">ลิงก์หลักฐาน / เอกสาร
+              <span style="color:var(--red);">*จำเป็น</span></label>
+            <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
+              style="width:100%;box-sizing:border-box;" />
+            <div style="font-size:13px;color:var(--text3);margin-top:6px;">* อัปโหลดไฟล์ขึ้น Google Drive
+              แล้วนำลิงก์มาวาง</div>
+          </div>
         </div>
-        <div style="font-size:16px;color:var(--text3);margin-top:8px;">✓ ไม่มีข้อกำหนดลาล่วงหน้า 7 วัน
-          เมื่อยื่นให้สมาชิก</div>
-      </div>
+        <div id="leave-hints" style="margin-top:12px;"></div>
+
+        <div id="add-for-member-section"
+          style="display:none; margin-top:16px; padding:16px; background:var(--surface3); border-radius:var(--radius-sm); border:1px solid var(--border2);">
+          <div
+            style="font-size:16px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">
+            &#x270E; เพิ่มวันลาให้สมาชิก (หัวหน้า / PM)</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>เลือกสมาชิก</label>
+              <select id="for-member-select" onchange="onLeaveChange()">
+                <option value="">— ยื่นให้ตัวเอง —</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size:16px;color:var(--text3);margin-top:8px;">✓ ไม่มีข้อกำหนดลาล่วงหน้า 7 วัน
+            เมื่อยื่นให้สมาชิก</div>
+        </div>
 
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions">
@@ -1828,44 +1845,44 @@
     <div class="modal">
       <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title">&#xFF0B; เพิ่มสมาชิกใหม่</div>
-      <div class="form-grid">
-        <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="new-name" placeholder="ชื่อจริง" />
+        <div class="modal-title">&#xFF0B; เพิ่มสมาชิกใหม่</div>
+        <div class="form-grid">
+          <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="new-name" placeholder="ชื่อจริง" />
+          </div>
+          <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="new-nickname" placeholder="ชื่อเล่น" />
+          </div>
+          <div class="form-group"><label>Discord ID</label><input type="text" id="new-discord"
+              placeholder="เช่น 123456789012345678" /></div>
+          <div class="form-group"><label>วันเกิด</label><input type="date" id="new-birth" /></div>
+          <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
+              placeholder="member@company.com" /></div>
+          <div class="form-group"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="new-pass"
+              placeholder="••••••" /></div>
+          <div class="form-group"><label>Role</label>
+            <select id="new-role">
+              <option value="junior">Junior</option>
+              <option value="senior">Senior</option>
+              <option value="lead">Team Lead</option>
+              <option value="pm">Project Manager</option>
+            </select>
+          </div>
+          <div class="form-group"><label>ทีม</label>
+            <select id="new-dept">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="UXUI">UXUI</option>
+              <option value="Media">Media</option>
+              <option value="Art">Art</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          <div class="form-group"><label>พื้นที่</label>
+            <select id="new-loc">
+              <option value="bkk">กรุงเทพ</option>
+              <option value="province">ต่างจังหวัด</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="new-nickname" placeholder="ชื่อเล่น" />
-        </div>
-        <div class="form-group"><label>Discord ID</label><input type="text" id="new-discord"
-            placeholder="เช่น 123456789012345678" /></div>
-        <div class="form-group"><label>วันเกิด</label><input type="date" id="new-birth" /></div>
-        <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
-            placeholder="member@company.com" /></div>
-        <div class="form-group"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="new-pass"
-            placeholder="••••••" /></div>
-        <div class="form-group"><label>Role</label>
-          <select id="new-role">
-            <option value="junior">Junior</option>
-            <option value="senior">Senior</option>
-            <option value="lead">Team Lead</option>
-            <option value="pm">Project Manager</option>
-          </select>
-        </div>
-        <div class="form-group"><label>ทีม</label>
-          <select id="new-dept">
-            <option value="">— ไม่ระบุ —</option>
-            <option value="UXUI">UXUI</option>
-            <option value="Media">Media</option>
-            <option value="Art">Art</option>
-            <option value="PM">PM</option>
-          </select>
-        </div>
-        <div class="form-group"><label>พื้นที่</label>
-          <select id="new-loc">
-            <option value="bkk">กรุงเทพ</option>
-            <option value="province">ต่างจังหวัด</option>
-          </select>
-        </div>
-      </div>
-      <div id="add-err" class="danger-box" style="display:none;margin-top:12px;"></div>
+        <div id="add-err" class="danger-box" style="display:none;margin-top:12px;"></div>
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-add')">ยกเลิก</button>
@@ -1879,42 +1896,42 @@
     <div class="modal">
       <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title">&#x270E; แก้ไขสมาชิก</div>
-      <input type="hidden" id="edit-key" />
-      <div class="form-grid">
-        <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="edit-name" /></div>
-        <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="edit-nickname" /></div>
-        <div class="form-group"><label>Discord ID</label><input type="text" id="edit-discord"
-            placeholder="เช่น 123456789012345678" /></div>
-        <div class="form-group"><label>วันเกิด</label><input type="date" id="edit-birth" /></div>
-        <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
-            style="opacity:.6;" /></div>
-        <div class="form-group"><label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label><input type="password" id="edit-pass"
-            placeholder="เว้นว่างถ้าไม่เปลี่ยน" /></div>
-        <div class="form-group"><label>Role</label>
-          <select id="edit-role">
-            <option value="junior">Junior</option>
-            <option value="senior">Senior</option>
-            <option value="lead">Team Lead</option>
-            <option value="pm">Project Manager</option>
-          </select>
+        <div class="modal-title">&#x270E; แก้ไขสมาชิก</div>
+        <input type="hidden" id="edit-key" />
+        <div class="form-grid">
+          <div class="form-group"><label>ชื่อ-นามสกุล</label><input type="text" id="edit-name" /></div>
+          <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="edit-nickname" /></div>
+          <div class="form-group"><label>Discord ID</label><input type="text" id="edit-discord"
+              placeholder="เช่น 123456789012345678" /></div>
+          <div class="form-group"><label>วันเกิด</label><input type="date" id="edit-birth" /></div>
+          <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
+              style="opacity:.6;" /></div>
+          <div class="form-group"><label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label><input type="password"
+              id="edit-pass" placeholder="เว้นว่างถ้าไม่เปลี่ยน" /></div>
+          <div class="form-group"><label>Role</label>
+            <select id="edit-role">
+              <option value="junior">Junior</option>
+              <option value="senior">Senior</option>
+              <option value="lead">Team Lead</option>
+              <option value="pm">Project Manager</option>
+            </select>
+          </div>
+          <div class="form-group"><label>ทีม</label>
+            <select id="edit-dept">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="UXUI">UXUI</option>
+              <option value="Media">Media</option>
+              <option value="Art">Art</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          <div class="form-group"><label>พื้นที่</label>
+            <select id="edit-loc">
+              <option value="bkk">กรุงเทพ</option>
+              <option value="province">ต่างจังหวัด</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group"><label>ทีม</label>
-          <select id="edit-dept">
-            <option value="">— ไม่ระบุ —</option>
-            <option value="UXUI">UXUI</option>
-            <option value="Media">Media</option>
-            <option value="Art">Art</option>
-            <option value="PM">PM</option>
-          </select>
-        </div>
-        <div class="form-group"><label>พื้นที่</label>
-          <select id="edit-loc">
-            <option value="bkk">กรุงเทพ</option>
-            <option value="province">ต่างจังหวัด</option>
-          </select>
-        </div>
-      </div>
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions" id="edit-modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-edit')">ยกเลิก</button>
@@ -1927,20 +1944,21 @@
   <div class="modal-overlay" id="modal-quota">
     <div class="modal" style="width:100%;max-width:620px; border-radius:24px; background:#1a1c26;">
       <div class="modal-scroll-area" style="padding:32px 32px 16px;">
-      <div class="modal-header" style="margin-bottom:24px;">
-        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-pen-to-square"
-            style="margin-right:10px; color:var(--yellow);"></i>แก้ไขโควต้าวันลา</div>
-        <button class="modal-close" onclick="closeModal('modal-quota')">✕</button>
-      </div>
-      <div style="margin-bottom:24px; padding:16px; background:rgba(255,255,255,0.03); border-radius:16px;">
-        <div id="quota-target-name" style="font-size:22px; font-weight:700; color:#fff;">—</div>
-        <div id="quota-target-email" style="font-size:16px; color:var(--text3); font-family:var(--mono);">—</div>
-      </div>
-      <div id="quota-modal-body" style="display:flex; flex-direction:column; gap:20px;">
-        <!-- Dynamic quota inputs here -->
-      </div>
+        <div class="modal-header" style="margin-bottom:24px;">
+          <div class="modal-title" style="margin:0;"><i class="fa-solid fa-pen-to-square"
+              style="margin-right:10px; color:var(--yellow);"></i>แก้ไขโควต้าวันลา</div>
+          <button class="modal-close" onclick="closeModal('modal-quota')">✕</button>
+        </div>
+        <div style="margin-bottom:24px; padding:16px; background:rgba(255,255,255,0.03); border-radius:16px;">
+          <div id="quota-target-name" style="font-size:22px; font-weight:700; color:#fff;">—</div>
+          <div id="quota-target-email" style="font-size:16px; color:var(--text3); font-family:var(--mono);">—</div>
+        </div>
+        <div id="quota-modal-body" style="display:flex; flex-direction:column; gap:20px;">
+          <!-- Dynamic quota inputs here -->
+        </div>
       </div><!-- end modal-scroll-area -->
-      <div class="modal-actions" style="background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:20px 32px 28px;">
+      <div class="modal-actions"
+        style="background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:20px 32px 28px;">
         <button class="btn btn-ghost" onclick="closeModal('modal-quota')"
           style="height:54px; padding:0 24px; font-weight:700; border:none; background:rgba(255,255,255,0.05); color:#9094b8;">ยกเลิก</button>
         <button class="btn btn-primary" id="btn-save-quota"
@@ -1952,21 +1970,22 @@
   <div class="modal-overlay" id="modal-team-quota">
     <div class="modal" style="width:100%;max-width:550px; border-radius:24px; background:#1a1c26;">
       <div class="modal-scroll-area" style="padding:32px 32px 16px;">
-      <div class="modal-header" style="margin-bottom:24px;">
-        <div class="modal-title" style="margin:0;"><i class="fa-solid fa-users-gear"
-            style="margin-right:10px; color:var(--accent);"></i>ปรับโควต้าทั้งทีม</div>
-        <button class="modal-close" onclick="closeModal('modal-team-quota')">✕</button>
-      </div>
-      <div class="info-box"
-        style="margin-bottom:24px; background:rgba(108,138,255,0.1); border-color:rgba(108,138,255,0.2);">
-        <i class="fa-solid fa-circle-info" style="margin-right:8px;"></i>
-        การตั้งค่านี้จะถูกนำไปใช้กับสมาชิกทุกคนในทีมปัจจุบัน
-      </div>
-      <div id="team-quota-body" style="display:flex; flex-direction:column; gap:16px;">
-        <!-- Dynamic inputs -->
-      </div>
+        <div class="modal-header" style="margin-bottom:24px;">
+          <div class="modal-title" style="margin:0;"><i class="fa-solid fa-users-gear"
+              style="margin-right:10px; color:var(--accent);"></i>ปรับโควต้าทั้งทีม</div>
+          <button class="modal-close" onclick="closeModal('modal-team-quota')">✕</button>
+        </div>
+        <div class="info-box"
+          style="margin-bottom:24px; background:rgba(108,138,255,0.1); border-color:rgba(108,138,255,0.2);">
+          <i class="fa-solid fa-circle-info" style="margin-right:8px;"></i>
+          การตั้งค่านี้จะถูกนำไปใช้กับสมาชิกทุกคนในทีมปัจจุบัน
+        </div>
+        <div id="team-quota-body" style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Dynamic inputs -->
+        </div>
       </div><!-- end modal-scroll-area -->
-      <div class="modal-actions" style="background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:20px 32px 28px;">
+      <div class="modal-actions"
+        style="background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:20px 32px 28px;">
         <button class="btn btn-ghost" onclick="closeModal('modal-team-quota')">ยกเลิก</button>
         <button class="btn btn-primary" onclick="saveTeamQuotas()">อัปเดตโควต้าทั้งทีม</button>
       </div>
@@ -1978,8 +1997,8 @@
     <div class="modal">
       <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title" id="conf-title">ยืนยัน</div>
-      <div id="conf-body" style="color:var(--text2);font-size:18px;"></div>
+        <div class="modal-title" id="conf-title">ยืนยัน</div>
+        <div id="conf-body" style="color:var(--text2);font-size:18px;"></div>
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">ยกเลิก</button>
@@ -1993,7 +2012,9 @@
     <div class="modal"
       style="max-width: 620px; background: #1a1c26; border: 1px solid rgba(255,255,255,0.03); box-shadow: 0 40px 100px rgba(0,0,0,0.5); border-radius: 24px;">
       <div id="ex-detail-body" class="modal-scroll-area" style="padding:40px 40px 16px;"></div>
-      <div id="ex-detail-actions" style="flex-shrink:0; background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:0 40px 32px;"></div>
+      <div id="ex-detail-actions"
+        style="flex-shrink:0; background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:0 40px 32px;">
+      </div>
     </div>
   </div>
 
@@ -2002,64 +2023,64 @@
     <div class="modal" style="width:100%;max-width:640px;">
       <button class="modal-close" onclick="closeModal('modal-ex-form')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title"><i class="fa-solid fa-circle-plus"
-          style="margin-right:8px; color:var(--accent);"></i>ยื่นเบิกใหม่</div>
-      <div class="form-grid">
-        <div class="form-group"><label>ชื่อผู้บันทึก</label><input type="text" id="ex-name" readonly
-            style="opacity:.7;" /></div>
-        <div class="form-group"><label>ประเภท</label>
-          <select id="ex-type" onchange="updateExType()">
-            <option value="solo">🏃 เดี่ยว (฿100)</option>
-            <option value="group_ex">🤸 กลุ่มออกกำลังกาย (฿500)</option>
-            <option value="group_eat">🍽️ กลุ่มกินข้าว (฿300)</option>
-          </select>
-        </div>
-        <div class="form-group"><label>กิจกรรม</label><input type="text" id="ex-act"
-            placeholder="วิ่ง 5km / ว่ายน้ำ / โยคะ" oninput="clearExErr()" /></div>
-        <div class="form-group"><label>วันที่</label><input type="date" id="ex-date"
-            onchange="updateQuota();clearExErr()" /></div>
-        <div class="form-group full"><label>หมายเหตุ</label><input type="text" id="ex-note"
-            placeholder="รายละเอียดเพิ่มเติม..." /></div>
-        <div class="form-group full" id="ex-group-members" style="display:none;margin-top:8px;">
-          <label>สมาชิกในกลุ่ม <span style="color:var(--accent);">*ไม่ต้องใส่ชื่อตัวเอง ระบบจะเพิ่มให้เอง
-              (จำเป็นต้องเพิ่มสมาชิกอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้)</span></label>
-          <div id="ex-member-list" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;">
-            <div style="font-size:16px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>
+        <div class="modal-title"><i class="fa-solid fa-circle-plus"
+            style="margin-right:8px; color:var(--accent);"></i>ยื่นเบิกใหม่</div>
+        <div class="form-grid">
+          <div class="form-group"><label>ชื่อผู้บันทึก</label><input type="text" id="ex-name" readonly
+              style="opacity:.7;" /></div>
+          <div class="form-group"><label>ประเภท</label>
+            <select id="ex-type" onchange="updateExType()">
+              <option value="solo">🏃 เดี่ยว (฿100)</option>
+              <option value="group_ex">🤸 กลุ่มออกกำลังกาย (฿500)</option>
+              <option value="group_eat">🍽️ กลุ่มกินข้าว (฿300)</option>
+            </select>
           </div>
-          <div
-            style="background:var(--surface3);padding:12px;border-radius:var(--radius-sm);border:1px dashed var(--border2);">
-            <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกในระบบ
+          <div class="form-group"><label>กิจกรรม</label><input type="text" id="ex-act"
+              placeholder="วิ่ง 5km / ว่ายน้ำ / โยคะ" oninput="clearExErr()" /></div>
+          <div class="form-group"><label>วันที่</label><input type="date" id="ex-date"
+              onchange="updateQuota();clearExErr()" /></div>
+          <div class="form-group full"><label>หมายเหตุ</label><input type="text" id="ex-note"
+              placeholder="รายละเอียดเพิ่มเติม..." /></div>
+          <div class="form-group full" id="ex-group-members" style="display:none;margin-top:8px;">
+            <label>สมาชิกในกลุ่ม <span style="color:var(--accent);">*ไม่ต้องใส่ชื่อตัวเอง ระบบจะเพิ่มให้เอง
+                (จำเป็นต้องเพิ่มสมาชิกอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้)</span></label>
+            <div id="ex-member-list" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;">
+              <div style="font-size:16px;color:var(--text3);">ยังไม่ได้เพิ่มสมาชิก</div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-              <select id="ex-sys-member" style="flex:1;min-width:180px;">
-                <option value="">— เลือกสมาชิกในระบบ —</option>
-              </select>
-              <button class="btn btn-ghost btn-sm" onclick="addExSysMember()">เพิ่ม</button>
-            </div>
-            <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกนอกระบบ
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" id="ex-out-name" placeholder="ชื่อนามสกุล" style="flex:1;min-width:120px;" />
-              <input type="text" id="ex-out-dept" placeholder="แผนก/ตำแหน่ง" style="flex:1;min-width:100px;" />
-              <button class="btn btn-ghost btn-sm" onclick="addExOutMember()">เพิ่ม</button>
+            <div
+              style="background:var(--surface3);padding:12px;border-radius:var(--radius-sm);border:1px dashed var(--border2);">
+              <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกในระบบ
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                <select id="ex-sys-member" style="flex:1;min-width:180px;">
+                  <option value="">— เลือกสมาชิกในระบบ —</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="addExSysMember()">เพิ่ม</button>
+              </div>
+              <div style="font-size:17px;font-weight:500;margin-bottom:8px;color:var(--text2);">+ เพิ่มสมาชิกนอกระบบ
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <input type="text" id="ex-out-name" placeholder="ชื่อนามสกุล" style="flex:1;min-width:120px;" />
+                <input type="text" id="ex-out-dept" placeholder="แผนก/ตำแหน่ง" style="flex:1;min-width:100px;" />
+                <button class="btn btn-ghost btn-sm" onclick="addExOutMember()">เพิ่ม</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="form-group full" id="ex-doc-group" style="margin-top:8px;">
-          <label>ลิงก์วิดีโอหลักฐาน (VDO) <span style="color:var(--red);">*จำเป็น</span></label>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <input type="text" id="ex-link" placeholder="วางลิงก์วิดีโอหลักฐาน (Google Drive, YouTube ฯลฯ)..."
-              style="flex:1;min-width:200px;" />
+          <div class="form-group full" id="ex-doc-group" style="margin-top:8px;">
+            <label>ลิงก์วิดีโอหลักฐาน (VDO) <span style="color:var(--red);">*จำเป็น</span></label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <input type="text" id="ex-link" placeholder="วางลิงก์วิดีโอหลักฐาน (Google Drive, YouTube ฯลฯ)..."
+                style="flex:1;min-width:200px;" />
+            </div>
+            <div style="font-size:15px;color:var(--text3);margin-top:4px;">* เนื่องจากระบบอัปโหลดขัดข้องชั่วคราว
+              กรุณาอัปโหลดวิดีโอขึ้น Google Drive แล้วนำลิงก์มาวางแทนค่ะ</div>
           </div>
-          <div style="font-size:15px;color:var(--text3);margin-top:4px;">* เนื่องจากระบบอัปโหลดขัดข้องชั่วคราว
-            กรุณาอัปโหลดวิดีโอขึ้น Google Drive แล้วนำลิงก์มาวางแทนค่ะ</div>
         </div>
-      </div>
-      <div id="ex-warn" class="warning-box" style="display:none;margin-top:12px;"></div>
-      <div id="ex-err" class="danger-box" style="display:none;margin-top:12px;"></div>
-      <div id="ex-success" class="info-box"
-        style="display:none;margin-top:12px;background:var(--green-bg);border-color:var(--green);color:var(--green);">
-      </div>
+        <div id="ex-warn" class="warning-box" style="display:none;margin-top:12px;"></div>
+        <div id="ex-err" class="danger-box" style="display:none;margin-top:12px;"></div>
+        <div id="ex-success" class="info-box"
+          style="display:none;margin-top:12px;background:var(--green-bg);border-color:var(--green);color:var(--green);">
+        </div>
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-ex-form')">ยกเลิก</button>
@@ -2074,24 +2095,24 @@
     <div class="modal" style="max-width: 400px;">
       <button class="modal-close" onclick="closeModal('modal-change-pass')">✕</button>
       <div class="modal-scroll-area">
-      <div class="modal-title"><i class="fa-solid fa-key"
-          style="margin-right:8px; color:var(--accent);"></i>เปลี่ยนรหัสผ่าน</div>
-      <div class="form-grid" style="grid-template-columns: 1fr;">
-        <div class="form-group">
-          <label>รหัสผ่านเดิม</label>
-          <input type="password" id="cp-old" placeholder="กรอกรหัสผ่านปัจจุบัน" />
+        <div class="modal-title"><i class="fa-solid fa-key"
+            style="margin-right:8px; color:var(--accent);"></i>เปลี่ยนรหัสผ่าน</div>
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div class="form-group">
+            <label>รหัสผ่านเดิม</label>
+            <input type="password" id="cp-old" placeholder="กรอกรหัสผ่านปัจจุบัน" />
+          </div>
+          <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
+          <div class="form-group">
+            <label>รหัสผ่านใหม่</label>
+            <input type="password" id="cp-new" placeholder="อย่างน้อย 6 ตัวอักษร" />
+          </div>
+          <div class="form-group">
+            <label>ยืนยันรหัสผ่านใหม่</label>
+            <input type="password" id="cp-confirm" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
+          </div>
         </div>
-        <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
-        <div class="form-group">
-          <label>รหัสผ่านใหม่</label>
-          <input type="password" id="cp-new" placeholder="อย่างน้อย 6 ตัวอักษร" />
-        </div>
-        <div class="form-group">
-          <label>ยืนยันรหัสผ่านใหม่</label>
-          <input type="password" id="cp-confirm" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" />
-        </div>
-      </div>
-      <div id="cp-err" class="danger-box" style="display:none; margin-top:16px;"></div>
+        <div id="cp-err" class="danger-box" style="display:none; margin-top:16px;"></div>
       </div><!-- end modal-scroll-area -->
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modal-change-pass')">ยกเลิก</button>
@@ -2102,8 +2123,8 @@
 
   <div id="toast"></div>
 
-  <script src="api.js"></script>
-  <script src="team-manager.js"></script>
+  <script src="api.js?v=20260514b"></script>
+  <script src="team-manager.js?v=20260514b"></script>
 </body>
 
 </html>
