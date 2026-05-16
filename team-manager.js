@@ -2401,7 +2401,7 @@ function renderExR() {
   const pending = sorted.filter(e => e.status === 'pending');
   const approved = sorted.filter(e => e.status === 'approved');
   const rejected = sorted.filter(e => e.status === 'rejected');
-  const totalMoney = approved.reduce((s, e) => s + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).filter(m => m.type === 'sys').length), 0);
+  const totalMoney = approved.reduce((s, e) => s + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).length), 0);
 
   const statBox = (label, val, color) =>
     `<div style="flex:1;min-width:110px;background:#1a1c26;border:1px solid rgba(255,255,255,0.03);border-radius:16px;padding:10px;text-align:center;">
@@ -2431,13 +2431,13 @@ function renderExR() {
     const isGrp = isGroupEx(et);
     const wkNum = getWkNum(e.date);
     const members = e.members || [];
-    const sysM = members.filter(m => m.type === 'sys');
-    const allMembers = [{ email: e.email, name: e.name, type: 'sys' }, ...sysM];
+    const allMembers = [{ email: e.email, name: e.name, type: 'sys' }, ...members];
     const chips = allMembers.map(m => {
-      const u = getUsers().find(x => x.email === m.email);
-      const nick = u ? (u.nickname || u.name.split(' ')[0]) : m.name.split(' ')[0];
-      return `<div class="member-chip" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.03);padding:2px 8px;border-radius:8px;font-size:14px;display:flex;align-items:center;gap:4px;color:#fff;">
-        <i class="fa-solid fa-user" style="font-size:10px;opacity:0.5;"></i> ${nick}
+      const u = m.type === 'sys' ? getUsers().find(x => x.email === m.email) : null;
+      const nick = u ? (u.nickname || u.name.split(' ')[0]) : (m.name || '').split(' ')[0];
+      const isOut = m.type === 'out';
+      return `<div class="member-chip" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.03);padding:2px 8px;border-radius:8px;font-size:14px;display:flex;align-items:center;gap:4px;color:${isOut ? 'var(--text3)' : '#fff'};">
+        <i class="fa-solid fa-user" style="font-size:10px;opacity:0.5;"></i> ${nick}${isOut ? ` <span style="font-size:11px;opacity:0.6;">(นอก)</span>` : ''}
       </div>`;
     }).join('');
 
@@ -2576,17 +2576,19 @@ function apprEx(id) {
   const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return;
   const e = es[i];
   if (isGroupEx(getExType(e))) {
-    const sysMems = (e.members || []).filter(m => m.type === 'sys');
-    const allPartic = [e.email, ...sysMems.map(m => m.email)];
-    if (allPartic.length < 3) { toast(`⚠️ คำขอนี้มีแค่ ${allPartic.length} คน — ต้องครบ 3 คนถึงจะอนุมัติได้`); return; }
-    const mk = monthKey(e.date);
-    const isInOther = (email) => es.some(x => x.id !== e.id && isGroupEx(getExType(x)) && x.status === 'approved' && monthKey(x.date) === mk && (x.email === email || (x.members || []).some(m => m.type === 'sys' && m.email === email)));
-    const newMems = allPartic.filter(email => !isInOther(email));
-    if (newMems.length < 3) {
-      const notNew = allPartic.filter(email => isInOther(email));
-      const names = notNew.map(em => { const u = getUsers().find(x => x.email === em); return u ? u.name : em; });
-      toast(`⚠️ จำเป็นต้องมีสมาชิกเพิ่มอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มเดือนนี้ — สมาชิกที่ทำไปแล้ว: ${names.join(', ')}`);
-      return;
+    const totalMemCount = 1 + (e.members || []).length;
+    if (totalMemCount < 3) { toast(`⚠️ คำขอนี้มีแค่ ${totalMemCount} คน — ต้องครบ 3 คนถึงจะอนุมัติได้`); return; }
+
+    // ตรวจสอบว่ามีสมาชิกคนไหนที่ approved group ในสัปดาห์เดียวกันแล้วหรือยัง
+    const wk = wkKey(e.date);
+    const allParticEmails = [e.email, ...(e.members || []).filter(m => m.type === 'sys').map(m => m.email)];
+    const conflicts = allParticEmails.filter(email =>
+      es.some(x => x.id !== e.id && isGroupEx(getExType(x)) && x.status === 'approved' && wkKey(x.date) === wk && isUserInvolved(x, email))
+    );
+    if (conflicts.length > 0) {
+      const names = conflicts.map(em => { const u = getUsers().find(x => x.email === em); return (u?.nickname || u?.name?.split(' ')[0] || em); });
+      const proceed = confirm(`⚠️ สมาชิกต่อไปนี้มีกิจกรรมกลุ่มที่ approved ในสัปดาห์นี้แล้ว:\n${names.join(', ')}\n\nยืนยันอนุมัติต่อ?`);
+      if (!proceed) return;
     }
   }
   es[i].status = 'approved';
@@ -2623,7 +2625,7 @@ function onExShareMonthChange() {
 function renderExShare() {
   const all = getExs().filter(e => isGroupEx(getExType(e)));
   const isInvolved = (e) => isUserInvolved(e, cu.email);
-  const memberCount = (e) => 1 + (e.members || []).filter(m => m.type === 'sys').length;
+  const memberCount = (e) => 1 + (e.members || []).length;
   const isLocked = (e) => e.status !== 'pending';
 
   // Build month dropdown from actual data
@@ -2846,7 +2848,7 @@ function leaveExGroup(id) {
   const e = es[i];
   if (e.status !== 'pending' && !(cu.role === 'pm' && e.status === 'approved')) { toast('⚠️ คำขอนี้ถูก' + (e.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ') + 'แล้ว'); return; }
 
-  const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
+  const count = 1 + (e.members || []).length;
   if (count <= 3) { toast('⚠️ ไม่สามารถลบชื่อได้ ต้องมีสมาชิกในกลุ่มอย่างน้อย 3 คน'); return; }
 
   const oldMembers = e.members || [];
@@ -3149,7 +3151,7 @@ function viewExDetail(id) {
   if (!e) return;
   const et = getExType(e);
   const reward = EX_REWARD[et] || 100;
-  const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
+  const count = 1 + (e.members || []).length;
   const totalReward = reward * count;
   const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
   const wkNum = getWkNum(e.date);
@@ -3446,7 +3448,7 @@ function renderExHistory() {
         ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
       ];
 
-      const count = 1 + (e.members || []).filter(m => m.type === 'sys').length;
+      const count = 1 + (e.members || []).length;
 
       const chips = allMembers.map(m => {
         const isSub = m.kind === 'submitter';
