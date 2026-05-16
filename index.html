@@ -1664,8 +1664,7 @@
             <div class="page-title">ข้อมูลของฉัน</div>
             <div class="page-sub">// เดี่ยว ฿100 • กลุ่มออก ฿500 • กลุ่มกิน ฿300 • ตัดรอบทุก 18</div>
           </div>
-          <button class="btn btn-primary" onclick="openExModal()"><i class="fa-solid fa-circle-plus"
-              style="margin-right:6px;"></i> ยื่นเบิกใหม่</button>
+          <select id="ex-log-month-select" onchange="onExLogMonthChange(this.value)" style="height:40px;padding:0 14px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);font-size:15px;cursor:pointer;"></select>
         </div>
 
         <div class="card">
@@ -1673,15 +1672,10 @@
           <div id="quota-display"></div>
         </div>
 
-        <!-- NEW: Exercise History Section -->
         <div class="card" style="margin-top:16px;">
-          <div
-            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-            <div class="card-title" style="margin-bottom:0;">🏃 ประวัติกิจกรรมของฉัน</div>
-            <select id="ex-history-month" onchange="renderExHistory()"
-              style="width:auto;font-size:17px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);">
-            </select>
-          </div>
+          <div class="card-title" style="margin-bottom:16px;">🏃 ประวัติกิจกรรมของฉัน</div>
+          <!-- hidden select kept for renderExHistory() compatibility -->
+          <select id="ex-history-month" style="display:none;"></select>
           <div id="ex-history-list"></div>
         </div>
       </div>
@@ -1693,16 +1687,24 @@
             <div class="page-title">แชร์กิจกรรมกลุ่ม</div>
             <div class="page-sub">// เพิ่ม/ลบชื่อตัวเองได้ — ล็อกเมื่อครบ 3 คน</div>
           </div>
+          <select id="ex-share-month-select" onchange="onExShareMonthChange()" style="height:40px;padding:0 16px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);font-size:15px;cursor:pointer;"></select>
         </div>
-        <div class="card">
-          <div class="card-title" style="color:var(--green);"><i class="fa-solid fa-circle-check"></i>
-            มีชื่อฉันในคำขอแบบกลุ่ม</div>
-          <div id="ex-share-mine" class="share-grid"></div>
+        <!-- Tab Bar -->
+        <div style="display:flex;gap:0;background:var(--surface2);border-radius:16px;padding:4px;margin-bottom:20px;border:1px solid var(--border2);">
+          <button id="ex-share-tab-mine" onclick="setExShareTab('mine')"
+            style="flex:1;padding:10px 0;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
+            <i class="fa-solid fa-circle-check"></i> มีชื่อฉันในคำขอแบบกลุ่ม
+            <span id="ex-share-tab-mine-badge" style="padding:1px 8px;border-radius:6px;font-size:13px;"></span>
+          </button>
+          <button id="ex-share-tab-all" onclick="setExShareTab('all')"
+            style="flex:1;padding:10px 0;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
+            <i class="fa-solid fa-door-open"></i> กิจกรรมที่เข้าร่วมได้
+            <span id="ex-share-tab-all-badge" style="padding:1px 8px;border-radius:6px;font-size:13px;"></span>
+          </button>
         </div>
-        <div class="card">
-          <div class="card-title">&#x2B22; ของทีม — กิจกรรมกลุ่มทั้งหมด</div>
-          <div id="ex-share-others" class="share-grid"></div>
-        </div>
+        <!-- Tab Panels -->
+        <div id="ex-share-panel-mine" class="share-grid"></div>
+        <div id="ex-share-panel-all" class="share-grid" style="display:none;"></div>
       </div>
 
       <!-- EXERCISE REVIEW -->

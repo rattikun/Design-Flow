@@ -1733,6 +1733,20 @@ function setQuotaDate(d) {
   quotaViewDate = d;
   updateQuota();
 }
+function setQuotaMonth(mk) {
+  if (!mk) return;
+  const [y, m] = mk.split('-').map(Number);
+  quotaViewDate = `${y}-${String(m).padStart(2, '0')}-20`;
+  updateQuota();
+}
+function onExLogMonthChange(mk) {
+  if (!mk) return;
+  // Sync hidden ex-history-month so renderExHistory reads the same month
+  const histSel = document.getElementById('ex-history-month');
+  if (histSel) { histSel.innerHTML = `<option value="${mk}" selected>${mk}</option>`; histSel.value = mk; }
+  setQuotaMonth(mk);   // updates quota display
+  renderExHistory();   // updates history list
+}
 
 function updateQuota() {
   const loc = cu.locationType || 'bkk';
@@ -1766,6 +1780,23 @@ function updateQuota() {
     const mKey = monthKey(d);
     if (!monthOpts.includes(mKey)) monthOpts.push(mKey);
   }
+
+  // Populate unified month dropdown (header) + sync hidden ex-history-month
+  const exLogMonthSel = document.getElementById('ex-log-month-select');
+  if (exLogMonthSel) {
+    const fmtRange = (my, mm) => {
+      const start = new Date(my, mm - 1, 19).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      const end = (mm === 12 ? new Date(my + 1, 0, 18) : new Date(my, mm, 18)).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      return `${new Date(my, mm - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}  •  ${start} – ${end}`;
+    };
+    exLogMonthSel.innerHTML = [...monthOpts].reverse().map(mKey => {
+      const [my, mm] = mKey.split('-').map(Number);
+      return `<option value="${mKey}"${mKey === mk ? ' selected' : ''}>${fmtRange(my, mm)}</option>`;
+    }).join('');
+  }
+  // Keep hidden ex-history-month in sync so renderExHistory() reads the right month
+  const histSel = document.getElementById('ex-history-month');
+  if (histSel) { histSel.innerHTML = `<option value="${mk}" selected>${mk}</option>`; histSel.value = mk; }
 
   // Build Week Options for selected month
   const weekOpts = [];
@@ -1860,7 +1891,18 @@ function updateQuota() {
     <!-- CARD 3: COLA -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:16px;">Cola — ไตรมาสนี้</div>
+        ${ (() => {
+          const [qy, qNum] = qk.split('-Q').map(Number);
+          const qStartMonth = (qNum - 1) * 3 + 1; // เดือนแรกของไตรมาส (monthKey)
+          const qEndMonth = qNum * 3;               // เดือนสุดท้ายของไตรมาส
+          const qStart = new Date(qy, qStartMonth - 1, 19);
+          const qEndY = qEndMonth === 12 ? qy + 1 : qy;
+          const qEndM = qEndMonth === 12 ? 1 : qEndMonth + 1;
+          const qEnd = new Date(qEndY, qEndM - 1, 18);
+          const fmtQ = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+          return `<div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px;">Cola — Q${qNum}</div>
+                  <div style="font-size:14px;color:var(--text3);margin-bottom:16px;">${fmtQ(qStart)} – ${fmtQ(qEnd)}</div>`;
+        })() }
         <div style="font-size:17px;color:var(--text2);margin-bottom:6px;">แบบกลุ่ม</div>
         ${segBar(qGrp, colaThresh, 'var(--green)')}
         <div style="font-size:15px;color:var(--text3);margin-top:10px;line-height:1.4;">
@@ -2570,14 +2612,53 @@ function revertExToPending(id) {
 }
 
 // ══ EXERCISE SHARE ═══════════════════════
+let _exShareMonth = '';
+function onExShareMonthChange() {
+  _exShareMonth = document.getElementById('ex-share-month-select')?.value || '';
+  renderExShare();
+}
 function renderExShare() {
   const all = getExs().filter(e => isGroupEx(getExType(e)));
   const isInvolved = (e) => isUserInvolved(e, cu.email);
   const memberCount = (e) => 1 + (e.members || []).filter(m => m.type === 'sys').length;
   const isLocked = (e) => e.status !== 'pending';
-  const sorted = [...all].sort((a, b) => new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date));
+
+  // Build month dropdown from actual data
+  const monthSel = document.getElementById('ex-share-month-select');
+  if (monthSel) {
+    const months = [...new Set(all.map(e => monthKey(e.date)))].sort().reverse();
+    // Default to current month if not set or no longer valid
+    if (!_exShareMonth || !months.includes(_exShareMonth)) _exShareMonth = months[0] || '';
+    monthSel.innerHTML = months.map(mk => {
+      const [y, m] = mk.split('-').map(Number);
+      const monthName = new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+      // Period: 19th of this month → 18th of next month
+      const startDate = new Date(y, m - 1, 19).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      const nextM = m === 12 ? new Date(y + 1, 0, 18) : new Date(y, m, 18);
+      const endDate = nextM.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      return `<option value="${mk}"${mk === _exShareMonth ? ' selected' : ''}>${monthName}  •  ${startDate} – ${endDate}</option>`;
+    }).join('');
+  }
+
+  const sorted = [...all]
+    .filter(e => !_exShareMonth || monthKey(e.date) === _exShareMonth)
+    .sort((a, b) => {
+      const wkDiff = wkKey(b.date).localeCompare(wkKey(a.date)); // Week ล่าสุดก่อน
+      if (wkDiff !== 0) return wkDiff;
+      return new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date); // ใน week เดียวกัน เรียงตามวันที่ submit
+    });
   const mine = sorted.filter(isInvolved);
-  const others = sorted.filter(e => !isInvolved(e));
+  // กิจกรรมที่เข้าร่วมได้: pending + ยังไม่มีชื่อตัวเอง + quota ยังไม่เต็ม
+  const canJoin = sorted.filter(e => {
+    if (isInvolved(e)) return false;           // มีชื่ออยู่แล้ว
+    if (e.status !== 'pending') return false;  // ล็อกแล้ว (approved/rejected)
+    const wk = wkKey(e.date), mk = monthKey(e.date);
+    const wkUsed = all.filter(x => isUserInvolved(x, cu.email) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
+    if (wkUsed >= 1) return false;             // โควต้าสัปดาห์เต็ม
+    const moUsed = all.filter(x => isUserInvolved(x, cu.email) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
+    if (moUsed >= 4) return false;             // โควต้าเดือนเต็ม
+    return true;
+  });
 
   const renderCard = (e) => {
     const et = getExType(e);
@@ -2683,10 +2764,46 @@ function renderExShare() {
       </div>
     </div>`;
   };
-  const mineEl = document.getElementById('ex-share-mine');
-  const othersEl = document.getElementById('ex-share-others');
-  if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ยังไม่มีคำขอที่มีชื่อคุณ</div>';
-  if (othersEl) othersEl.innerHTML = others.length ? others.map(renderCard).join('') : '<div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีคำขออื่นในทีม</div>';
+  const mineEl = document.getElementById('ex-share-panel-mine');
+  const allEl = document.getElementById('ex-share-panel-all');
+  const empty = (msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:17px;">${msg}</div>`;
+  if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : empty('ยังไม่มีคำขอที่มีชื่อคุณ');
+  if (allEl) allEl.innerHTML = canJoin.length ? canJoin.map(renderCard).join('') : empty('ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้ — โควต้าเต็มหรือไม่มีคำขอใหม่');
+  // Update badge counts
+  const mineBadge = document.getElementById('ex-share-tab-mine-badge');
+  const allBadge = document.getElementById('ex-share-tab-all-badge');
+  if (mineBadge) mineBadge.textContent = mine.length;
+  if (allBadge) allBadge.textContent = canJoin.length;
+  // Re-apply active tab style
+  setExShareTab(window._exShareTab || 'mine');
+}
+
+let _exShareTab = 'mine';
+function setExShareTab(tab) {
+  window._exShareTab = tab;
+  const panelMine = document.getElementById('ex-share-panel-mine');
+  const panelAll = document.getElementById('ex-share-panel-all');
+  const tabMine = document.getElementById('ex-share-tab-mine');
+  const tabAll = document.getElementById('ex-share-tab-all');
+  const mineBadge = document.getElementById('ex-share-tab-mine-badge');
+  const allBadge = document.getElementById('ex-share-tab-all-badge');
+  if (!panelMine || !panelAll || !tabMine || !tabAll) return;
+  const activeStyle = { bg: 'var(--surface)', color: 'var(--text)', shadow: '0 1px 4px rgba(0,0,0,0.3)' };
+  const inactiveStyle = { bg: 'transparent', color: 'var(--text3)', shadow: 'none' };
+  const applyTab = (btn, badge, isActive) => {
+    const s = isActive ? activeStyle : inactiveStyle;
+    btn.style.background = s.bg;
+    btn.style.color = s.color;
+    btn.style.boxShadow = s.shadow;
+    if (badge) {
+      badge.style.background = isActive ? 'var(--accent)' : 'rgba(255,255,255,0.06)';
+      badge.style.color = isActive ? '#fff' : 'var(--text3)';
+    }
+  };
+  applyTab(tabMine, mineBadge, tab === 'mine');
+  applyTab(tabAll, allBadge, tab === 'all');
+  panelMine.style.display = tab === 'mine' ? '' : 'none';
+  panelAll.style.display = tab === 'all' ? '' : 'none';
 }
 function joinExGroup(id) {
   const es = getExs(), i = es.findIndex(e => e.id === id);
@@ -3265,26 +3382,14 @@ function getExWkLabel(dateStr) {
 
 function renderExHistory() {
   const elList = document.getElementById('ex-history-list');
-  const elMonth = document.getElementById('ex-history-month');
-  if (!elList || !elMonth) return;
+  if (!elList) return;
 
   const all = getExs().filter(e => isUserInvolved(e, cu.email));
 
-  // Refresh months list every time so it stays in sync after delete/add
-  const prevSel = elMonth.value;
-  const months = [...new Set(all.map(e => monthKey(e.date)).filter(Boolean))].sort().reverse();
+  // Read month from unified dropdown — fall back to current month if not available
+  const unifiedSel = document.getElementById('ex-log-month-select');
   const curMonth = monthKey(new Date().toISOString().split('T')[0]);
-  if (!months.includes(curMonth)) months.unshift(curMonth);
-  elMonth.innerHTML = months.map(m => {
-    const [y, mm] = m.split('-');
-    const d = new Date(parseInt(y), parseInt(mm) - 1, 1);
-    const label = d.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
-    return `<option value="${m}">${label}</option>`;
-  }).join('');
-  // Restore previous selection if still valid, otherwise use most recent
-  if (prevSel && months.includes(prevSel)) elMonth.value = prevSel;
-
-  const selMonth = elMonth.value;
+  const selMonth = (unifiedSel && unifiedSel.value) ? unifiedSel.value : curMonth;
   const filtered = all.filter(e => monthKey(e.date) === selMonth).sort((a, b) => b.date.localeCompare(a.date));
 
   // Generate weekOpts for this specific month to determine week numbers
