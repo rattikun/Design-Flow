@@ -364,7 +364,7 @@ function initDatePickers() {
     nextArrow: '<i class="fa-solid fa-chevron-right"></i>',
     prevArrow: '<i class="fa-solid fa-chevron-left"></i>',
     monthSelectorType: 'dropdown',
-    onReady: function(s, d, fp) { fpAddTodayBtn(fp); }
+    onReady: function (s, d, fp) { fpAddTodayBtn(fp); }
   };
 
   flatpickr('#leave-start', common);
@@ -373,7 +373,7 @@ function initDatePickers() {
   flatpickr('#edit-birth', common);
   flatpickr('#ex-date', {
     ...common,
-    onChange: function(selectedDates, dateStr, instance) {
+    onChange: function (selectedDates, dateStr, instance) {
       updateQuota();
       clearExErr();
     }
@@ -456,7 +456,7 @@ function saveMember() {
   const ek = document.getElementById('edit-key').value, name = document.getElementById('edit-name').value.trim();
   const pass = document.getElementById('edit-pass').value, role = document.getElementById('edit-role').value, dept = document.getElementById('edit-dept').value.trim();
   if (!name) { toast('⚠️ กรุณากรอกชื่อ'); return; } if (pass && pass.length < 6) { toast('⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัว'); return; }
-  const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u=>u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
+  const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u => u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
   const discordId = document.getElementById('edit-discord').value.trim();
   users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
@@ -575,101 +575,103 @@ function onLeaveDaysChange() {
   onLeaveChange();
 }
 
-function onLeaveChange() { try {
-  const type = document.getElementById('leave-type').value;
-  const start = document.getElementById('leave-start').value;
-  const end = document.getElementById('leave-end').value;
-  const period = document.getElementById('leave-period').value;
-  const hints = document.getElementById('leave-hints');
-  const docG = document.getElementById('doc-group');
-  // recalc end date when start changes, based on leave-days dropdown
-  const leaveVal = document.getElementById('leave-days')?.value;
-  const selectedNumDays = (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon') ? parseInt(leaveVal) : null;
-  if (selectedNumDays !== null && selectedNumDays >= 1 && start) {
-    document.getElementById('leave-end').value = calcEndDateByDays(start, selectedNumDays);
-  }
-  const endCurrent = document.getElementById('leave-end').value;
-  // Allow continuing if we have a valid selected-days value even if endCurrent is temporarily empty
-  if (!start || (!endCurrent && selectedNumDays === null)) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
-  if (endCurrent && start > endCurrent) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
-  document.getElementById('leave-period-group')?.style && (document.getElementById('leave-period-group').style.display = 'none');
-  const isHalf = document.getElementById('leave-period').value !== 'full';
-  const endEl = document.getElementById('leave-end');
-  if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
-  const rawDays = countWorkingDays(start, isHalf ? start : (endCurrent || start));
-  // Use the dropdown-selected days as the authoritative count (user explicitly chose this many days)
-  // Fall back to calculated working days only when no dropdown value is selected
-  const diff = isHalf ? 0.5 : (selectedNumDays !== null ? selectedNumDays : rawDays);
-  const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
-  const forMemberEmail = document.getElementById('for-member-select')?.value || '';
-  const checkEmail = forMemberEmail ? forMemberEmail : cu.email;
-  // ตรวจสอบว่าวันก่อนหน้า start มีใบลาของคนนี้อยู่แล้วหรือไม่
-  const _prevDate = new Date(start + 'T00:00:00'); _prevDate.setDate(_prevDate.getDate() - 1);
-  const _prevDay = _prevDate.toISOString().slice(0, 10);
-  const prevDayHasLeave = type === 'sick' && start ? getLeaves().some(r =>
-    r.email === checkEmail && r.status !== 'rejected' &&
-    r.start <= _prevDay && r.end >= _prevDay
-  ) : false;
-  const needDoc = (type === 'sick' && (diff >= 2 || prevDayHasLeave)) || type === 'dental';
-  const willEsc = ESC.includes(type) && diff > 3;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const da = Math.ceil((new Date(start) - today) / 864e5);
-  const isMgr = cu.role === 'pm' || cu.role === 'lead';
-  const needAdv = type !== 'sick' && !forMember && !isMgr;
-  const advOk = !needAdv || da >= 7;
-  // Show doc-group and set contextual reason
-  docG.style.display = needDoc ? 'block' : 'none';
-  if (needDoc) {
-    const docReason = document.getElementById('doc-reason');
-    if (docReason) {
-      let reasonText = '📄 ต้องแนบใบรับรองแพทย์';
-      if (type === 'dental') {
-        reasonText = '🦷 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง';
-      } else if (type === 'sick' && prevDayHasLeave && diff >= 2) {
-        reasonText = '📄 ลาป่วย ' + diff + ' วัน และต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
-      } else if (type === 'sick' && prevDayHasLeave) {
-        reasonText = '📄 ต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
-      } else if (type === 'sick' && diff >= 2) {
-        reasonText = '📄 ลาป่วย ' + diff + ' วัน — ต้องแนบใบรับรองแพทย์';
+function onLeaveChange() {
+  try {
+    const type = document.getElementById('leave-type').value;
+    const start = document.getElementById('leave-start').value;
+    const end = document.getElementById('leave-end').value;
+    const period = document.getElementById('leave-period').value;
+    const hints = document.getElementById('leave-hints');
+    const docG = document.getElementById('doc-group');
+    // recalc end date when start changes, based on leave-days dropdown
+    const leaveVal = document.getElementById('leave-days')?.value;
+    const selectedNumDays = (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon') ? parseInt(leaveVal) : null;
+    if (selectedNumDays !== null && selectedNumDays >= 1 && start) {
+      document.getElementById('leave-end').value = calcEndDateByDays(start, selectedNumDays);
+    }
+    const endCurrent = document.getElementById('leave-end').value;
+    // Allow continuing if we have a valid selected-days value even if endCurrent is temporarily empty
+    if (!start || (!endCurrent && selectedNumDays === null)) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
+    if (endCurrent && start > endCurrent) { hints.innerHTML = ''; docG.style.display = 'none'; return; }
+    document.getElementById('leave-period-group')?.style && (document.getElementById('leave-period-group').style.display = 'none');
+    const isHalf = document.getElementById('leave-period').value !== 'full';
+    const endEl = document.getElementById('leave-end');
+    if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
+    const rawDays = countWorkingDays(start, isHalf ? start : (endCurrent || start));
+    // Use the dropdown-selected days as the authoritative count (user explicitly chose this many days)
+    // Fall back to calculated working days only when no dropdown value is selected
+    const diff = isHalf ? 0.5 : (selectedNumDays !== null ? selectedNumDays : rawDays);
+    const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
+    const forMemberEmail = document.getElementById('for-member-select')?.value || '';
+    const checkEmail = forMemberEmail ? forMemberEmail : cu.email;
+    // ตรวจสอบว่าวันก่อนหน้า start มีใบลาของคนนี้อยู่แล้วหรือไม่
+    const _prevDate = new Date(start + 'T00:00:00'); _prevDate.setDate(_prevDate.getDate() - 1);
+    const _prevDay = _prevDate.toISOString().slice(0, 10);
+    const prevDayHasLeave = type === 'sick' && start ? getLeaves().some(r =>
+      r.email === checkEmail && r.status !== 'rejected' &&
+      r.start <= _prevDay && r.end >= _prevDay
+    ) : false;
+    const needDoc = (type === 'sick' && (diff >= 2 || prevDayHasLeave)) || type === 'dental';
+    const willEsc = ESC.includes(type) && diff > 3;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const da = Math.ceil((new Date(start) - today) / 864e5);
+    const isMgr = cu.role === 'pm' || cu.role === 'lead';
+    const needAdv = type !== 'sick' && !forMember && !isMgr;
+    const advOk = !needAdv || da >= 7;
+    // Show doc-group and set contextual reason
+    docG.style.display = needDoc ? 'block' : 'none';
+    if (needDoc) {
+      const docReason = document.getElementById('doc-reason');
+      if (docReason) {
+        let reasonText = '📄 ต้องแนบใบรับรองแพทย์';
+        if (type === 'dental') {
+          reasonText = '🦷 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง';
+        } else if (type === 'sick' && prevDayHasLeave && diff >= 2) {
+          reasonText = '📄 ลาป่วย ' + diff + ' วัน และต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
+        } else if (type === 'sick' && prevDayHasLeave) {
+          reasonText = '📄 ต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
+        } else if (type === 'sick' && diff >= 2) {
+          reasonText = '📄 ลาป่วย ' + diff + ' วัน — ต้องแนบใบรับรองแพทย์';
+        }
+        docReason.innerHTML = reasonText;
       }
-      docReason.innerHTML = reasonText;
     }
-  }
-  let hs = [];
-  if (isHalf) hs.push('<span style="color:var(--accent);">🌓 ลาครึ่งวัน' + (period === 'morning' ? ' (เช้า)' : ' (บ่าย)') + ' = 0.5 วัน</span>');
-  if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
-  if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
-  else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
-  if (type === 'sick') {
-    const retroOk = isMgr || forMember || da >= -7;
-    const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
-    hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + '</span>');
-  }
-  if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
-  if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
-  else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
-  if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
-  if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
-  // แสดงวันหยุดธนาคารที่ถูกข้ามในช่วงที่เลือก
-  if (!isHalf && start && endCurrent && start <= endCurrent) {
-    const hols = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
-    const skipped = [];
-    const _d = new Date(start + 'T00:00:00'), _e = new Date(endCurrent + 'T00:00:00');
-    while (_d <= _e) {
-      const _ds = _d.toISOString().slice(0, 10), _dw = _d.getDay();
-      if (_dw !== 0 && _dw !== 6 && hols.has(_ds)) skipped.push(_ds);
-      _d.setDate(_d.getDate() + 1);
+    let hs = [];
+    if (isHalf) hs.push('<span style="color:var(--accent);">🌓 ลาครึ่งวัน' + (period === 'morning' ? ' (เช้า)' : ' (บ่าย)') + ' = 0.5 วัน</span>');
+    if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
+    if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
+    else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
+    if (type === 'sick') {
+      const retroOk = isMgr || forMember || da >= -7;
+      const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
+      hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + '</span>');
     }
-    if (skipped.length) {
-      const names = skipped.map(_ds => {
-        const _hd = new Date(_ds + 'T00:00:00');
-        return _hd.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-      }).join(', ');
-      hs.push('<span style="color:var(--yellow);">🏦 ข้ามวันหยุดธนาคาร ' + skipped.length + ' วัน (' + names + ')</span>');
+    if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
+    if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
+    else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
+    if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
+    if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
+    // แสดงวันหยุดธนาคารที่ถูกข้ามในช่วงที่เลือก
+    if (!isHalf && start && endCurrent && start <= endCurrent) {
+      const hols = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
+      const skipped = [];
+      const _d = new Date(start + 'T00:00:00'), _e = new Date(endCurrent + 'T00:00:00');
+      while (_d <= _e) {
+        const _ds = _d.toISOString().slice(0, 10), _dw = _d.getDay();
+        if (_dw !== 0 && _dw !== 6 && hols.has(_ds)) skipped.push(_ds);
+        _d.setDate(_d.getDate() + 1);
+      }
+      if (skipped.length) {
+        const names = skipped.map(_ds => {
+          const _hd = new Date(_ds + 'T00:00:00');
+          return _hd.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+        }).join(', ');
+        hs.push('<span style="color:var(--yellow);">🏦 ข้ามวันหยุดธนาคาร ' + skipped.length + ' วัน (' + names + ')</span>');
+      }
     }
-  }
-  hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
-} catch(e) { console.error('[onLeaveChange error]', e); } }
+    hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
+  } catch (e) { console.error('[onLeaveChange error]', e); }
+}
 async function handleDoc(input) {
   const f = input.files[0]; if (!f) return;
   const label = document.getElementById('doc-text'), box = document.getElementById('doc-box'), icon = document.getElementById('doc-icon');
@@ -1096,7 +1098,7 @@ function filterTeamHistDept(dept) {
 function renderTeamHist() {
   const yrSel = document.getElementById('team-hist-year');
   const allLeaves = getLeaves();
-  const years = [...new Set(allLeaves.map(r => r.start?.slice(0,4)).filter(Boolean))].sort((a,b) => b-a);
+  const years = [...new Set(allLeaves.map(r => r.start?.slice(0, 4)).filter(Boolean))].sort((a, b) => b - a);
   const curYear = String(new Date().getFullYear());
   if (!years.includes(curYear)) years.unshift(curYear);
   if (yrSel.dataset.built !== years.join(',')) {
@@ -1137,11 +1139,11 @@ function renderTeamHist() {
       const dept = (uMap.get(r.email)?.dept || r.dept || '').toLowerCase();
       const typeTh = (LT[r.type] || r.type || '').toLowerCase();
       return (r.refNo || '').toLowerCase().includes(searchQ)
-          || (r.name || '').toLowerCase().includes(searchQ)
-          || (r.email || '').toLowerCase().includes(searchQ)
-          || dept.includes(searchQ)
-          || typeTh.includes(searchQ)
-          || (r.reason || '').toLowerCase().includes(searchQ);
+        || (r.name || '').toLowerCase().includes(searchQ)
+        || (r.email || '').toLowerCase().includes(searchQ)
+        || dept.includes(searchQ)
+        || typeTh.includes(searchQ)
+        || (r.reason || '').toLowerCase().includes(searchQ);
     });
   }
   const _sc = _teamHistSort.col, _sd = _teamHistSort.dir;
@@ -1157,7 +1159,7 @@ function renderTeamHist() {
     return _sd === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
   });
 
-  ['refNo','name','dept','type','start','days'].forEach(col => {
+  ['refNo', 'name', 'dept', 'type', 'start', 'days'].forEach(col => {
     const el = document.getElementById('th-' + col);
     if (el) el.textContent = _teamHistSort.col === col ? (_teamHistSort.dir === 'asc' ? '↑' : '↓') : '↕';
   });
@@ -1256,7 +1258,7 @@ function renderAccuHistoryPanel(members) {
                 <td style="color:var(--text2);">${h.scope || '—'}</td>
                 <td style="text-align:center;"><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${h.days}d</span></td>
                 <td style="font-size:14px;color:var(--text3);">${h.addedBy || '—'}</td>
-                <td style="font-size:13px;color:var(--text3);font-family:var(--mono);">${h.addedAt ? h.addedAt.slice(0,10) : '—'}</td>
+                <td style="font-size:13px;color:var(--text3);font-family:var(--mono);">${h.addedAt ? h.addedAt.slice(0, 10) : '—'}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -1843,26 +1845,26 @@ function updateQuota() {
   <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px 20px;border:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
     <div>
       <div style="font-size:16px;color:var(--text3);margin-bottom:2px;font-family:var(--mono);">💰 ยอดเงินสะสมเดือนนี้ (คาดการณ์)</div>
-      <div style="font-size:32px;font-weight:500;font-family:var(--mono);color:var(--green);">฿${totalMoMoney}</div>
+      <div style="font-size:28px;font-weight:500;font-family:var(--mono);color:var(--green);">฿${totalMoMoney}</div>
     </div>
     <div style="text-align:right;font-size:16px;color:var(--text3);font-family:var(--mono);background:var(--surface3);padding:8px 12px;border-radius:8px;">
       <div style="margin-bottom:4px;">⏳ ตัดรอบสัปดาห์: <strong style="color:var(--text2);">ทุกวันเสาร์</strong></div>
       <div>📅 ตัดรอบเดือน: <strong style="color:var(--text2);">ทุกวันที่ 18</strong></div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
     <!-- CARD 1: SOLO -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
       </div>
       <div style="display:flex;gap:32px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;">
-          <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+          <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
           ${segBar(wkSolo, wkLimit, 'var(--green)')}
         </div>
         <div style="flex:1;min-width:200px;">
-          <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
+          <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">เดือน ${moName}</div>
           ${segBar(moSolo, moLimit, 'var(--green)')}
         </div>
       </div>
@@ -1871,16 +1873,16 @@ function updateQuota() {
     <!-- CARD 2: GROUP -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <div style="font-size:32px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
         </div>
         <div style="display:flex;gap:32px;flex-wrap:wrap;">
           <div style="flex:1;min-width:200px;">
-            <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+            <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
             ${segBar(wkGrp, 1, 'var(--green)')}
           </div>
           <div style="flex:1;min-width:200px;">
-            <div style="font-size:20px;font-weight:500;color:var(--text);margin-bottom:10px;">เดือน ${moName}</div>
+            <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">เดือน ${moName}</div>
             ${segBar(moGrp, 4, 'var(--green)')}
           </div>
         </div>
@@ -1891,19 +1893,19 @@ function updateQuota() {
     <!-- CARD 3: COLA -->
     <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        ${ (() => {
-          const [qy, qNum] = qk.split('-Q').map(Number);
-          const qStartMonth = (qNum - 1) * 3 + 1; // เดือนแรกของไตรมาส (monthKey)
-          const qEndMonth = qNum * 3;               // เดือนสุดท้ายของไตรมาส
-          const qStart = new Date(qy, qStartMonth - 1, 19);
-          const qEndY = qEndMonth === 12 ? qy + 1 : qy;
-          const qEndM = qEndMonth === 12 ? 1 : qEndMonth + 1;
-          const qEnd = new Date(qEndY, qEndM - 1, 18);
-          const fmtQ = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-          return `<div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px;">Cola — Q${qNum}</div>
-                  <div style="font-size:14px;color:var(--text3);margin-bottom:16px;">${fmtQ(qStart)} – ${fmtQ(qEnd)}</div>`;
-        })() }
-        <div style="font-size:17px;color:var(--text2);margin-bottom:6px;">แบบกลุ่ม</div>
+        ${(() => {
+      const [qy, qNum] = qk.split('-Q').map(Number);
+      const qStartMonth = (qNum - 1) * 3 + 1; // เดือนแรกของไตรมาส (monthKey)
+      const qEndMonth = qNum * 3;               // เดือนสุดท้ายของไตรมาส
+      const qStart = new Date(qy, qStartMonth - 1, 19);
+      const qEndY = qEndMonth === 12 ? qy + 1 : qy;
+      const qEndM = qEndMonth === 12 ? 1 : qEndMonth + 1;
+      const qEnd = new Date(qEndY, qEndM - 1, 18);
+      const fmtQ = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `<div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px;">Cola — Q${qNum}</div>
+                  <div style="font-size:14px;color:var(--text3);margin-bottom:4px;">${fmtQ(qStart)} – ${fmtQ(qEnd)}</div>`;
+    })()}
+        <div style="font-size:17px;color:var(--text2);margin-bottom:0px;">แบบกลุ่ม</div>
         ${segBar(qGrp, colaThresh, 'var(--green)')}
         <div style="font-size:15px;color:var(--text3);margin-top:10px;line-height:1.4;">
           * ร่วมกิจกรรมให้ครบ รับเงิน 1,500/เดือน ในไตรมาสถัดไป
@@ -2378,9 +2380,10 @@ function renderExR() {
     }
   }
 
-  const inMonth = all.filter(e => monthKey(e.date) === mk);
   const q = (_exReviewSearch || '').toLowerCase();
-  const filtered = inMonth.filter(e => {
+  // ถ้ามี search query ให้ค้นข้ามทุกเดือน ไม่จำกัดแค่เดือนที่เลือก
+  const pool = q ? all : all.filter(e => monthKey(e.date) === mk);
+  const filtered = pool.filter(e => {
     if (!q) return true;
     return (e.name || '').toLowerCase().includes(q) || (e.email || '').toLowerCase().includes(q) || (e.activity || '').toLowerCase().includes(q) || (e.id || '').toString().toLowerCase().includes(q);
   });
@@ -2401,7 +2404,7 @@ function renderExR() {
   const totalMoney = approved.reduce((s, e) => s + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).filter(m => m.type === 'sys').length), 0);
 
   const statBox = (label, val, color) =>
-    `<div style="flex:1;min-width:110px;background:#1a1c26;border:1px solid rgba(255,255,255,0.03);border-radius:16px;padding:16px;text-align:center;">
+    `<div style="flex:1;min-width:110px;background:#1a1c26;border:1px solid rgba(255,255,255,0.03);border-radius:16px;padding:10px;text-align:center;">
        <div style="font-size:24px;font-weight:500;font-family:var(--mono);color:${color};">${val}</div>
        <div style="font-size:14px;color:var(--text3);margin-top:4px;font-weight:500;">${label}</div>
      </div>`;
@@ -2563,8 +2566,8 @@ function renderExR() {
 
   const listArea = document.getElementById('ex-review-list-area');
   if (listArea) {
-    listArea.innerHTML = tabsHtml + (_exReviewTab === 'pending' ? 
-      section('แบบกลุ่ม', pendingGroup, 'pending') + section('แบบเดี่ยว', pendingSolo, 'pending', true) : 
+    listArea.innerHTML = tabsHtml + (_exReviewTab === 'pending' ?
+      section('แบบกลุ่ม', pendingGroup, 'pending') + section('แบบเดี่ยว', pendingSolo, 'pending', true) :
       section('แบบกลุ่ม', apprGroup, 'approved') + section('แบบเดี่ยว', apprSolo, 'approved', true));
   }
 }
@@ -2696,7 +2699,7 @@ function renderExShare() {
       const fg = isMe ? 'var(--accent)' : 'var(--text2)';
 
       return `
-        <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 10px 4px 8px;border-radius:30px;font-size:14px;color:${fg};">
+        <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:0px 8px 0px 8px;border-radius:30px;font-size:14px;color:${fg};">
           <i class="fa-solid ${icon}" style="color:${iconColor};font-size:12px;"></i>
           <div style="white-space:nowrap;">
             <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
@@ -2709,7 +2712,7 @@ function renderExShare() {
     return `
     <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border2);background:var(--surface2);">
       <!-- Header Row -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 20px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:10px;">
           <i class="fa-solid fa-heart-pulse" style="color:var(--orange);font-size:14px;"></i>
           <span style="font-size:16px;font-weight:700;color:var(--orange);letter-spacing:0.5px;">${EX_LABEL[et]}</span>
@@ -2723,12 +2726,12 @@ function renderExShare() {
       </div>
 
       <!-- Main Content -->
-      <div style="padding:24px 20px;">
+      <div style="padding:20px 20px;">
         <div style="display:flex;gap:20px;align-items:center;">
           <!-- Calendar Block -->
           <div style="display:flex;flex-direction:column;width:64px;border-radius:14px;overflow:hidden;text-align:center;background:var(--surface3);border:1px solid var(--border2);flex-shrink:0;">
-            <div style="background:var(--orange);color:#000;font-size:14px;font-weight:500;padding:4px 0;text-transform:uppercase;">${month}</div>
-            <div style="font-size:24px;font-weight:500;padding:4px 0;color:var(--text);">${day}</div>
+            <div style="background:var(--orange);color:#000;font-size:14px;font-weight:500;padding:2px 0;text-transform:uppercase;">${month}</div>
+            <div style="font-size:24px;font-weight:500;padding:0px 0;color:var(--text);">${day}</div>
           </div>
           <!-- Title & Meta -->
           <div style="flex:1;min-width:0;">
@@ -2754,10 +2757,10 @@ function renderExShare() {
         <!-- Actions -->
         <div style="margin-top:20px;display:flex;gap:12px;">
           ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
-        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
+        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:42px;border-radius:14px;font-size:16px;" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
         : ''}
           ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter
-        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:48px;border-radius:14px;font-size:16px;" onclick="leaveExGroup('${e.id}')"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
+        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:42px;border-radius:14px;font-size:16px;" onclick="leaveExGroup('${e.id}')"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
         : ''}
           <button class="btn btn-ghost" style="flex:1;justify-content:center;height:48px;border-radius:14px;background:var(--surface3);font-size:16px;" onclick="viewExDetail('${e.id}')">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:8px;font-size:12px;opacity:0.6;"></i></button>
         </div>
@@ -3061,10 +3064,10 @@ async function renderHolidayWidget() {
     const diffChip = diff === 0
       ? `<span style="background:var(--red-bg);color:var(--red);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">วันนี้!</span>`
       : diff <= 7
-      ? `<span style="background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">อีก ${diff} วัน</span>`
-      : diff <= 30
-      ? `<span style="background:rgba(245,200,66,.12);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">อีก ${diff} วัน</span>`
-      : `<span style="color:var(--text3);font-size:13px;font-family:var(--mono);">อีก ${diff} วัน</span>`;
+        ? `<span style="background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">อีก ${diff} วัน</span>`
+        : diff <= 30
+          ? `<span style="background:rgba(245,200,66,.12);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">อีก ${diff} วัน</span>`
+          : `<span style="color:var(--text3);font-size:13px;font-family:var(--mono);">อีก ${diff} วัน</span>`;
     const tc = typeColor[h.type] || typeColor.public;
     const tl = typeLabel[h.type] || h.type;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
@@ -3185,7 +3188,7 @@ function viewExDetail(id) {
           <span style="background:rgba(255,255,255,0.05);color:var(--text3);padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:0px;">
-          <h2 style="font-size:32px;font-weight:500;color:#fff;margin:0;">${e.activity + (e.note ? ` (${e.note.split('\n')[0].substring(0, 20)})` : '')}</h2>
+          <h2 style="font-size:28px;font-weight:500;color:#fff;margin:0;">${e.activity + (e.note ? ` (${e.note.split('\n')[0].substring(0, 20)})` : '')}</h2>
           <span style="background:#f5c842;color:#000;padding:2px 8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;">Week ${wkNum}</span>
         </div>
         <div style="display:flex;align-items:center;gap:10px;color:#9094b8;font-size:20px;font-weight:500;">
