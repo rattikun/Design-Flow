@@ -421,7 +421,8 @@ function addMember() {
   const nickname = document.getElementById('new-nickname').value.trim(), birth = document.getElementById('new-birth').value;
   const discordId = document.getElementById('new-discord').value.trim();
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
-  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk' };
+  const userId = _nextUserId();
+  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId };
   users.push(newUser);
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
@@ -2063,13 +2064,73 @@ function setExReviewTab(t) { _exReviewTab = t; renderExR(); }
 function setExReviewSort(s) { _exReviewSort = s; renderExR(); }
 function setExReviewSearch(v) { _exReviewSearch = v; renderExR(); }
 function setExReviewDeptTab(d) { _exReviewDeptTab = d; renderExR(); }
+// ── User ID helpers ──────────────────────────────────────────────────────────
+// Format: U01, U02, U03… (padded to 2 digits, expands to 3+ as needed)
+function _nextUserId() {
+  const users = getUsers();
+  const max = users.reduce((acc, u) => {
+    const n = parseInt((u.userId || '').replace(/^U/, '')) || 0;
+    return Math.max(acc, n);
+  }, 0);
+  return 'U' + String(max + 1).padStart(2, '0');
+}
+
+// ── Exercise ID generator ─────────────────────────────────────────────────────
+// Format: DS + YY + userId(e.g. U01) + 3-digit counter per user/year  →  DS26U01001
 function generateDSID() {
-  const now = new Date();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const min = String(now.getMinutes()).padStart(2, '0');
-  return 'DS' + mm + dd + hh + min;
+  const userId = (cu && cu.userId) ? cu.userId : 'U00';
+  const yy = String(new Date().getFullYear()).slice(-2);
+  const prefix = 'DS' + yy + userId;
+  const existing = getExs()
+    .map(e => e.id)
+    .filter(id => typeof id === 'string' && id.startsWith(prefix))
+    .map(id => parseInt(id.slice(prefix.length)) || 0);
+  const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  return prefix + String(next).padStart(3, '0');
+}
+
+// ── Assign userId to existing users who don't have one ───────────────────────
+// Call assignUserIds()       → dry-run (logs only)
+// Call assignUserIds(true)   → saves locally + syncs to Firebase
+async function assignUserIds(commit = false) {
+  const users = getUsers();
+  const withId = users.filter(u => u.userId);
+  const without = users
+    .filter(u => !u.userId)
+    .sort((a, b) => new Date(a.addedAt) - new Date(b.addedAt));
+
+  // Find the highest existing userId number to continue from
+  let maxN = withId.reduce((acc, u) => {
+    const n = parseInt((u.userId || '').replace(/^U/, '')) || 0;
+    return Math.max(acc, n);
+  }, 0);
+
+  const changes = without.map(u => {
+    maxN++;
+    return { user: u, newUserId: 'U' + String(maxN).padStart(2, '0') };
+  });
+
+  console.group(`[assignUserIds] ${commit ? '🔴 COMMIT' : '🟡 DRY-RUN'} — พบ ${changes.length} คนที่ยังไม่มี User ID`);
+  changes.forEach(c => console.log(`  ${c.user.email}  →  ${c.newUserId}`));
+  console.groupEnd();
+
+  if (!commit) {
+    console.log('👆 ถ้าโอเค รัน assignUserIds(true) เพื่อบันทึกจริง');
+    return changes;
+  }
+
+  for (const { user, newUserId } of changes) {
+    user.userId = newUserId;
+    await apiSync('updateUser', user, { silent: true });
+  }
+  saveUsers(users);
+  // อัปเดต cu ถ้าเป็น user ที่ login อยู่
+  const me = changes.find(c => c.user.email === cu?.email);
+  if (me) cu.userId = me.newUserId;
+
+  console.log(`✅ assign userId เรียบร้อย ${changes.length} คน`);
+  toast(`✅ กำหนด User ID เรียบร้อย ${changes.length} คน`);
+  return changes;
 }
 
 function _makeDSFromDate(date, suffix) {
@@ -2126,6 +2187,79 @@ function migrateExIds() {
     seen.add(e.id);
   });
   if (changed) saveExs(es);
+}
+
+// ── Normalize long DS IDs to 10-char format ─────────────────────────────────
+// Call migrateLongExIds()      → dry-run: logs changes only, touches nothing
+// Call migrateLongExIds(true)  → actually saves & syncs to Firebase
+async function migrateLongExIds(commit = false) {
+  const es = getExs();
+  const SUFFIXES = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+  // Build a set of all existing 10-char IDs so we can detect collisions
+  const existing10 = new Set(
+    es.map(e => e.id).filter(id => typeof id === 'string' && id.length === 10)
+  );
+
+  // Track newly assigned IDs within this run to catch run-internal collisions
+  const assigned = new Set(existing10);
+
+  const changes = [];
+  const conflicts = [];
+
+  for (const e of es) {
+    if (typeof e.id !== 'string' || e.id.length <= 10) continue; // already short or weird
+
+    // Truncate to 10 chars (DS + mm + dd + hh + min)
+    const base = e.id.slice(0, 10);
+    let newId = base;
+
+    // Resolve collision
+    if (assigned.has(newId)) {
+      let resolved = false;
+      for (const s of SUFFIXES) {
+        const candidate = base.slice(0, 9) + s; // replace last char with suffix
+        if (!assigned.has(candidate)) {
+          newId = candidate;
+          resolved = true;
+          break;
+        }
+      }
+      if (!resolved) {
+        conflicts.push({ old: e.id, reason: 'ไม่มี suffix ว่างเหลือ' });
+        continue;
+      }
+    }
+
+    assigned.add(newId);
+    changes.push({ ex: e, oldId: e.id, newId });
+  }
+
+  // Report
+  console.group(`[migrateLongExIds] ${commit ? '🔴 COMMIT' : '🟡 DRY-RUN'} — พบ ${changes.length} รายการที่ต้องแก้`);
+  changes.forEach(c => console.log(`  ${c.oldId}  →  ${c.newId}`));
+  if (conflicts.length) console.warn('⚠️ Conflicts ที่แก้ไม่ได้:', conflicts);
+  console.groupEnd();
+
+  if (!commit) {
+    console.log('👆 ถ้าโอเค รัน migrateLongExIds(true) เพื่อบันทึกจริง');
+    return { changes, conflicts };
+  }
+
+  // Apply changes
+  for (const { ex, newId } of changes) {
+    ex.id = newId;
+  }
+  saveExs(es);
+
+  // Sync to Firebase (sequential to avoid rate-limit)
+  for (const { ex } of changes) {
+    await apiSync('updateEx', ex, { silent: true });
+  }
+
+  console.log(`✅ อัปเดต ${changes.length} รายการเรียบร้อยแล้ว`);
+  toast(`✅ ปรับ ID เรียบร้อย ${changes.length} รายการ`);
+  return { changes, conflicts };
 }
 
 function renderExR() {

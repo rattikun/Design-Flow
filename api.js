@@ -135,7 +135,8 @@ async function api(action, payload = {}) {
           pass_hash: payload.pass,
           added_by: payload.addedBy || '',
           added_at: payload.addedAt || new Date().toISOString(),
-          location_type: payload.locationType || 'bkk'
+          location_type: payload.locationType || 'bkk',
+          user_id: payload.userId || ''
         })
       });
       return { ok: res.ok };
@@ -156,6 +157,7 @@ async function api(action, payload = {}) {
           location_type: payload.locationType || 'bkk'
         };
         if (payload.pass) updateData.pass_hash = payload.pass;
+        if (payload.userId) updateData.user_id = payload.userId;
         const res2 = await fetch(`${baseUrl}/users/${key}.json`, {
           method: 'PATCH',
           body: JSON.stringify(updateData)
@@ -450,7 +452,8 @@ function mapUserFromAPI(u) {
     addedBy: u.added_by || u.addedBy || 'system',
     addedAt: u.added_at || u.addedAt || new Date().toISOString(),
     locationType: u.location_type || u.locationType || 'bkk',
-    active: u.active !== false
+    active: u.active !== false,
+    userId: u.user_id || u.userId || ''
   };
 }
 
