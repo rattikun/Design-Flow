@@ -235,13 +235,14 @@ function setupSidebar() {
   if (dbFull) dbFull.textContent = cu.name;
 
   document.getElementById('nav-sec-members').style.display = (r === 'lead' || r === 'pm') ? 'block' : 'none';
-  document.getElementById('nav-leave-review').style.display = r === 'lead' ? 'flex' : 'none';
-  document.getElementById('nav-leave-pm').style.display = r === 'pm' ? 'flex' : 'none';
-  document.getElementById('nav-ex-review').style.display = r === 'pm' ? 'flex' : 'none';
-  document.getElementById('nav-balance').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
-  document.getElementById('nav-team-hist').style.display = (r === 'pm' || r === 'lead') ? 'flex' : 'none';
-  document.getElementById('nav-my-balance').style.display = 'flex';
-  document.getElementById('nav-leaderboard').style.display = (r === 'lead' || r === 'pm') ? 'flex' : 'none';
+  const _nav = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v; };
+  _nav('nav-leave-review', r === 'lead' ? 'flex' : 'none');
+  _nav('nav-leave-pm',     r === 'pm'   ? 'flex' : 'none');
+  _nav('nav-ex-review',    r === 'pm'   ? 'flex' : 'none');
+  _nav('nav-balance',      (r === 'lead' || r === 'pm') ? 'flex' : 'none');
+  _nav('nav-team-hist',    (r === 'pm'   || r === 'lead') ? 'flex' : 'none');
+  _nav('nav-my-balance',   'flex');
+  _nav('nav-leaderboard',  (r === 'lead' || r === 'pm') ? 'flex' : 'none');
 }
 
 // ══ NAVIGATION ═══════════════════════════
@@ -2770,17 +2771,38 @@ function renderExShare() {
     </div>`;
   };
   const mineEl = document.getElementById('ex-share-panel-mine');
-  const allEl = document.getElementById('ex-share-panel-all');
   const empty = (msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:17px;">${msg}</div>`;
   if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : empty('ยังไม่มีคำขอที่มีชื่อคุณ');
-  if (allEl) allEl.innerHTML = canJoin.length ? canJoin.map(renderCard).join('') : empty('ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้ — โควต้าเต็มหรือไม่มีคำขอใหม่');
+
+  // เก็บ all sorted (ทั้งหมดของทีม) และ canJoin ไว้ใน window เพื่อให้ applyExShareAllFilter ใช้ได้
+  window._exShareAllSorted = sorted;
+  window._exShareCanJoin = canJoin;
+  window._exShareRenderCard = renderCard;
+  window._exShareEmpty = empty;
+  applyExShareAllFilter();
+
   // Update badge counts
   const mineBadge = document.getElementById('ex-share-tab-mine-badge');
   const allBadge = document.getElementById('ex-share-tab-all-badge');
   if (mineBadge) mineBadge.textContent = mine.length;
-  if (allBadge) allBadge.textContent = canJoin.length;
+  if (allBadge) allBadge.textContent = sorted.length;
   // Re-apply active tab style
   setExShareTab(window._exShareTab || 'mine');
+}
+
+function applyExShareAllFilter() {
+  const chk = document.getElementById('ex-share-filter-joinable');
+  const allEl = document.getElementById('ex-share-panel-all');
+  if (!allEl) return;
+  const useFilter = chk ? chk.checked : true;
+  const list = useFilter ? (window._exShareCanJoin || []) : (window._exShareAllSorted || []);
+  const renderCard = window._exShareRenderCard;
+  const empty = window._exShareEmpty || ((msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:17px;">${msg}</div>`);
+  if (!renderCard) return;
+  const emptyMsg = useFilter
+    ? 'ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้ — โควต้าเต็มหรือไม่มีคำขอใหม่'
+    : 'ยังไม่มีกิจกรรมกลุ่มในเดือนนี้';
+  allEl.innerHTML = list.length ? list.map(renderCard).join('') : empty(emptyMsg);
 }
 
 let _exShareTab = 'mine';
@@ -2809,6 +2831,8 @@ function setExShareTab(tab) {
   applyTab(tabAll, allBadge, tab === 'all');
   panelMine.style.display = tab === 'mine' ? '' : 'none';
   panelAll.style.display = tab === 'all' ? '' : 'none';
+  const filterBar = document.getElementById('ex-share-all-filter-bar');
+  if (filterBar) filterBar.style.display = tab === 'all' ? '' : 'none';
 }
 function joinExGroup(id) {
   const es = getExs(), i = es.findIndex(e => e.id === id);
@@ -2852,9 +2876,28 @@ function leaveExGroup(id) {
   if (count <= 3) { toast('⚠️ ไม่สามารถลบชื่อได้ ต้องมีสมาชิกในกลุ่มอย่างน้อย 3 คน'); return; }
 
   const oldMembers = e.members || [];
-  e.members = oldMembers.filter(m => !(m.type === 'sys' && m.email === cu.email));
-  if (e.members.length === oldMembers.length) { toast('⚠️ ไม่พบชื่อคุณในกลุ่มนี้'); return; }
+  const found = oldMembers.some(m => m.type === 'sys' && m.email === cu.email);
+  if (!found) { toast('⚠️ ไม่พบชื่อคุณในกลุ่มนี้'); return; }
 
+  // แสดง popup ยืนยัน
+  document.getElementById('conf-title').textContent = 'ยืนยันการถอนตัว';
+  document.getElementById('conf-body').innerHTML = `
+    <div style="font-size:19px;line-height:1.7;color:var(--text);">
+      คุณต้องการ <strong style="color:var(--red);">ถอนตัวออกจากกลุ่ม</strong> กิจกรรม
+      <strong style="color:var(--text);">"${e.activity}"</strong> ใช่หรือไม่?<br>
+      <span style="font-size:16px;color:var(--text3);">วันที่ ${new Date(e.date).toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>
+    </div>`;
+  document.getElementById('conf-ok').onclick = () => doLeaveExGroup(id);
+  openModal('modal-confirm');
+}
+
+function doLeaveExGroup(id) {
+  closeModal('modal-confirm');
+  const es = getExs(), i = es.findIndex(e => e.id === id);
+  if (i < 0) return;
+  const e = es[i];
+  const oldMembers = e.members || [];
+  e.members = oldMembers.filter(m => !(m.type === 'sys' && m.email === cu.email));
   saveExs(es);
   apiSync('updateEx', es[i]);
   renderExShare(); updateQuota(); updateLB(); updateDashboard(); updateBadges();
@@ -3012,6 +3055,7 @@ function updateLB() {
   }
 }
 
+
 // ══ DASHBOARD ════════════════════════════
 function updateDashboard() {
   const ve = getVisibleEmails();
@@ -3163,7 +3207,10 @@ function viewExDetail(id) {
       ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', bg: 'var(--red-bg)' }
       : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-solid fa-circle', bg: 'var(--yellow-bg)' };
 
-  const canEdit = (e.email === cu.email && e.status === 'pending') || (cu.role === 'pm' && e.status === 'approved');
+  const isApproved = e.status === 'approved';
+  const canEdit = isApproved
+    ? cu.role === 'pm'                                      // approved → PM เท่านั้น
+    : (e.email === cu.email && e.status === 'pending');     // pending → เจ้าของเท่านั้น
   const canUpdateProof = isUserInvolved(e, cu.email) && e.status !== 'rejected';
   const primaryLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '') || '';
   const extraLinks = e.proofLinks || [];
@@ -3271,7 +3318,7 @@ function viewExDetail(id) {
     </div>
   `;
 
-  const canDelete = cu.role === 'pm' || e.email === cu.email;
+  const canDelete = cu.role === 'pm' || (!isApproved && e.email === cu.email);
   actions.innerHTML = `
     <div style="display:flex;width:100%;justify-content:space-between;align-items:center;padding:24px 0 0;">
       ${canDelete ? `<button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
@@ -3292,6 +3339,7 @@ function deleteEx(id) {
   const target = es.find(e => String(e.id) === String(id));
   if (!target) return;
   if (cu.role !== 'pm' && target.email !== cu.email) { toast('⛔ คุณไม่มีสิทธิ์ลบใบเบิกนี้'); return; }
+  if (cu.role !== 'pm' && target.status === 'approved') { toast('⛔ ใบเบิกที่อนุมัติแล้วไม่สามารถลบได้ — กรุณาติดต่อ PM'); return; }
   if (!confirm('ยืนยันการลบคำขอนี้? (การลบจะทำให้โควต้าและสถิติเปลี่ยนกลับทันที)')) return;
   const newEs = es.filter(e => String(e.id) !== String(id));
   saveExs(newEs);
@@ -3431,7 +3479,8 @@ function renderExHistory() {
     const wkSolo = items.filter(e => getExType(e) === 'solo' && e.status !== 'rejected').length;
     const wkGrp = items.filter(e => isGroupEx(getExType(e)) && e.status !== 'rejected').length;
 
-    const soloStatus = wkSolo >= 2 ? '<span style="color:var(--green);">แบบเดี่ยว ครบ</span>' : `<span style="color:var(--text3);">แบบเดี่ยว ${wkSolo}/2</span>`;
+    const _soloWkLimit = (cu.locationType || 'bkk') === 'bkk' ? 2 : 3;
+    const soloStatus = wkSolo >= _soloWkLimit ? '<span style="color:var(--green);">แบบเดี่ยว ครบ</span>' : `<span style="color:var(--text3);">แบบเดี่ยว ${wkSolo}/${_soloWkLimit}</span>`;
     const grpStatus = wkGrp >= 1 ? '<span style="color:var(--purple);">แบบกลุ่ม ครบ</span>' : `<span style="color:var(--text3);">แบบกลุ่ม ${wkGrp}/1</span>`;
 
     const wkSoloItems = items.filter(e => getExType(e) === 'solo');
