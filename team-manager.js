@@ -192,6 +192,8 @@ function launchApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   setupSidebar(); initApp();
+  const hashId = location.hash.slice(1);
+  if (VALID_PAGES.has(hashId) && document.getElementById('page-' + hashId)) showPage(hashId, { updateHash: false });
 
   // โหลดวันหยุดธนาคารไทยไว้ใน cache ตอน launch
   fetchThaiHolidays();
@@ -237,23 +239,32 @@ function setupSidebar() {
   document.getElementById('nav-sec-members').style.display = (r === 'lead' || r === 'pm') ? 'block' : 'none';
   const _nav = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v; };
   _nav('nav-leave-review', r === 'lead' ? 'flex' : 'none');
-  _nav('nav-leave-pm',     r === 'pm'   ? 'flex' : 'none');
-  _nav('nav-ex-review',    r === 'pm'   ? 'flex' : 'none');
-  _nav('nav-balance',      (r === 'lead' || r === 'pm') ? 'flex' : 'none');
-  _nav('nav-team-hist',    (r === 'pm'   || r === 'lead') ? 'flex' : 'none');
-  _nav('nav-my-balance',   'flex');
-  _nav('nav-leaderboard',  (r === 'lead' || r === 'pm') ? 'flex' : 'none');
+  _nav('nav-leave-pm', r === 'pm' ? 'flex' : 'none');
+  _nav('nav-ex-review', r === 'pm' ? 'flex' : 'none');
+  _nav('nav-balance', (r === 'lead' || r === 'pm') ? 'flex' : 'none');
+  _nav('nav-team-hist', (r === 'pm' || r === 'lead') ? 'flex' : 'none');
+  _nav('nav-my-balance', 'flex');
+  _nav('nav-leaderboard', (r === 'lead' || r === 'pm') ? 'flex' : 'none');
 }
 
 // ══ NAVIGATION ═══════════════════════════
-function showPage(id) {
+const VALID_PAGES = new Set(['dashboard', 'leave-review', 'leave-pm', 'leave-history', 'leave-balance', 'my-balance', 'exercise-log', 'exercise-share', 'exercise-review', 'leaderboard', 'members', 'team-hist']);
+
+function showPage(id, { updateHash = true } = {}) {
   closeSidebar();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + id); if (pg) pg.classList.add('active');
   const nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
+  if (updateHash) history.replaceState(null, '', '#' + id);
   ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
 }
+
+window.addEventListener('hashchange', () => {
+  if (!cu) return;
+  const id = location.hash.slice(1);
+  if (VALID_PAGES.has(id) && document.getElementById('page-' + id)) showPage(id, { updateHash: false });
+});
 
 // ══ INIT ═════════════════════════════════
 function initApp() {
@@ -1254,12 +1265,12 @@ function renderAccuHistoryPanel(members) {
             ${rows.map(({ u, h }) => `
               <tr>
                 <td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">${h.refNo || '—'}</span></td>
-                <td><span style="font-weight:600;color:var(--text);">${uName(u.email, u.name)}</span><br><span style="font-size:13px;color:var(--text3);">${u.dept || ''}</span></td>
+                <td><span style="font-weight:600;color:var(--text);">${uName(u.email, u.name)}</span><br><span style="font-size:15px;color:var(--text3);">${u.dept || ''}</span></td>
                 <td><span style="font-family:var(--mono);font-size:14px;color:var(--text2);">${h.date || '—'}</span></td>
                 <td style="color:var(--text2);">${h.scope || '—'}</td>
                 <td style="text-align:center;"><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${h.days}d</span></td>
                 <td style="font-size:14px;color:var(--text3);">${h.addedBy || '—'}</td>
-                <td style="font-size:13px;color:var(--text3);font-family:var(--mono);">${h.addedAt ? h.addedAt.slice(0, 10) : '—'}</td>
+                <td style="font-size:15px;color:var(--text3);font-family:var(--mono);">${h.addedAt ? h.addedAt.slice(0, 10) : '—'}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -1355,14 +1366,14 @@ function openQuotaModal(email) {
         </div>`).join('');
       return `
         <div style="padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.01);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
             <div>
               <div style="font-size:16px;font-weight:700;color:#fff;">${LT['accumulated']}</div>
               <div style="font-size:12px;color:var(--text3);">รวม ${totalDays} วัน · ใช้ไปแล้ว ${used} วัน · คงเหลือ ${Math.max(0, totalDays - used)} วัน</div>
             </div>
             <input type="hidden" class="quota-total-input" data-type="accumulated" data-used="${used}" value="${totalDays}" />
           </div>
-          ${history.length ? `<div style="margin-bottom:10px;">${histRows}</div>` : '<div style="font-size:13px;color:var(--text3);margin-bottom:10px;">ยังไม่มีรายการ</div>'}
+          ${history.length ? `<div style="margin-bottom:10px;">${histRows}</div>` : '<div style="font-size:15px;color:var(--text3);margin-bottom:10px;">ยังไม่มีรายการ</div>'}
           <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
             <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:8px;">+ เพิ่มรายการใหม่</div>
             <div style="display:grid;grid-template-columns:1fr 2fr 80px;gap:8px;align-items:end;">
@@ -1826,13 +1837,9 @@ function updateQuota() {
   const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
   if (we > dEnd) we.setTime(dEnd.getTime());
   const segBar = (used, max, color) => `
-    <div style="display:flex;align-items:center;gap:6px;flex:1;">
-      <div style="display:flex;gap:3px;flex:1;height:8px;">
-        ${Array.from({ length: max }, (_, i) => `<div style="flex:1;border-radius:4px;background:${i < used ? color : 'rgba(255,255,255,0.1)'};border:1px solid ${i < used ? 'transparent' : 'rgba(255,255,255,0.05)'};"></div>`).join('')}
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;min-width:48px;justify-content:flex-end;">
-        <div style="font-size:15px;color:${used >= max ? 'var(--green)' : 'var(--text3)'};font-family:var(--mono);">(${used}/${max})</div>
-        ${used >= max ? `<span style="color:var(--green);font-size:18px;font-weight:bold;line-height:1;">✓</span>` : ''}
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;gap:4px;width:100%;height:6px;">
+        ${Array.from({ length: max }, (_, i) => `<div style="flex:1;border-radius:3px;background:${i < used ? color : 'var(--surface3)'};"></div>`).join('')}
       </div>
     </div>`;
 
@@ -1842,81 +1849,183 @@ function updateQuota() {
   const allMo = all.filter(e => isUserInvolved(e, cu.email) && e.status !== 'rejected' && monthKey(e.date) === mk);
   const totalMoMoney = allMo.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
 
+  // Calculate days until cutoffs
+  const today = new Date();
+  const daysUntilSat = (6 - today.getDay() + 7) % 7 || 7;
+  let next18 = new Date(today.getFullYear(), today.getMonth(), 18);
+  if (today > next18) next18.setMonth(next18.getMonth() + 1);
+  const daysUntil18 = Math.ceil((next18 - today) / (1000 * 60 * 60 * 24));
+
+  // Calculate previous month money
+  const [cy, cm] = mk.split('-').map(Number);
+  let prevM = cm - 1;
+  let prevY = cy;
+  if (prevM === 0) { prevM = 12; prevY--; }
+  const prevMk = `${prevY}-${String(prevM).padStart(2, '0')}`;
+  const prevMoAll = all.filter(e => isUserInvolved(e, cu.email) && e.status !== 'rejected' && monthKey(e.date) === prevMk);
+  const prevTotalMoney = prevMoAll.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+  const moneyDiff = totalMoMoney - prevTotalMoney;
+  const diffStr = moneyDiff >= 0 ? `+฿${moneyDiff.toLocaleString()}` : `-฿${Math.abs(moneyDiff).toLocaleString()}`;
+  const diffColor = moneyDiff >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const moTotalSoloMoney = allMo.filter(e => getExType(e) === 'solo').reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+  const moTotalGrpMoney = allMo.filter(e => isGroupEx(getExType(e))).reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+
   qd.innerHTML = `
-  <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px 20px;border:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-    <div>
-      <div style="font-size:16px;color:var(--text3);margin-bottom:2px;font-family:var(--mono);">💰 ยอดเงินสะสมเดือนนี้ (คาดการณ์)</div>
-      <div style="font-size:28px;font-weight:500;font-family:var(--mono);color:var(--green);">฿${totalMoMoney}</div>
+  <!-- Top 2 Cards -->
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+    <!-- Accumulated Money Card -->
+    <div style="background: linear-gradient(110deg, #1f232b 0%, #172a25 100%); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.03); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+          <div style="font-size:15px; color:#d1d5db; font-weight:600;">ยอดเงินสะสมเดือนนี้</div>
+          <div style="background:transparent; color:#5eead4; font-size:12px; font-weight:600; padding:2px 10px; border-radius:20px; border:1px solid rgba(94, 234, 212, 0.3);">คาดการณ์</div>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:8px; margin-bottom: 4px;">
+          <span style="font-size:32px; font-weight:700; color:#9ca3af; font-family:var(--mono);">฿</span>
+          <span style="font-size:46px; font-weight:700; font-family:var(--mono); color:#6ee7b7; line-height:1; letter-spacing:-1px;">${totalMoMoney.toLocaleString()}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap: 20px; font-size: 14px; color: #9ca3af; font-weight: 500; flex-wrap: wrap;">
+          <div>เดี่ยว <span style="font-family:var(--mono);">฿${moTotalSoloMoney.toLocaleString()}</span> · ${moSolo} ครั้ง</div>
+          <div>กลุ่ม <span style="font-family:var(--mono);">฿${moTotalGrpMoney.toLocaleString()}</span> · ${moGrp} ครั้ง</div>
+          <div>รวมทั้งหมด <span style="font-family:var(--mono);">${allMo.length}</span> กิจกรรม</div>
+        </div>
+      </div>
+      <div style="text-align:right; display:flex; flex-direction:column; justify-content:center; gap: 4px;">
+        <div style="font-size:14px; color:#9ca3af;">เทียบเดือนก่อน</div>
+        <div style="font-size:18px; font-weight:700; font-family:var(--mono); color:${diffColor};">^ ${diffStr}</div>
+        <div style="font-size:14px; color:#9ca3af;">เดือนก่อน ฿${prevTotalMoney.toLocaleString()}</div>
+      </div>
     </div>
-    <div style="text-align:right;font-size:16px;color:var(--text3);font-family:var(--mono);background:var(--surface3);padding:8px 12px;border-radius:8px;">
-      <div style="margin-bottom:4px;">⏳ ตัดรอบสัปดาห์: <strong style="color:var(--text2);">ทุกวันเสาร์</strong></div>
-      <div>📅 ตัดรอบเดือน: <strong style="color:var(--text2);">ทุกวันที่ 18</strong></div>
+
+    <!-- Cutoff Info Card -->
+    <div style="background: var(--surface2); border-radius: 16px; padding: 16px; border: 1px solid var(--border2); display: flex; flex-direction: column;">
+      <div style="font-size: 16px; color: var(--text); font-weight: 600; margin-bottom: 4px;">ตัดรอบ</div>
+      <div style="display:flex; flex-direction: column; gap: 4px; flex: 1; justify-content: center;">
+        <div style="display:flex; justify-content:space-between; align-items:center;  padding: 2px; border-radius: 12px;">
+          <div style="display:flex; align-items:center; gap: 12px;">
+            <div style="width: 42px; height: 42px; border-radius: 8px; background: rgba(255,255,255,0.05); display:flex; justify-content:center; align-items:center; color: var(--text2);"><i class="fa-regular fa-calendar"></i></div>
+            <div>
+              <div style="font-size: 13px; color: var(--text3); margin-bottom: 0px;">ตัดรอบรายสัปดาห์</div>
+              <div style="font-size: 15px; color: var(--text); font-weight: 500; line-height: 1em;">ทุกวันเสาร์</div>
+            </div>
+          </div>
+          <div style="background: rgba(108,138,255,0.15); color: var(--accent); padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">อีก ${daysUntilSat} วัน</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;  padding: 2px; border-radius: 12px;">
+          <div style="display:flex; align-items:center; gap: 12px;">
+            <div style="width: 42px; height: 42px; border-radius: 8px; background: rgba(255,255,255,0.05); display:flex; justify-content:center; align-items:center; color: var(--text2);"><i class="fa-regular fa-calendar-days"></i></div>
+            <div>
+              <div style="font-size: 13px; color: var(--text3); margin-bottom: 0px;">ตัดรอบรายเดือน</div>
+              <div style="font-size: 15px; color: var(--text); font-weight: 500; line-height: 1em;">ทุกวันที่ 18</div>
+            </div>
+          </div>
+          <div style="background: rgba(108,138,255,0.15); color: var(--accent); padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">อีก ${daysUntil18} วัน</div>
+        </div>
+      </div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
+
+  <!-- Quota Section -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
     <!-- CARD 1: SOLO -->
-    <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบเดี่ยว (${locLabel})</div>
+    <div style="background:var(--surface2);border-radius:16px;padding:24px;border:1px solid var(--border2);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:0px;">แบบเดี่ยว</div>
+          <div style="font-size:15px;color:var(--text3);">${locLabel}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:2px;">เบิกครั้งละ</div>
+          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);">฿100</div>
+        </div>
       </div>
-      <div style="display:flex;gap:32px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
+            <div style="font-size:15px;color:var(--text3);">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${wkSolo} / ${wkLimit} ${wkSolo >= wkLimit ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+          </div>
           ${segBar(wkSolo, wkLimit, 'var(--green)')}
         </div>
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">เดือน ${moName}</div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
+            <div style="font-size:15px;color:var(--text3);">เดือน ${moName}</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${moSolo} / ${moLimit} ${moSolo >= moLimit ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+          </div>
           ${segBar(moSolo, moLimit, 'var(--green)')}
         </div>
       </div>
     </div>
 
     <!-- CARD 2: GROUP -->
-    <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1;">แบบกลุ่ม (${locLabel})</div>
+    <div style="background:var(--surface2);border-radius:16px;padding:24px;border:1px solid var(--border2);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:0px;">แบบกลุ่ม</div>
+          <div style="font-size:15px;color:var(--text3);">${locLabel}</div>
         </div>
-        <div style="display:flex;gap:32px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:200px;">
-            <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
-            ${segBar(wkGrp, 1, 'var(--green)')}
-          </div>
-          <div style="flex:1;min-width:200px;">
-            <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">เดือน ${moName}</div>
-            ${segBar(moGrp, 4, 'var(--green)')}
-          </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:2px;">เบิกครั้งละ</div>
+          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);">฿500</div>
         </div>
       </div>
-      ${wkGrp >= 1 || moGrp >= 4 ? `<div style="font-size:16px;color:var(--accent);margin-top:12px;">รายสัปดาห์โควต้าครบแล้ว</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
+            <div style="font-size:15px;color:var(--text3);">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${wkGrp} / 1 ${wkGrp >= 1 ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+          </div>
+          ${segBar(wkGrp, 1, 'var(--green)')}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
+            <div style="font-size:15px;color:var(--text3);">เดือน ${moName}</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${moGrp} / 4 ${moGrp >= 4 ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+          </div>
+          ${segBar(moGrp, 4, 'var(--green)')}
+        </div>
+      </div>
     </div>
 
     <!-- CARD 3: COLA -->
-    <div style="background:var(--surface3);border-radius:12px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;">
-      <div>
+    <div style="background:var(--surface2);border-radius:16px;padding:24px;border:1px solid var(--border2);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
         ${(() => {
       const [qy, qNum] = qk.split('-Q').map(Number);
-      const qStartMonth = (qNum - 1) * 3 + 1; // เดือนแรกของไตรมาส (monthKey)
-      const qEndMonth = qNum * 3;               // เดือนสุดท้ายของไตรมาส
+      const qStartMonth = (qNum - 1) * 3 + 1;
+      const qEndMonth = qNum * 3;
       const qStart = new Date(qy, qStartMonth - 1, 19);
       const qEndY = qEndMonth === 12 ? qy + 1 : qy;
       const qEndM = qEndMonth === 12 ? 1 : qEndMonth + 1;
       const qEnd = new Date(qEndY, qEndM - 1, 18);
       const fmtQ = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-      return `<div style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px;">Cola — Q${qNum}</div>
-                  <div style="font-size:14px;color:var(--text3);margin-bottom:4px;">${fmtQ(qStart)} – ${fmtQ(qEnd)}</div>`;
+      return `
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:0px;">Cola — Q${qNum}</div>
+          <div style="font-size:15px;color:var(--text3);">${fmtQ(qStart)} – ${fmtQ(qEnd)}</div>
+        </div>`;
     })()}
-        <div style="font-size:17px;color:var(--text2);margin-bottom:0px;">แบบกลุ่ม</div>
-        ${segBar(qGrp, colaThresh, 'var(--green)')}
-        <div style="font-size:15px;color:var(--text3);margin-top:10px;line-height:1.4;">
-          * ร่วมกิจกรรมให้ครบ รับเงิน 1,500/เดือน ในไตรมาสถัดไป
-        </div>
       </div>
-      ${colaOk ? `
-        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;color:rgba(108,138,255,0.8);font-size:17px;">
-          <span style="background:var(--green);color:#fff;width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;">✓</span>
-          ได้โบนัสไตรมาสถัดไป ฿1,500/เดือน
-        </div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:16px; flex:1; justify-content:center;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
+            <div style="font-size:15px;color:var(--text3);">แบบกลุ่ม (รวมไตรมาส)</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${qGrp} / ${colaThresh} ${qGrp >= colaThresh ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+          </div>
+          ${segBar(qGrp, colaThresh, 'var(--purple)')}
+        </div>
+        ${colaOk ? `
+          <div style="background: rgba(61, 214, 140, 0.1); border: 1px solid rgba(61, 214, 140, 0.2); padding: 5px; border-radius: 12px; display:flex; align-items:center; gap:10px; color: var(--green); font-size: 13px; font-weight: 500;">
+            <i class="fa-regular fa-circle-check" style="font-size: 16px;"></i>
+            <span>ผ่านเงื่อนไข — ได้โบนัสไตรมาสถัดไป<strong style="font-family:var(--mono);font-size:14px;">฿1,500/เดือน</strong></span>
+          </div>`
+      : `
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border2); padding: 6px; border-radius: 12px; font-size: 13px; color: var(--text3); display:flex; gap:10px;">
+            <i class="fa-solid fa-circle-info" style="opacity:0.5; margin-top:2px;"></i>
+            <span>ร่วมกลุ่มให้ครบ ${colaThresh} ครั้ง/ไตรมาส รับโบนัส ฿1,500/เดือน ในไตรมาสถัดไป</span>
+          </div>`}
+      </div>
     </div>
   </div>`;
   const warn = document.getElementById('ex-warn');
@@ -2683,126 +2792,166 @@ function renderExShare() {
 
     // Status config
     const statusCfg = e.status === 'approved'
-      ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-solid fa-circle-check', bg: 'var(--green-bg)' }
+      ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-solid fa-circle-check', border: '1px solid rgba(61, 214, 140, 0.3)' }
       : e.status === 'rejected'
-        ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', bg: 'var(--red-bg)' }
-        : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock', bg: 'var(--yellow-bg)' };
+        ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', border: '1px solid rgba(255, 107, 107, 0.3)' }
+        : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock', border: '1px solid rgba(245, 200, 66, 0.3)' };
+
+    const typeColor = et === 'group_eat' ? 'var(--orange)' : 'var(--accent)';
 
     // Member Chips
     const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
     const memberChips = allMembers.map(m => {
       const isSubmitter = m.kind === 'submitter';
       const isMe = m.email === cu.email && (isSubmitter || m.kind === 'sys');
-
       const icon = isSubmitter ? 'fa-crown' : 'fa-user';
       const iconColor = isSubmitter ? 'var(--yellow)' : '#b37fff';
 
-      const bg = isMe ? 'rgba(77, 111, 255, 0.15)' : 'var(--surface3)';
-      const border = isMe ? '1px solid rgba(77, 111, 255, 0.07)' : '1px solid var(--border)';
+      const bg = isMe ? 'rgba(108, 138, 255, 0.15)' : 'var(--surface3)';
+      const border = isMe ? '1px solid rgba(108, 138, 255, 0.2)' : '1px solid var(--border)';
       const fg = isMe ? 'var(--accent)' : 'var(--text2)';
 
       return `
-        <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:0px 8px 0px 8px;border-radius:30px;font-size:14px;color:${fg};">
-          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:12px;"></i>
-          <div style="white-space:nowrap;">
+        <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 10px;border-radius:20px;font-size:13px;color:${fg};">
+          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:11px;"></i>
+          <div style="white-space:nowrap; display: flex; align-items: center; gap: 4px;">
             <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-            <span style="font-size:11px;opacity:0.6;margin-left:2px;">${m.dept || ''}</span>
+            ${m.dept ? `<span style="font-size:10px; opacity:0.6; background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">${m.dept}</span>` : ''}
           </div>
-          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup('${e.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;">✕</button>` : ''}
+          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && isMe && !isSubmitter && count > 3 ? `<button onclick="leaveExGroup('${e.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;margin-left:4px;padding:0;display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,107,107,0.1)'" onmouseout="this.style.background='none'">✕</button>` : ''}
         </div>`;
     }).join('');
 
     return `
-    <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border2);background:var(--surface2);">
-      <!-- Header Row -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 20px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <i class="fa-solid fa-heart-pulse" style="color:var(--orange);font-size:14px;"></i>
-          <span style="font-size:16px;font-weight:700;color:var(--orange);letter-spacing:0.5px;">${EX_LABEL[et]}</span>
-          <span style="color:var(--text3);margin:0 4px;">•</span>
-          <span style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">WEEK ${wkNum}</span>
+    <div class="card" style="padding: 20px; border-radius: 16px; border: 1px solid var(--border2); background: var(--surface); box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
+      
+      <!-- Top Meta -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: ${typeColor};"></div>
+          <span style="font-size: 14px; font-weight: 600; color: var(--text2); letter-spacing: 0.5px;">${EX_LABEL[et]}</span>
+          <span style="color:var(--text3);font-size:12px;">WEEK ${wkNum}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;background:${statusCfg.bg};color:${statusCfg.color};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;">
+        <div style="display:flex; align-items:center; gap: 6px; color:${statusCfg.color}; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; border: ${statusCfg.border}; background: rgba(0,0,0,0.2);">
           <i class="${statusCfg.icon}"></i>
           <span>${statusCfg.label}</span>
         </div>
       </div>
 
-      <!-- Main Content -->
-      <div style="padding:20px 20px;">
-        <div style="display:flex;gap:20px;align-items:center;">
-          <!-- Calendar Block -->
-          <div style="display:flex;flex-direction:column;width:64px;border-radius:14px;overflow:hidden;text-align:center;background:var(--surface3);border:1px solid var(--border2);flex-shrink:0;">
-            <div style="background:var(--orange);color:#000;font-size:14px;font-weight:500;padding:2px 0;text-transform:uppercase;">${month}</div>
-            <div style="font-size:24px;font-weight:500;padding:0px 0;color:var(--text);">${day}</div>
-          </div>
-          <!-- Title & Meta -->
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:26px;font-weight:500;color:var(--text);margin-bottom:6px;line-height:1.2;">${e.activity}</div>
-            <div style="display:flex;align-items:center;gap:12px;color:var(--text3);font-size:14px;">
-              <div style="display:flex;align-items:center;gap:6px;"><i class="fa-regular fa-calendar"></i> ${fullDate}</div>
-              <span style="opacity:0.3;">•</span>
-              <div style="display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-users"></i> ${count} คน</div>
-            </div>
+      <!-- Content Row: Calendar + Details -->
+      <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom: 20px;">
+        <!-- Calendar Block -->
+        <div style="display:flex; flex-direction:column; width: 56px; border-radius: 12px; overflow: hidden; text-align: center; border: 1px solid var(--border2); flex-shrink: 0;">
+          <div style="background: var(--orange); color: #000; font-size: 12px; font-weight: 700; padding: 3px 0; text-transform: uppercase;">${month}</div>
+          <div style="background: #111; font-size: 24px; font-weight: 700; padding: 4px 0; color: var(--text); font-family: var(--mono);">${day}</div>
+        </div>
+        <!-- Title & Info -->
+        <div style="flex:1; min-width:0; padding-top: 2px;">
+          <div style="font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; line-height: 1.2;">${e.activity}</div>
+          <div style="display:flex; align-items:center; gap: 12px; color: var(--text3); font-size: 14px; font-weight: 500;">
+            <div style="display:flex; align-items:center; gap:6px;"><i class="fa-regular fa-calendar-days" style="opacity: 0.7;"></i> ${fullDate}</div>
+            <div style="display:flex; align-items:center; gap:6px;"><i class="fa-regular fa-user" style="opacity: 0.7;"></i> ${count} คน</div>
           </div>
         </div>
+      </div>
 
-        <!-- Members Section -->
-        <div style="margin-top:10px;">
-          <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">ผู้เข้าร่วม</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px;">
-            ${memberChips}
-          </div>
+      <!-- Members Section -->
+      <div style="margin-bottom: auto;">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text3);">ผู้เข้าร่วม</span>
+          <span style="font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--mono);">${count} คน${count < 3 ? ' <span style="color:var(--text3); font-weight: 500; font-family: \'IBM Plex Sans Thai\', sans-serif;">· ครบโควต้า</span>' : ''}</span>
         </div>
+        <div style="display:flex; flex-wrap: wrap; gap: 8px;">
+          ${memberChips}
+        </div>
+      </div>
 
-        ${e.note ? `<div style="margin-top:16px;padding:12px;background:var(--surface3);border-radius:10px;font-size:14px;color:var(--text2);border-left:3px solid var(--border2);">📝 ${e.note}</div>` : ''}
+      ${e.note ? `<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;font-size:14px;color:var(--text2);border:1px dashed var(--border2);"><i class="fa-solid fa-pen-clip" style="opacity:0.5; margin-right:6px;"></i> ${e.note}</div>` : ''}
 
-        <!-- Actions -->
-        <div style="margin-top:20px;display:flex;gap:12px;">
-          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
-        ? `<button class="btn btn-primary" style="flex:2;justify-content:center;height:42px;border-radius:14px;font-size:16px;" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> เข้าร่วมกลุ่ม</button>`
+      <!-- Actions -->
+      <div style="margin-top: 24px; display:flex; gap: 12px;">
+        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
+        ? `<button class="btn" style="flex:2; justify-content:center; height: 44px; border-radius: 12px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(108, 138, 255, 0.3);" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:6px;"></i> เข้าร่วมกลุ่ม</button>`
         : ''}
-          ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter
-        ? `<button class="btn btn-red" style="flex:2;justify-content:center;height:42px;border-radius:14px;font-size:16px;" onclick="leaveExGroup('${e.id}')"><i class="fa-solid fa-xmark" style="margin-right:8px;"></i> ถอนตัวออกจากกลุ่ม</button>`
+        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && !userIsSubmitter
+        ? `<button class="btn" style="flex:2; justify-content:center; height: 44px; border-radius: 12px; background: rgba(255, 107, 107, 0.1); color: var(--red); font-size: 15px; font-weight: 600; border: 1px solid rgba(255, 107, 107, 0.2);" onclick="leaveExGroup('${e.id}')"><i class="fa-solid fa-xmark" style="margin-right:6px;"></i> ถอนตัว</button>`
         : ''}
-          <button class="btn btn-ghost" style="flex:1;justify-content:center;height:48px;border-radius:14px;background:var(--surface3);font-size:16px;" onclick="viewExDetail('${e.id}')">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:8px;font-size:12px;opacity:0.6;"></i></button>
-        </div>
+        ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && userInvolved && userIsSubmitter
+        ? `<div style="flex:2; display:flex; align-items:center; justify-content:center; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.03); color: var(--text3); font-size: 15px; font-weight: 500; border: 1px solid var(--border2);"><i class="fa-solid fa-crown" style="margin-right:6px; color:var(--yellow);"></i> หัวหน้ากลุ่ม</div>`
+        : ''}
+        <button class="btn" style="flex:1; justify-content:center; height: 44px; border-radius: 12px; background: transparent; color: var(--text2); font-size: 15px; font-weight: 500; border: 1px solid var(--border2); transition: all 0.2s;" onmouseover="this.style.background='var(--surface2)'; this.style.color='var(--text)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text2)';" onclick="viewExDetail('${e.id}')">รายละเอียด <i class="fa-solid fa-chevron-right" style="margin-left:6px; font-size:11px; opacity:0.6;"></i></button>
       </div>
     </div>`;
   };
+
   const mineEl = document.getElementById('ex-share-panel-mine');
-  const empty = (msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:17px;">${msg}</div>`;
+  const empty = (msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:15px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px dashed var(--border2);">${msg}</div>`;
   if (mineEl) mineEl.innerHTML = mine.length ? mine.map(renderCard).join('') : empty('ยังไม่มีคำขอที่มีชื่อคุณ');
 
   // เก็บ all sorted (ทั้งหมดของทีม) และ canJoin ไว้ใน window เพื่อให้ applyExShareAllFilter ใช้ได้
+  window._exShareMine = mine;
   window._exShareAllSorted = sorted;
   window._exShareCanJoin = canJoin;
   window._exShareRenderCard = renderCard;
   window._exShareEmpty = empty;
-  applyExShareAllFilter();
 
   // Update badge counts
   const mineBadge = document.getElementById('ex-share-tab-mine-badge');
   const allBadge = document.getElementById('ex-share-tab-all-badge');
   if (mineBadge) mineBadge.textContent = mine.length;
   if (allBadge) allBadge.textContent = sorted.length;
-  // Re-apply active tab style
+
+  // Re-apply active tab style and update text
   setExShareTab(window._exShareTab || 'mine');
+  applyExShareAllFilter();
+}
+
+function updateExShareSummaryText() {
+  const sumEl = document.getElementById('ex-share-summary-text');
+  if (!sumEl) return;
+  if (window._exShareTab === 'mine') {
+    const list = window._exShareMine || [];
+    sumEl.innerHTML = `พบ <strong style="color: var(--text);">${list.length} กิจกรรม</strong> ที่มีชื่อฉัน · อัปเดตล่าสุดเมื่อสักครู่`;
+  } else {
+    const chk = document.getElementById('ex-share-filter-joinable');
+    const useFilter = chk ? chk.checked : true;
+    const list = useFilter ? (window._exShareCanJoin || []) : (window._exShareAllSorted || []);
+    sumEl.innerHTML = `พบ <strong style="color: var(--text);">${list.length} กิจกรรม</strong> ${useFilter ? 'ที่เปิดรับ' : 'ทั้งหมดในทีม'} · อัปเดตล่าสุดเมื่อสักครู่`;
+  }
 }
 
 function applyExShareAllFilter() {
   const chk = document.getElementById('ex-share-filter-joinable');
   const allEl = document.getElementById('ex-share-panel-all');
   if (!allEl) return;
+
+  // Update visual of custom checkbox
+  const customBox = chk?.nextElementSibling;
+  if (customBox && customBox.classList.contains('custom-checkbox')) {
+    if (chk.checked) {
+      customBox.style.background = 'var(--accent)';
+      customBox.innerHTML = '<i class="fa-solid fa-check" style="font-size: 10px;"></i>';
+      chk.parentElement.style.background = 'rgba(108, 138, 255, 0.1)';
+      chk.parentElement.style.borderColor = 'rgba(108, 138, 255, 0.2)';
+    } else {
+      customBox.style.background = 'transparent';
+      customBox.style.border = '1px solid var(--text3)';
+      customBox.innerHTML = '';
+      chk.parentElement.style.background = 'rgba(255,255,255,0.03)';
+      chk.parentElement.style.borderColor = 'var(--border2)';
+    }
+  }
+
   const useFilter = chk ? chk.checked : true;
   const list = useFilter ? (window._exShareCanJoin || []) : (window._exShareAllSorted || []);
   const renderCard = window._exShareRenderCard;
-  const empty = window._exShareEmpty || ((msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:17px;">${msg}</div>`);
+  const empty = window._exShareEmpty || ((msg) => `<div style="color:var(--text3);text-align:center;padding:40px 20px;font-size:15px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px dashed var(--border2);">${msg}</div>`);
   if (!renderCard) return;
   const emptyMsg = useFilter
     ? 'ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้ — โควต้าเต็มหรือไม่มีคำขอใหม่'
     : 'ยังไม่มีกิจกรรมกลุ่มในเดือนนี้';
   allEl.innerHTML = list.length ? list.map(renderCard).join('') : empty(emptyMsg);
+  updateExShareSummaryText();
 }
 
 let _exShareTab = 'mine';
@@ -2815,24 +2964,30 @@ function setExShareTab(tab) {
   const mineBadge = document.getElementById('ex-share-tab-mine-badge');
   const allBadge = document.getElementById('ex-share-tab-all-badge');
   if (!panelMine || !panelAll || !tabMine || !tabAll) return;
-  const activeStyle = { bg: 'var(--surface)', color: 'var(--text)', shadow: '0 1px 4px rgba(0,0,0,0.3)' };
-  const inactiveStyle = { bg: 'transparent', color: 'var(--text3)', shadow: 'none' };
+
+  const activeStyle = { bg: 'rgba(255,255,255,0.06)', color: 'var(--text)' };
+  const inactiveStyle = { bg: 'transparent', color: 'var(--text3)' };
+
   const applyTab = (btn, badge, isActive) => {
     const s = isActive ? activeStyle : inactiveStyle;
     btn.style.background = s.bg;
     btn.style.color = s.color;
-    btn.style.boxShadow = s.shadow;
     if (badge) {
       badge.style.background = isActive ? 'var(--accent)' : 'rgba(255,255,255,0.06)';
       badge.style.color = isActive ? '#fff' : 'var(--text3)';
     }
   };
+
   applyTab(tabMine, mineBadge, tab === 'mine');
   applyTab(tabAll, allBadge, tab === 'all');
+
   panelMine.style.display = tab === 'mine' ? '' : 'none';
   panelAll.style.display = tab === 'all' ? '' : 'none';
+
   const filterBar = document.getElementById('ex-share-all-filter-bar');
-  if (filterBar) filterBar.style.display = tab === 'all' ? '' : 'none';
+  if (filterBar) filterBar.style.display = tab === 'all' ? 'flex' : 'none';
+
+  updateExShareSummaryText();
 }
 function joinExGroup(id) {
   const es = getExs(), i = es.findIndex(e => e.id === id);
@@ -2885,7 +3040,7 @@ function leaveExGroup(id) {
     <div style="font-size:19px;line-height:1.7;color:var(--text);">
       คุณต้องการ <strong style="color:var(--red);">ถอนตัวออกจากกลุ่ม</strong> กิจกรรม
       <strong style="color:var(--text);">"${e.activity}"</strong> ใช่หรือไม่?<br>
-      <span style="font-size:16px;color:var(--text3);">วันที่ ${new Date(e.date).toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>
+      <span style="font-size:16px;color:var(--text3);">วันที่ ${new Date(e.date).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
     </div>`;
   document.getElementById('conf-ok').onclick = () => doLeaveExGroup(id);
   openModal('modal-confirm');
@@ -3032,7 +3187,7 @@ function updateLB() {
               <tr style="${s.total > 0 ? 'background:rgba(255,255,255,0.02);' : 'opacity:0.5;'}">
                 <td style="text-align:left;">
                   <div style="font-weight:500;font-size:17px;color:var(--text);">${s.nick}</div>
-                  <div style="font-size:13px;color:var(--text3);">${s.name}</div>
+                  <div style="font-size:15px;color:var(--text3);">${s.name}</div>
                 </td>
                 <td style="text-align:left;color:var(--text2);">${s.dept}</td>
                 <td style="text-align:left;">
@@ -3122,11 +3277,11 @@ async function renderHolidayWidget() {
           ${h.name}
           <span style="background:${tc};padding:1px 7px;border-radius:10px;font-size:12px;white-space:nowrap;flex-shrink:0;">${tl}</span>
         </div>
-        <div style="font-size:13px;color:var(--text3);margin-top:2px;">${dateStr}</div>
+        <div style="font-size:15px;color:var(--text3);margin-top:2px;">${dateStr}</div>
       </div>
       <div style="flex-shrink:0;margin-left:10px;">${diffChip}</div>
     </div>`;
-  }).join('') + `<div style="text-align:right;margin-top:10px;font-size:13px;color:var(--text3);">วันหยุดที่กำลังจะมาถึง ${upcoming.length} วัน • <a href="https://iapp.co.th" target="_blank" style="color:var(--accent);text-decoration:none;">ข้อมูลจาก iApp</a></div>`;
+  }).join('') + `<div style="text-align:right;margin-top:10px;font-size:15px;color:var(--text3);">วันหยุดที่กำลังจะมาถึง ${upcoming.length} วัน • <a href="https://iapp.co.th" target="_blank" style="color:var(--accent);text-decoration:none;">ข้อมูลจาก iApp</a></div>`;
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -3230,7 +3385,7 @@ function viewExDetail(id) {
 
   body.innerHTML = `
     <!-- Header Row -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
       <div>
         <div style="font-size:14px;color:#5a5e7a;margin-bottom:6px;font-weight:500;display:flex;align-items:center;gap:8px;">
           คำขอเบิกรางวัล 
@@ -3457,7 +3612,7 @@ function renderExHistory() {
   }
 
   if (!filtered.length) {
-    elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:18px;">ยังไม่มีกิจกรรมในเดือนนี้</div>';
+    elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:15px;background:var(--surface2);border-radius:12px;border:1px dashed var(--border2);">ยังไม่มีกิจกรรมในเดือนนี้</div>';
     return;
   }
 
@@ -3474,108 +3629,135 @@ function renderExHistory() {
   elList.innerHTML = sortedWeeks.map(wk => {
     const items = groups[wk];
     const wkNum = weekOpts.indexOf(wk) + 1;
-    const wkLabel = `สัปดาห์ที่ ${wkNum} (${getExWkLabel(wk).replace('สัปดาห์ ', '')})`;
+    let [wy, wm, wd] = wk.split('-').map(Number);
+    let ws = new Date(wy, wm - 1, wd);
+    let we = new Date(ws); we.setDate(ws.getDate() + 6);
+    if (we > dEnd) we.setTime(dEnd.getTime());
+
+    const fmtShort = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    const wkLabel = `สัปดาห์ที่ ${wkNum}`;
+    const dateRange = `${fmtShort(ws)} – ${fmtShort(we)}`;
 
     const wkSolo = items.filter(e => getExType(e) === 'solo' && e.status !== 'rejected').length;
     const wkGrp = items.filter(e => isGroupEx(getExType(e)) && e.status !== 'rejected').length;
 
     const _soloWkLimit = (cu.locationType || 'bkk') === 'bkk' ? 2 : 3;
-    const soloStatus = wkSolo >= _soloWkLimit ? '<span style="color:var(--green);">แบบเดี่ยว ครบ</span>' : `<span style="color:var(--text3);">แบบเดี่ยว ${wkSolo}/${_soloWkLimit}</span>`;
-    const grpStatus = wkGrp >= 1 ? '<span style="color:var(--purple);">แบบกลุ่ม ครบ</span>' : `<span style="color:var(--text3);">แบบกลุ่ม ${wkGrp}/1</span>`;
-
-    const wkSoloItems = items.filter(e => getExType(e) === 'solo');
-    const wkGrpItems = items.filter(e => isGroupEx(getExType(e)));
+    const soloStatus = wkSolo >= _soloWkLimit ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkSolo}/${_soloWkLimit}</span>`;
+    const grpStatus = wkGrp >= 1 ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkGrp}/1</span>`;
 
     // Helper for history card
     const renderHistCard = (e) => {
       const et = getExType(e);
       const reward = EX_REWARD[et] || 100;
-      const tcolor = et === 'solo' ? 'var(--green)' : et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
+
+      const d = new Date(e.date);
+      const day = d.getDate();
+      const month = d.toLocaleDateString('th-TH', { month: 'short' });
+      const fullDate = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
 
       const allMembers = [
         { email: e.email, name: e.name, kind: 'submitter' },
         ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
       ];
 
-      const count = 1 + (e.members || []).length;
-
       const chips = allMembers.map(m => {
         const isSub = m.kind === 'submitter';
+        const isCurrent = m.email === cu.email;
         const icon = isSub ? 'fa-crown' : 'fa-user';
-        const iconColor = isSub ? 'var(--yellow)' : '#b37fff';
+        const iconColor = isSub ? '#e6b981' : 'var(--accent)';
+        const bg = 'rgba(255,255,255,0.06)';
+        const border = '1px solid rgba(255,255,255,0.04)';
+        const fg = isCurrent ? 'var(--text)' : 'var(--text2)';
+
         return `
-          <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:3px 12px;border-radius:12px;font-size:15px;color:var(--text2);border:1px solid rgba(255,255,255,0.02);">
-            <i class="fa-solid ${icon}" style="color:${iconColor};font-size:13px;"></i>
+          <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 12px;border-radius:20px;font-size:13px;color:${fg};">
+            <i class="fa-solid ${icon}" style="color:${iconColor};font-size:11px;"></i>
             <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
           </div>`;
       }).join('');
 
       const statusCfg = e.status === 'approved'
-        ? { label: 'อนุมัติแล้ว', color: 'var(--green)', bg: 'var(--green-bg)', icon: 'fa-solid fa-circle-check' }
+        ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-regular fa-circle-check' }
         : e.status === 'rejected'
-          ? { label: 'ปฏิเสธ', color: 'var(--red)', bg: 'var(--red-bg)', icon: 'fa-solid fa-circle-xmark' }
-          : { label: 'รออนุมัติ', color: 'var(--yellow)', bg: 'var(--yellow-bg)', icon: 'fa-regular fa-clock' };
+          ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-regular fa-circle-xmark' }
+          : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock' };
+
+      const typeLabel = et === 'solo' ? 'เดี่ยว' : 'กลุ่ม';
+      const typeColor = et === 'solo' ? 'var(--accent)' : 'var(--orange)';
+      const typeBg = et === 'solo' ? 'rgba(108, 138, 255, 0.15)' : 'rgba(255, 153, 51, 0.15)';
+      const typeIcon = et === 'solo' ? 'fa-user' : 'fa-users';
 
       return `
-        <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span style="font-size:11px; color:var(--text3); font-weight:700; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
-              <span style="font-size:20px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <div style="display:flex; align-items:center; gap:4px; background:${et === 'solo' ? 'rgba(61, 214, 140, 0.12)' : 'rgba(179, 127, 255, 0.12)'}; color:${et === 'solo' ? 'var(--green)' : 'var(--purple)'}; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; border:1px solid ${et === 'solo' ? 'rgba(61, 214, 140, 0.2)' : 'rgba(179, 127, 255, 0.2)'};">
-                  ${et === 'solo' ? '<i class="fa-solid fa-user" style="font-size:10px;"></i> เดี่ยว' : '<i class="fa-solid fa-users" style="font-size:10px;"></i> กลุ่ม'}
+        <div style="background:var(--surface2); border-radius:16px; border:1px solid rgba(255,255,255,0.02); padding:16px; display:flex; flex-direction:column; justify-content:space-between; transition: transform 0.2s, box-shadow 0.2s; ${et === 'solo' ? '' : 'grid-column: 1 / -1;'}" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
+          
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <!-- Calendar Block -->
+            <div style="display:flex; flex-direction:column; width: 56px; border-radius: 12px; overflow: hidden; text-align: center; flex-shrink: 0;">
+              <div style="background: rgba(61, 69, 76, 0.59); color: var(--text2); font-size: 13px; font-weight: 600; padding: 2px 0 4px; text-transform: uppercase;">${month}</div>
+              <div style="background: rgba(26, 22, 22, 0.55); font-size: 22px; font-weight: 700; padding: 4px 0 6px; color: var(--text); font-family: var(--mono);">${day}</div>
+            </div>
+            
+            <!-- Info -->
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                <div style="font-size: 18px; font-weight: 700; color: var(--text);">${e.activity || 'กิจกรรม'}</div>
+                <div style="display:flex; align-items:center; gap: 6px; background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;">
+                  <i class="fa-solid ${typeIcon}" style="font-size: 11px;"></i> ${typeLabel}
                 </div>
-                <div style="display:flex; align-items:center; gap:4px; background:${statusCfg.bg}; color:${statusCfg.color}; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; border:1px solid ${statusCfg.color}33;">
+                <div style="display:flex; align-items:center; gap: 6px; color: ${statusCfg.color}; font-size: 14px; font-weight: 600;">
                   <i class="${statusCfg.icon}"></i> ${statusCfg.label}
                 </div>
               </div>
+              <div style="font-size:15px; color:var(--text3); font-family:var(--mono); display:flex; gap:16px;">
+                <span>${e.id}</span>
+                <span>${fullDate}</span>
+              </div>
             </div>
-            <div style="font-size:20px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${reward.toLocaleString()}</div>
+            
+            <!-- Reward (Desktop) -->
+            <div style="text-align:right;">
+              <div style="font-size:24px; font-weight:700; color:var(--green); font-family:var(--mono); line-height:1;"><span style="font-size:16px; color:var(--text3); margin-right:4px;">฿</span>${reward.toLocaleString()}</div>
+            </div>
           </div>
 
-          <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:15px; margin-bottom:8px; font-weight:500;">
-            <i class="fa-regular fa-calendar" style="font-size:14px;"></i>
-            <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <div style="margin-top: 12px; display:flex; justify-content:space-between; align-items:flex-end;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
               ${chips}
             </div>
-            <button class="btn btn-ghost btn-sm" style="padding:6px 14px; border-radius:8px; font-size:15px; display:flex; align-items:center; gap:8px; color:#9094b8; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02);" onclick="viewExDetail('${e.id}')">
-                <i class="fa-solid fa-magnifying-glass" style="font-size:13px;"></i> รายละเอียด
-            </button>
+            <div style="font-size:14px; color:var(--text3); cursor:pointer; font-weight:500; display:flex; align-items:center; gap:6px; padding: 4px 8px; transition: color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" onclick="viewExDetail('${e.id}')">
+              รายละเอียด <i class="fa-solid fa-chevron-right" style="font-size:11px; opacity:0.7;"></i>
+            </div>
           </div>
         </div>`;
     };
 
     return `
-      <div style="margin-bottom:40px; border-top:1px solid rgba(255,255,255,0.05); padding-top:24px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:16px;">
-           <div style="font-size:22px;font-weight:700;color:var(--accent);">${wkLabel}</div>
-           <div style="display:flex;gap:12px;font-size:15px;font-weight:600;background:rgba(255,255,255,0.03);padding:8px 20px;border-radius:24px;border:1px solid rgba(255,255,255,0.03);">
-             ${soloStatus}
-             <div style="width:1px;height:12px;background:rgba(255,255,255,0.1);align-self:center;"></div>
-             ${grpStatus}
+      <div style="background:var(--surface3); border-radius:16px; border:1px solid var(--border2); padding: 24px; margin-bottom: 16px;">
+        <!-- Week Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:16px;">
+           <div style="display:flex; align-items:center; gap:12px;">
+             <div style="background: rgba(126, 102, 15, 0.52); color: var(--text); font-family: var(--mono); font-weight: 700; font-size: 22x; padding: 2px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">W${wkNum}</div>
+             <div>
+               <div style="font-size:16px; font-weight:700; color:var(--text);">${wkLabel}</div>
+               <div style="font-size:13px; color:var(--text3);">${dateRange}</div>
+             </div>
+           </div>
+           <div style="display:flex; gap:12px; font-size:13px; background:rgba(255,255,255,0.03); padding:6px 16px; border-radius:24px; border:1px solid var(--border2);">
+             <div style="display:flex; gap:6px; align-items:center;">
+               <span style="color:var(--text2);">เดี่ยว</span>
+               ${soloStatus}
+             </div>
+             <div style="width:1px; height:14px; background:var(--border2); align-self:center;"></div>
+             <div style="display:flex; gap:6px; align-items:center;">
+               <span style="color:var(--text2);">กลุ่ม</span>
+               ${grpStatus}
+             </div>
            </div>
         </div>
 
-        ${wkGrpItems.length ? `
-          <div style="margin-bottom:24px;">
-            <div class="group-grid">
-              ${wkGrpItems.map(renderHistCard).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        ${wkSoloItems.length ? `
-          <div>
-            <div class="review-grid">
-              ${wkSoloItems.map(renderHistCard).join('')}
-            </div>
-          </div>
-        ` : ''}
+        <div class="review-grid" style="align-items:start;">
+          ${items.map(renderHistCard).join('')}
+        </div>
       </div>
     `;
   }).join('');

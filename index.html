@@ -5,10 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Design Flow — ระบบจัดการทีม</title>
-  <link href="https://fonts.cdnfonts.com/css/google-sans" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
@@ -54,7 +53,7 @@
     }
 
     body {
-      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -183,7 +182,8 @@
     .nav-item.active {
       background: rgba(108, 138, 255, .15);
       color: var(--accent);
-      border-color: rgba(108, 138, 255, .2);
+      border: 0px solid transparent;
+
     }
 
     .nav-icon {
@@ -255,7 +255,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text3);
-      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
       font-size: 16px;
       cursor: pointer;
       text-align: center;
@@ -437,7 +437,7 @@
       gap: 6px;
       padding: 9px 18px;
       border-radius: var(--radius-sm);
-      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
       font-size: 18px;
       font-weight: 600;
       cursor: pointer;
@@ -512,7 +512,7 @@
       border-radius: var(--radius-sm);
       padding: 10px 12px;
       color: var(--text);
-      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
       font-size: 18px;
       outline: none;
       transition: border-color .15s;
@@ -839,7 +839,7 @@
       transition: all .15s;
       border: none;
       background: transparent;
-      font-family: 'Google Sans', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
     }
 
     .tab.active {
@@ -1659,56 +1659,114 @@
 
       <!-- EXERCISE LOG -->
       <div id="page-exercise-log" class="page">
-        <div class="page-header">
-          <div>
+        <div class="page-header"
+          style="align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
             <div class="page-title">ข้อมูลของฉัน</div>
-            <div class="page-sub">// เดี่ยว ฿100 • กลุ่มออก ฿500 • กลุ่มกิน ฿300 • ตัดรอบทุก 18</div>
+            <div
+              style="display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--text3); flex-wrap: wrap;">
+              <span>สรุปโควต้าและประวัติกิจกรรมของรอบนี้</span>
+              <div style="display: flex; gap: 8px;">
+                <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">เดี่ยว <strong
+                    style="color:var(--green);">฿100</strong></span>
+                <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">กลุ่มออก
+                  <strong style="color:var(--green);">฿500</strong></span>
+                <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">กลุ่มกิน
+                  <strong style="color:var(--green);">฿300</strong></span>
+              </div>
+            </div>
           </div>
-          <select id="ex-log-month-select" onchange="onExLogMonthChange(this.value)" style="height:40px;padding:0 14px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);font-size:15px;cursor:pointer;"></select>
+          <div style="position: relative;">
+            <select id="ex-log-month-select" onchange="onExLogMonthChange(this.value)"
+              style="appearance: none; height: 44px; padding: 0 40px 0 44px; border-radius: 12px; background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--border2); font-size: 14px; font-weight: 500; cursor: pointer; line-height: 1.2;"></select>
+            <i class="fa-regular fa-calendar"
+              style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--accent); pointer-events: none;"></i>
+            <i class="fa-solid fa-chevron-down"
+              style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 12px; pointer-events: none;"></i>
+          </div>
         </div>
 
-        <div class="card">
-          <div class="card-title">&#x2B1F; โควต้าของฉัน</div>
-          <div id="quota-display"></div>
-        </div>
+        <div id="quota-display"></div>
 
-        <div class="card" style="margin-top:16px;">
-          <div class="card-title" style="margin-bottom:16px;">🏃 ประวัติกิจกรรมของฉัน</div>
-          <!-- hidden select kept for renderExHistory() compatibility -->
-          <select id="ex-history-month" style="display:none;"></select>
-          <div id="ex-history-list"></div>
+        <div
+          style="margin-top:32px; display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div class="card-title" style="margin-bottom:0; display:flex; align-items:center; gap:10px;">
+            <div
+              style="width: 28px; height: 28px; border-radius: 50%; background: rgba(108,138,255,0.15); color: var(--accent); display:flex; justify-content:center; align-items:center; font-size: 13px;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            ประวัติกิจกรรม
+          </div>
+          <div
+            style="font-size: 14px; color: var(--text3); display:flex; align-items:center; gap: 6px; font-weight: 500;">
+            เรียงจากใหม่ <i class="fa-solid fa-arrow-right-long" style="font-size: 12px; opacity: 0.7;"></i> เก่า</div>
         </div>
+        <!-- hidden select kept for renderExHistory() compatibility -->
+        <select id="ex-history-month" style="display:none;"></select>
+        <div id="ex-history-list"></div>
       </div>
 
       <!-- EXERCISE SHARE -->
       <div id="page-exercise-share" class="page">
-        <div class="page-header">
-          <div>
+        <div class="page-header" style="align-items: flex-start; justify-content: space-between;">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
             <div class="page-title">แชร์กิจกรรมกลุ่ม</div>
-            <div class="page-sub">// เพิ่ม/ลบชื่อตัวเองได้ — ล็อกเมื่อครบ 3 คน</div>
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 16px; color: var(--text3);">
+              <span>เพิ่ม/ลบชื่อตัวเองได้จากกิจกรรมที่เปิดรับ</span>
+              <span
+                style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-clock" style="opacity: 0.7;"></i> ล็อกอัตโนมัติเมื่อครบ <strong
+                  style="color:var(--text);">3 คน</strong>
+              </span>
+            </div>
           </div>
-          <select id="ex-share-month-select" onchange="onExShareMonthChange()" style="height:40px;padding:0 16px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);font-size:15px;cursor:pointer;"></select>
+          <div style="position: relative;">
+            <select id="ex-share-month-select" onchange="onExShareMonthChange()"
+              style="appearance: none; height: 44px; padding: 0 40px 0 44px; border-radius: 12px; background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--border2); font-size: 15px; font-weight: 500; cursor: pointer;"></select>
+            <i class="fa-regular fa-calendar"
+              style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--accent); pointer-events: none;"></i>
+            <i class="fa-solid fa-chevron-down"
+              style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 12px; pointer-events: none;"></i>
+          </div>
         </div>
-        <!-- Tab Bar -->
-        <div style="display:flex;gap:0;background:var(--surface2);border-radius:16px;padding:4px;margin-bottom:20px;border:1px solid var(--border2);">
-          <button id="ex-share-tab-mine" onclick="setExShareTab('mine')"
-            style="flex:1;padding:10px 0;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
-            <i class="fa-solid fa-circle-check"></i> มีชื่อฉันในคำขอแบบกลุ่ม
-            <span id="ex-share-tab-mine-badge" style="padding:1px 8px;border-radius:6px;font-size:13px;"></span>
-          </button>
-          <button id="ex-share-tab-all" onclick="setExShareTab('all')"
-            style="flex:1;padding:10px 0;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;">
-            <i class="fa-solid fa-people-group"></i> กิจกรรมของทีม
-            <span id="ex-share-tab-all-badge" style="padding:1px 8px;border-radius:6px;font-size:13px;"></span>
-          </button>
+
+        <!-- Tab & Filter Row -->
+        <div
+          style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; padding-top: 16px;">
+          <!-- Tabs -->
+          <div
+            style="display:flex; gap: 8px; background: rgba(255,255,255,0.02); border-radius: 12px; padding: 4px; border: 1px solid var(--border2);">
+            <button id="ex-share-tab-mine" onclick="setExShareTab('mine')"
+              style="padding: 8px 16px; border-radius: 10px; border:none; cursor:pointer; font-size: 14px; font-weight: 500; display:flex; align-items:center; gap: 8px; transition:all 0.2s; background: transparent; color: var(--text3);">
+              <i class="fa-regular fa-circle-check" style="opacity: 0.7;"></i> มีชื่อฉันในคำขอ
+              <span id="ex-share-tab-mine-badge"
+                style="background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">0</span>
+            </button>
+            <button id="ex-share-tab-all" onclick="setExShareTab('all')"
+              style="padding: 8px 16px; border-radius: 10px; border:none; cursor:pointer; font-size: 14px; font-weight: 500; display:flex; align-items:center; gap: 8px; transition:all 0.2s; background: rgba(255,255,255,0.06); color: var(--text);">
+              <i class="fa-solid fa-people-group" style="opacity: 0.7;"></i> กิจกรรมของทีม
+              <span id="ex-share-tab-all-badge"
+                style="background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">0</span>
+            </button>
+          </div>
+
+          <!-- Filters -->
+          <div id="ex-share-all-filter-bar" style="display: flex; gap: 12px; align-items: center;">
+            <label id="ex-share-filter-label"
+              style="display:flex; align-items:center; gap: 8px; cursor:pointer; font-size: 14px; font-weight: 500; background: rgba(108, 138, 255, 0.1); color: var(--text); padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(108, 138, 255, 0.2); transition: all 0.2s;">
+              <input type="checkbox" id="ex-share-filter-joinable" checked onchange="applyExShareAllFilter()"
+                style="width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;">
+              <span>แสดงเฉพาะกิจกรรมที่ <strong style="font-weight: 600;">เข้าร่วมได้</strong></span>
+            </label>
+            <button
+              style="display:flex; align-items:center; gap: 8px; background: rgba(255,255,255,0.03); color: var(--text3); border: 1px solid var(--border2); padding: 8px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer;">
+              <i class="fa-solid fa-arrow-down-short-wide" style="opacity: 0.7;"></i> เรียงตามวันที่ใกล้สุด
+            </button>
+          </div>
         </div>
-        <!-- Filter bar สำหรับแถบกิจกรรมของทีม -->
-        <div id="ex-share-all-filter-bar" style="display:none;margin-bottom:16px;padding:10px 14px;background:var(--surface2);border-radius:12px;border:1px solid var(--border2);">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;color:var(--text2);user-select:none;">
-            <input type="checkbox" id="ex-share-filter-joinable" checked onchange="applyExShareAllFilter()"
-              style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;">
-            <span>แสดงเฉพาะ <strong style="color:var(--text);">กิจกรรมที่เข้าร่วมได้</strong> (ยังไม่มีชื่อฉัน · โควต้ายังว่าง · สถานะรอ)</span>
-          </label>
+
+        <div id="ex-share-summary-text" style="font-size: 14px; color: var(--text3); margin-bottom: 16px;">
+          พบ <strong style="color: var(--text);">0 กิจกรรม</strong> ที่เปิดรับ · อัปเดตล่าสุดเมื่อสักครู่
         </div>
         <!-- Tab Panels -->
         <div id="ex-share-panel-mine" class="share-grid"></div>
@@ -1787,7 +1845,7 @@
           </div>
           <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start" lang="sv"
               onchange="onLeaveChange()" /></div>
-          <div class="form-group"><label>จำนวนวัน <span style="font-size:13px;color:var(--text3);">(ไม่นับ
+          <div class="form-group"><label>จำนวนวัน <span style="font-size:15px;color:var(--text3);">(ไม่นับ
                 เสาร์-อาทิตย์)</span></label>
             <select id="leave-days" onchange="onLeaveDaysChange()">
               <option value="">— เลือกจำนวนวัน —</option>
@@ -1799,7 +1857,7 @@
             </select>
           </div>
           <div class="form-group" id="leave-end-group" style="display:none;"><label>วันที่สิ้นสุด <span
-                style="font-size:13px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
+                style="font-size:15px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
               id="leave-end" lang="sv" readonly style="opacity:.7;pointer-events:none;" /></div>
           <select id="leave-period" style="display:none;">
             <option value="full">เต็มวัน</option>
@@ -1819,7 +1877,7 @@
               <span style="color:var(--red);">*จำเป็น</span></label>
             <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
               style="width:100%;box-sizing:border-box;" />
-            <div style="font-size:13px;color:var(--text3);margin-top:6px;">* อัปโหลดไฟล์ขึ้น Google Drive
+            <div style="font-size:15px;color:var(--text3);margin-top:6px;">* อัปโหลดไฟล์ขึ้น Google Drive
               แล้วนำลิงก์มาวาง</div>
           </div>
         </div>
