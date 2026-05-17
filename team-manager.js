@@ -356,47 +356,107 @@ function setupLeaveFormForRole() {
   if (typeSel.options[typeSel.selectedIndex]?.disabled) typeSel.value = 'sick';
 }
 
-function fpAddTodayBtn(fp) {
-  const monthsEl = fp.calendarContainer.querySelector('.flatpickr-months');
-  const nextBtn = fp.calendarContainer.querySelector('.flatpickr-next-month');
-  if (!monthsEl || !nextBtn || monthsEl.querySelector('.fp-today-btn')) return;
-  const btn = document.createElement('span');
-  btn.className = 'fp-today-btn';
-  btn.textContent = 'Today';
-  btn.addEventListener('click', (e) => { e.stopPropagation(); fp.setDate(new Date(), true); });
-  monthsEl.insertBefore(btn, nextBtn);
+// Parse input รูปแบบ DD/MM/YYYY (พ.ศ. 4 หลัก) หรือ YYYY-MM-DD (ค.ศ.)
+function _fpParseDate(str) {
+  if (!str) return null;
+  // รูปแบบเข้มงวด DD/MM/YYYY (วันที่ 2 หลัก / เดือน 2 หลัก / ปี 4 หลัก)
+  const dmy = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmy) {
+    let [, d, m, y] = dmy.map(Number);
+    if (y > 2300) y -= 543; // พ.ศ. 4 หลัก → ค.ศ.
+    const date = new Date(y, m - 1, d);
+    // ตรวจ validity (เช่น วันที่ 32 จะ overflow)
+    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) return date;
+    return null;
+  }
+  // รูปแบบ YYYY-MM-DD (ค.ศ. — ใช้ภายในระบบ)
+  const ymd = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymd) {
+    let [, y, m, d] = ymd.map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return null;
+}
+
+// Auto-format altInput ขณะพิมพ์: DD/MM/YYYY
+function _fpMaskInput(e) {
+  const input = e.target;
+  let v = input.value.replace(/\D/g, '').slice(0, 8); // เอาแค่ตัวเลข max 8 หลัก
+  let out = '';
+  if (v.length > 0) out += v.slice(0, 2);
+  if (v.length > 2) out += '/' + v.slice(2, 4);
+  if (v.length > 4) out += '/' + v.slice(4, 8);
+  input.value = out;
+}
+
+function _syncDisplayFromNative(display, native) {
+  if (!native.value) { display.value = ''; return; }
+  const [y, m, d] = native.value.split('-').map(Number);
+  display.value = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y + 543}`;
+}
+
+function _syncNativeFromDisplay(display, native, onChange) {
+  const parsed = _fpParseDate(display.value);
+  if (parsed && !isNaN(parsed)) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    native.value = `${y}-${m}-${d}`;
+    display.value = `${d}/${m}/${y + 543}`;
+    if (onChange) onChange(native.value);
+  } else if (native.value) {
+    _syncDisplayFromNative(display, native); // revert to last valid
+  } else {
+    display.value = '';
+  }
+}
+
+function initNativeDateInput(id, onChange) {
+  const native = document.getElementById(id);
+  if (!native) return;
+  const wrap = native.closest('.date-wrap');
+  if (!wrap) return;
+  const display = wrap.querySelector('.date-display');
+  if (!display) return;
+
+  // Auto-format as user types (DD/MM/YYYY)
+  display.addEventListener('input', _fpMaskInput);
+
+  // Parse & sync on blur
+  display.addEventListener('blur', () => _syncNativeFromDisplay(display, native, onChange));
+
+  // Enter key triggers sync too
+  display.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); _syncNativeFromDisplay(display, native, onChange); }
+  });
+
+  // Calendar picker → update display
+  native.addEventListener('change', () => {
+    _syncDisplayFromNative(display, native);
+    if (onChange) onChange(native.value);
+  });
+
+  // Set initial value if already present
+  if (native.value) _syncDisplayFromNative(display, native);
 }
 
 function initDatePickers() {
-  const common = {
-    locale: 'th',
-    dateFormat: 'Y-m-d',
-    disableMobile: "true",
-    static: true,
-    nextArrow: '<i class="fa-solid fa-chevron-right"></i>',
-    prevArrow: '<i class="fa-solid fa-chevron-left"></i>',
-    monthSelectorType: 'dropdown',
-    onReady: function (s, d, fp) { fpAddTodayBtn(fp); }
-  };
-
-  flatpickr('#leave-start', common);
-  flatpickr('#leave-end', common);
-  flatpickr('#new-birth', common);
-  flatpickr('#edit-birth', common);
-  flatpickr('#ex-date', {
-    ...common,
-    onChange: function (selectedDates, dateStr, instance) {
-      updateQuota();
-      clearExErr();
-    }
-  });
+  initNativeDateInput('leave-start');
+  initNativeDateInput('leave-end');
+  initNativeDateInput('new-birth');
+  initNativeDateInput('edit-birth');
+  initNativeDateInput('ex-date', () => { updateQuota(); clearExErr(); });
 }
 
 function setVal(id, val) {
   const el = document.getElementById(id);
   if (!el) return;
   el.value = val;
-  if (el._flatpickr) el._flatpickr.setDate(val, false);
+  const wrap = el.closest('.date-wrap');
+  if (wrap) {
+    const display = wrap.querySelector('.date-display');
+    if (display) _syncDisplayFromNative(display, el);
+  }
 }
 
 // ══ MEMBER MANAGEMENT ════════════════════

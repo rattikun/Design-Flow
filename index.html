@@ -9,10 +9,6 @@
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
   <style>
     :root {
       --bg: #0e0f14;
@@ -536,187 +532,53 @@
       min-height: 80px;
     }
 
-    /* Flatpickr Custom Premium Style */
-    .flatpickr-calendar {
-      background: var(--surface) !important;
-      border: 1px solid var(--border2) !important;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8) !important;
-      border-radius: 20px !important;
-      padding: 12px 6px !important;
-      font-family: inherit !important;
-      width: 324px !important;
-    }
-
-    /* Header row — flex so Today btn fits between month label & arrows */
-    .flatpickr-months {
-      display: flex !important;
-      align-items: center !important;
-      padding: 0 4px 8px !important;
-      height: auto !important;
-    }
-
-    .flatpickr-months .flatpickr-month {
-      flex: 1 !important;
-      height: auto !important;
-      color: var(--text) !important;
-      fill: var(--text) !important;
-    }
-
-    .flatpickr-prev-month,
-    .flatpickr-next-month {
-      position: static !important;
-      top: auto !important;
-      height: auto !important;
-      padding: 4px 5px !important;
-      line-height: 1 !important;
-      color: var(--text2) !important;
-      fill: var(--text2) !important;
-    }
-
-    .flatpickr-prev-month:hover,
-    .flatpickr-next-month:hover {
-      color: var(--text) !important;
-      fill: var(--text) !important;
-      background: var(--surface2) !important;
-      border-radius: 8px !important;
-    }
-
-    /* Today button injected via JS */
-    .fp-today-btn {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent);
-      cursor: pointer;
-      padding: 3px 10px;
-      border-radius: 20px;
-      background: var(--accent-bg);
-      user-select: none;
-      white-space: nowrap;
-      margin-right: 4px;
-      transition: background .15s, color .15s;
-    }
-
-    .fp-today-btn:hover {
-      background: var(--accent) !important;
-      color: #fff !important;
-    }
-
-    .flatpickr-current-month {
-      display: flex !important;
-      align-items: center !important;
-      gap: 4px !important;
-    }
-
-    .flatpickr-current-month .flatpickr-monthDropdown-months {
-      font-weight: 700 !important;
-      font-size: 15px !important;
-      cursor: pointer !important;
-      border-radius: 8px !important;
-      padding: 2px 6px !important;
-      background: var(--surface2) !important;
-      color: var(--text) !important;
-      border: 1px solid var(--border2) !important;
-      appearance: auto !important;
-    }
-
-    .flatpickr-current-month .flatpickr-monthDropdown-months:hover {
-      background: var(--surface3) !important;
-    }
-
-    .flatpickr-current-month .numInputWrapper {
-      display: inline-flex !important;
-      align-items: center !important;
-      background: var(--surface2) !important;
-      border: 1px solid var(--border2) !important;
-      border-radius: 8px !important;
-      padding: 2px 4px !important;
-    }
-
-    .flatpickr-current-month input.cur-year {
-      font-weight: 700 !important;
-      font-size: 15px !important;
-      color: var(--text) !important;
-      width: 56px !important;
-    }
-
-    .flatpickr-current-month .numInputWrapper span {
-      border: none !important;
-      opacity: 0.6 !important;
-    }
-
-    .flatpickr-current-month .numInputWrapper span:hover {
-      opacity: 1 !important;
-      background: var(--surface3) !important;
-    }
-
-    /* Day cells — circle shape */
-    .flatpickr-day {
-      border-radius: 50% !important;
-      color: var(--text2) !important;
-      border: 2px solid transparent !important;
-    }
-
-    .flatpickr-day:hover {
-      background: var(--surface2) !important;
-      border-color: transparent !important;
-    }
-
-    /* Today — orange/red filled circle */
-    .flatpickr-day.today {
-      background: rgba(255, 95, 75, 0.13) !important;
-      border-color: transparent !important;
-      color: #ff6b55 !important;
-      font-weight: 700 !important;
-    }
-
-    .flatpickr-day.today:hover {
-      background: rgba(255, 95, 75, 0.25) !important;
-      color: #ff6b55 !important;
-    }
-
-    /* Selected — blue filled circle */
-    .flatpickr-day.selected,
-    .flatpickr-day.selected:hover {
-      background: var(--accent) !important;
-      border-color: var(--accent) !important;
-      color: #fff !important;
-      box-shadow: 0 4px 14px rgba(108, 138, 255, 0.4) !important;
-    }
-
-    /* Today + selected — blue wins */
-    .flatpickr-day.today.selected,
-    .flatpickr-day.today.selected:hover {
-      background: var(--accent) !important;
-      border-color: var(--accent) !important;
-      color: #fff !important;
-    }
-
-    .flatpickr-weekday {
-      color: var(--text3) !important;
-      font-weight: 600 !important;
-    }
-
-    .flatpickr-day.flatpickr-disabled,
-    .flatpickr-day.flatpickr-disabled:hover {
-      color: var(--text3) !important;
-      opacity: 0.3;
-    }
-
-    .flatpickr-day.prevMonthDay,
-    .flatpickr-day.nextMonthDay {
-      color: var(--text3) !important;
-      opacity: 0.45 !important;
-    }
-
-    .flatpickr-calendar.arrowTop:after,
-    .flatpickr-calendar.arrowTop:before {
-      border-bottom-color: var(--border2) !important;
-    }
-
-    /* Fix for static flatpickr wrapper */
-    .flatpickr {
-      width: 100%;
+    /* ── Native Date Picker ─────────────────── */
+    .date-wrap {
+      position: relative;
       display: block;
+      width: 100%;
+    }
+    .date-wrap .date-display {
+      width: 100%;
+      padding-right: 38px !important;
+      box-sizing: border-box;
+    }
+    .date-wrap .date-native {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 38px;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      box-sizing: border-box;
+      z-index: 2;
+    }
+    .date-wrap .date-native::-webkit-calendar-picker-indicator {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+    .date-wrap .date-cal-btn {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 38px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text3);
+      pointer-events: none;
+      font-size: 14px;
+      z-index: 1;
     }
 
     select option {
@@ -2655,8 +2517,13 @@
               <option value="other">&#x1F4CC; อื่นๆ</option>
             </select>
           </div>
-          <div class="form-group"><label>วันที่เริ่มลา</label><input type="date" id="leave-start" lang="sv"
-              onchange="onLeaveChange()" /></div>
+          <div class="form-group"><label>วันที่เริ่มลา</label>
+  <span class="date-wrap">
+    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <input type="date" id="leave-start" class="date-native">
+    <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+  </span>
+</div>
           <div class="form-group"><label>จำนวนวัน <span style="font-size:15px;color:var(--text3);">(ไม่นับ
                 เสาร์-อาทิตย์)</span></label>
             <select id="leave-days" onchange="onLeaveDaysChange()">
@@ -2669,8 +2536,13 @@
             </select>
           </div>
           <div class="form-group" id="leave-end-group" style="display:none;"><label>วันที่สิ้นสุด <span
-                style="font-size:15px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label><input type="date"
-              id="leave-end" lang="sv" readonly style="opacity:.7;pointer-events:none;" /></div>
+                style="font-size:15px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label>
+  <span class="date-wrap">
+    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <input type="date" id="leave-end" class="date-native">
+    <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+  </span>
+</div>
           <select id="leave-period" style="display:none;">
             <option value="full">เต็มวัน</option>
             <option value="morning">ครึ่งวันเช้า (0.5 วัน)</option>
@@ -2734,7 +2606,13 @@
           </div>
           <div class="form-group"><label>Discord ID</label><input type="text" id="new-discord"
               placeholder="เช่น 123456789012345678" /></div>
-          <div class="form-group"><label>วันเกิด</label><input type="date" id="new-birth" /></div>
+          <div class="form-group"><label>วันเกิด</label>
+  <span class="date-wrap">
+    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <input type="date" id="new-birth" class="date-native">
+    <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+  </span>
+</div>
           <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
               placeholder="member@company.com" /></div>
           <div class="form-group"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="new-pass"
@@ -2784,7 +2662,13 @@
           <div class="form-group"><label>ชื่อเล่น</label><input type="text" id="edit-nickname" /></div>
           <div class="form-group"><label>Discord ID</label><input type="text" id="edit-discord"
               placeholder="เช่น 123456789012345678" /></div>
-          <div class="form-group"><label>วันเกิด</label><input type="date" id="edit-birth" /></div>
+          <div class="form-group"><label>วันเกิด</label>
+  <span class="date-wrap">
+    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <input type="date" id="edit-birth" class="date-native">
+    <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+  </span>
+</div>
           <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
               style="opacity:.6;" /></div>
           <div class="form-group"><label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label><input type="password"
@@ -2913,8 +2797,13 @@
           </div>
           <div class="form-group"><label>กิจกรรม</label><input type="text" id="ex-act"
               placeholder="วิ่ง 5km / ว่ายน้ำ / โยคะ" oninput="clearExErr()" /></div>
-          <div class="form-group"><label>วันที่</label><input type="date" id="ex-date"
-              onchange="updateQuota();clearExErr()" /></div>
+          <div class="form-group"><label>วันที่</label>
+  <span class="date-wrap">
+    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <input type="date" id="ex-date" class="date-native">
+    <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+  </span>
+</div>
           <div class="form-group full"><label>หมายเหตุ</label><input type="text" id="ex-note"
               placeholder="รายละเอียดเพิ่มเติม..." /></div>
           <div class="form-group full" id="ex-group-members" style="display:none;margin-top:8px;">
