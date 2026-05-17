@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /Users/rattikunjumuang/.claude/plugins/blocklist.json)",
+      "Read(//Users/rattikunjumuang/.claude/**)",
+      "Read(//Users/rattikunjumuang/Desktop/Design-Flow-Local/**)",
+      "Bash(ls /Users/rattikunjumuang/Desktop/ 2>/dev/null)",
+      "Bash(python3 -m json.tool)",
+      "Bash(find \"/Users/rattikunjumuang/Library/Application Support/Claude/\" -name \"*.json\" 2>/dev/null | xargs grep -li \"antigravity\" 2>/dev/null)",
+      "Bash(find /Users/rattikunjumuang/Desktop -name \"*Submission*standalone*\" -o -name \"*standalone*Submission*\" 2>/dev/null | head -10)",
+      "Bash(awk 'NR<=100' \"/Users/rattikunjumuang/Desktop/GitHub/Design-Flow/Submission Popup _standalone_.html\")",
+      "Bash(awk 'NR>100 && NR<=200' \"/Users/rattikunjumuang/Desktop/GitHub/Design-Flow/Submission Popup _standalone_.html\")",
+      "Bash(awk 'NR==197' \"/Users/rattikunjumuang/Desktop/GitHub/Design-Flow/Submission Popup _standalone_.html\")",
+      "Bash(awk 'NR==189' \"/Users/rattikunjumuang/Desktop/GitHub/Design-Flow/Submission Popup _standalone_.html\")",
+      "Bash(awk 'NR>=189 && NR<=200' \"/Users/rattikunjumuang/Desktop/GitHub/Design-Flow/Submission Popup _standalone_.html\")",
+      "Bash(python3)"
+    ]
+  }
+}

@@ -3052,6 +3052,7 @@ function doLeaveExGroup(id) {
   if (i < 0) return;
   const e = es[i];
   const oldMembers = e.members || [];
+  // ลบเฉพาะชื่อออกจากสมาชิก — proofLinks ที่เคยแนบไว้ยังคงอยู่ (ไม่แตะ e.proofLinks)
   e.members = oldMembers.filter(m => !(m.type === 'sys' && m.email === cu.email));
   saveExs(es);
   apiSync('updateEx', es[i]);
@@ -3345,148 +3346,334 @@ function closeSidebar() {
 }
 // document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 // ══ EXERCISE DETAILS & DELETE ═════════════════
+// ── Source detection helpers for evidence links ──
+function _exdDetectSource(url) {
+  if (/(?:youtube\.com|youtu\.be)/i.test(url)) return 'youtube';
+  if (/drive\.google\.com|docs\.google\.com/i.test(url)) return 'drive';
+  if (/photos\.app\.goo\.gl|photos\.google\.com/i.test(url)) return 'photo';
+  if (/facebook\.com|fb\.watch|fb\.com/i.test(url)) return 'facebook';
+  if (/tiktok\.com/i.test(url)) return 'tiktok';
+  return 'link';
+}
+function _exdSourceIcon(key) {
+  const icons = {
+    youtube: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 7s0-3-3-3H4S1 4 1 7v10s0 3 3 3h16s3 0 3-3V7zm-13 9V8l6 4z"/></svg>`,
+    drive: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.42 6h6.85L4.86 9.5l2.85-6zm5.79 0L20 21h-6.85L6.29 9.5l3.42-6h4.79zm.79 6L23 21h-6.85L9.71 9.5h4.58z"/></svg>`,
+    photo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>`,
+    facebook: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>`,
+    tiktok: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82s.51.5 0 0a4.28 4.28 0 0 1-1.04-2.82V3h-3.34v13.39a2.53 2.53 0 0 1-2.53 2.45c-1.4 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.49V10.4c-3.55-.47-6.65 2.29-6.65 5.84a5.85 5.85 0 0 0 5.99 5.92c3.27 0 5.92-2.65 5.92-5.92V9.4a7.62 7.62 0 0 0 4.42 1.41V7.5s-1.88.09-3.54-1.68z"/></svg>`,
+    link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  };
+  return icons[key] || icons.link;
+}
+function _exdAvatarColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return `hsl(${((h % 360) + 360) % 360},55%,55%)`;
+}
+function _exdInitials(name) {
+  if (!name) return '?';
+  return (name.trim().split(' ')[0][0] || '?').toUpperCase();
+}
+
 function viewExDetail(id) {
   const es = getExs(), e = es.find(x => String(x.id) === String(id));
   if (!e) return;
+
   const et = getExType(e);
-  const reward = EX_REWARD[et] || 100;
-  const count = 1 + (e.members || []).length;
-  const totalReward = reward * count;
-  const allMembers = [{ kind: 'submitter', email: e.email, name: e.name }, ...(e.members || []).map(m => ({ kind: m.type, email: m.email, name: m.name, dept: m.dept }))];
+  const isGroup = isGroupEx(et);
+  const EX_LABEL_TH = { solo: 'เดี่ยว', group_ex: 'กลุ่มออกกำลังกาย', group_eat: 'กลุ่มกินข้าว' };
+  const reward = EX_REWARD[et] || 0;
   const wkNum = getWkNum(e.date);
 
-  // Status config
-  const statusCfg = e.status === 'approved'
-    ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-solid fa-circle-check', bg: 'var(--green-bg)' }
-    : e.status === 'rejected'
-      ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-solid fa-circle-xmark', bg: 'var(--red-bg)' }
-      : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-solid fa-circle', bg: 'var(--yellow-bg)' };
+  const sysMems = (e.members || []).filter(m => m.type === 'sys');
+  const allMembers = [
+    { kind: 'submitter', email: e.email, name: e.name },
+    ...sysMems.map(m => ({ kind: 'member', email: m.email, name: m.name, dept: m.dept }))
+  ];
 
-  const isApproved = e.status === 'approved';
-  const canEdit = isApproved
-    ? cu.role === 'pm'                                      // approved → PM เท่านั้น
-    : (e.email === cu.email && e.status === 'pending');     // pending → เจ้าของเท่านั้น
-  const canUpdateProof = isUserInvolved(e, cu.email) && e.status !== 'rejected';
+  const statusClass = e.status === 'approved' ? 'approved' : e.status === 'rejected' ? 'rejected' : 'pending';
+  const statusLabel = e.status === 'approved' ? 'อนุมัติแล้ว' : e.status === 'rejected' ? 'ไม่อนุมัติ' : 'รออนุมัติ';
+
+  const users = getUsers();
+  const submitter = users.find(x => x.email === e.email) || {};
+  const submitterName = submitter.name || e.name || '';
+  const submitterNick = submitter.nickname || e.nickname || submitterName.split(' ')[0];
+  const submitterDept = submitter.dept || e.dept || '';
+
+  const dateStr = new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  const submittedStr = e.submittedAt ? new Date(e.submittedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
   const primaryLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '') || '';
   const extraLinks = e.proofLinks || [];
-
-  // Format links into uniform objects
   const allLinks = [];
-  if (primaryLink) allLinks.push({ url: primaryLink, addedBy: e.name });
-  extraLinks.forEach(p => allLinks.push({ url: p.url, addedBy: p.addedByName || p.addedBy }));
+  if (primaryLink) allLinks.push({ url: primaryLink, addedBy: e.name, addedByEmail: e.email, isPrimary: true, extraIdx: null });
+  extraLinks.forEach((p, i) => allLinks.push({ url: p.url, addedBy: p.addedByName || p.addedBy, addedByEmail: p.addedBy, isPrimary: false, extraIdx: i }));
 
-  const getAv = (name, email) => {
-    const color = `hsl(${name.length * 40 % 360}, 65%, 65%)`;
-    return `<div style="width:36px;height:36px;border-radius:50%;background:${color}33;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;border:1px solid ${color}44;"><i class="fa-solid fa-user"></i></div>`;
-  };
+  const canEdit = (e.email === cu.email && e.status === 'pending') || (cu.role === 'pm' && e.status === 'approved');
+  // แนบลิงก์เพิ่มได้เฉพาะสมาชิกปัจจุบันของคำขอนี้เท่านั้น (isUserInvolved ตรวจ members[] ที่ยังอยู่)
+  const canUpdateProof = isUserInvolved(e, cu.email) && e.status !== 'rejected';
+  const canApprove = cu.role === 'pm' && e.status === 'pending';
+  const canDelete = (e.email === cu.email && e.status === 'pending') || cu.role === 'pm';
 
-  const body = document.getElementById('ex-detail-body');
-  const actions = document.getElementById('ex-detail-actions');
+  const c1 = _exdAvatarColor(e.email), c2 = _exdAvatarColor(e.email + 'x');
 
-  body.innerHTML = `
-    <!-- Header Row -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-      <div>
-        <div style="font-size:14px;color:#5a5e7a;margin-bottom:6px;font-weight:500;display:flex;align-items:center;gap:8px;">
-          คำขอเบิกรางวัล 
-          <span style="background:rgba(255,255,255,0.05);color:var(--text3);padding:2px 8px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:0px;">
-          <h2 style="font-size:28px;font-weight:500;color:#fff;margin:0;">${e.activity + (e.note ? ` (${e.note.split('\n')[0].substring(0, 20)})` : '')}</h2>
-          <span style="background:#f5c842;color:#000;padding:2px 8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;">Week ${wkNum}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;color:#9094b8;font-size:20px;font-weight:500;">
-          <i class="fa-regular fa-calendar" style="font-size:18px;"></i>
-          ${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <div style="display:flex;align-items:center;gap:8px;background:${statusCfg.bg};color:${statusCfg.color};padding:6px 18px;border-radius:30px;font-size:16px;font-weight:700;">
-          <div style="width:10px;height:10px;border-radius:50%;background:${statusCfg.dot || statusCfg.color};"></div>
-          ${statusCfg.label}
-        </div>
-        <button onclick="closeModal('modal-ex-detail')" style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.08);border:none;color:#5a5e7a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">✕</button>
-      </div>
-    </div>
+  const memberChips = allMembers.map(m => {
+    const mu = users.find(x => x.email === m.email) || {};
+    const nick = mu.nickname || (m.name || '').split(' ')[0] || m.email;
+    const dept = mu.dept || m.dept || '';
+    const isLead = m.kind === 'submitter';
+    const iconSvg = isLead
+      ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 16 3 6l5 4 4-6 4 6 5-4-2 10H5Z"></path></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
+    return `<span class="exd-member${isLead ? ' lead' : ''}">
+      <span class="exd-mem-icon ${isLead ? 'lead' : 'member'}">${iconSvg}</span>
+      <span class="exd-mem-name">${nick}</span>
+      ${dept ? `<span class="exd-dept">${dept}</span>` : ''}
+    </span>`;
+  }).join('');
 
-    <!-- Submitter Card -->
-    <div style="background:rgba(255,255,255,0.02);padding:12px;border-radius:20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-      <div style="width:48px;height:48px;color:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;">
-        <i class="fa-solid fa-crown"></i>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:20px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">
-          ผู้ยื่น • ${uNick(e.email, e.name)}
-          <span style="font-size:15px;color:#5a5e7a;font-weight:500;">(${(getUsers().find(x => x.email === e.email) || {}).dept || 'Media'})</span>
-        </div>
-        <div style="font-size:16px;color:#5a5e7a;font-family:var(--mono);">${e.email}</div>
-      </div>
-    </div>
-
-    <!-- Members Section -->
-    <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <span style="font-size:16px;font-weight:700;color:#5a5e7a;">สมาชิกทั้งหมด</span>
-        <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allMembers.length}</span>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;">
-         ${allMembers.map(m => {
-    const isSubmitter = m.kind === 'submitter';
-    const icon = isSubmitter ? 'fa-crown' : 'fa-user';
-    const iconColor = isSubmitter ? 'var(--yellow)' : '#b37fff';
-    return `
-            <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.03);padding:2px 10px;border-radius:14px;font-size:16px;color:#fff;">
-              <i class="fa-solid ${icon}" style="font-size:16px;color:${iconColor};"></i>
-              <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-            </div>`;
-  }).join('')}
-      </div>
-    </div>
-
-    <!-- Evidence Section -->
-    <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <span style="font-size:16px;font-weight:700;color:#5a5e7a;">หลักฐาน</span>
-        <span style="background:rgba(255,255,255,0.08);color:#5a5e7a;padding:2px 8px;border-radius:10px;font-size:14px;font-weight:700;min-width:28px;text-align:center;">${allLinks.length}</span>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:16px;">
-        ${allLinks.map((link, idx) => `
-          <a href="${link.url}" target="_blank" style="text-decoration:none;background:rgba(255,255,255,0.01);padding:5px 10px;border-radius:24px;display:flex;align-items:center;justify-content:space-between;color:#fff;border:1px solid rgba(255,255,255,0.01);">
-            <div style="display:flex;align-items:center;gap:20px;">
-              <div style="width:56px;height:44px;border-radius:12px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;">
-                <i class="fa-solid fa-circle-play"></i>
-              </div>
-              <div>
-                <div style="font-weight:700;font-size:20px; line-height:1.2;">หลักฐาน #${idx + 1}</div>
-                <div style="font-size:14px;color:#5a5e7a;margin-top:0px;">Tog ${link.addedBy || 'Member'}</div>
-              </div>
+  const evidenceHtml = allLinks.length === 0
+    ? `<div class="exd-empty">
+        <div class="exd-empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <div class="exd-empty-t">ยังไม่มีหลักฐาน</div>
+      </div>`
+    : allLinks.map((link, idx) => {
+        const srcKey = _exdDetectSource(link.url);
+        let dom = '';
+        try { dom = new URL(link.url.startsWith('http') ? link.url : 'https://' + link.url).hostname.replace(/^www\./, ''); } catch {}
+        // เจ้าของ = คนที่แนบลิงก์นั้น เท่านั้นที่ลบได้ (PM ลบรวมทั้งใบเบิกผ่าน deleteEx แทน)
+        // แก้ไข URL: เจ้าของ หรือ PM
+        const isOwner = cu.email === link.addedByEmail;
+        const canEditLink = isOwner || cu.role === 'pm';
+        const canDeleteLink = isOwner; // เฉพาะเจ้าของเท่านั้น
+        return `<div class="exd-ev-item" id="exd-ev-${idx}">
+          <div class="exd-ev-thumb ${srcKey}">${_exdSourceIcon(srcKey)}</div>
+          <div class="exd-ev-info">
+            <div class="exd-ev-title">หลักฐาน #${idx + 1}</div>
+            <div class="exd-ev-meta">
+              <span class="exd-ev-url">${dom || link.url.slice(0, 30)}</span>
+              ${link.addedBy ? `<span class="exd-ev-owner">· โดย ${link.addedBy}</span>` : ''}
             </div>
-            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:20px;color:#5a5e7a;opacity:0.6;"></i>
-          </a>
-        `).join('')}
-        
-        <div style="display:flex;gap:12px;margin-top:8px;">
-          <input type="text" id="proof-link-input-${e.id}" placeholder="วางลิงก์เพิ่มเติม..." style="flex:1;height:64px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:14px;padding:0 24px;color:#fff;font-size:18px;" />
-          <button class="btn" onclick="saveProofLink('${e.id}')" style="height:64px;padding:0 32px;border-radius:14px;font-weight:700;background:rgba(255,255,255,0.08);color:#fff;border:none;font-size:18px;">แนบเพิ่ม</button>
+            <div class="exd-ev-edit-row" id="exd-ev-edit-${idx}" style="display:none;margin-top:6px">
+              <input class="exd-add-input" id="exd-ev-input-${idx}" value="${link.url}" style="font-size:12px;flex:1;min-width:0" />
+              <button class="exd-ev-btn exd-ev-confirm" onclick="saveEditedProofLink('${e.id}',${link.isPrimary},${link.extraIdx ?? 'null'},${idx})" title="บันทึก">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>
+              </button>
+              <button class="exd-ev-btn" onclick="_exdCancelEdit(${idx})" title="ยกเลิก">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          </div>
+          <div class="exd-ev-actions">
+            <a href="${link.url}" target="_blank" class="exd-ev-btn" title="เปิดลิงก์">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+            </a>
+            ${canEditLink ? `
+            <button class="exd-ev-btn" onclick="_exdOpenEdit(${idx})" title="แก้ไขลิงก์">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>` : ''}
+            ${canDeleteLink ? `
+            <button class="exd-ev-btn danger" onclick="deleteProofLink('${e.id}',${link.isPrimary},${link.extraIdx ?? 'null'})" title="ลบลิงก์">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+            </button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+  const modal = document.querySelector('#modal-ex-detail .modal');
+  modal.innerHTML = `
+    <div class="exd-top">
+      <div class="exd-top-l">
+        <span class="exd-label">คำขอเบิกรางวัล</span>
+        <span class="exd-id"><span class="k">ID</span> ${e.id}</span>
+      </div>
+      <div class="exd-top-r">
+        <span class="exd-status ${statusClass}"><span class="dot"></span><span>${statusLabel}</span></span>
+        <button class="exd-x" onclick="closeModal('modal-ex-detail')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="exd-body">
+      <div class="exd-title-row">
+        <div>
+          <h2 class="exd-title">${e.activity}<span class="exd-week">WEEK ${wkNum}</span></h2>
+          <div class="exd-meta-row">
+            <span class="exd-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M3 10h18M8 2v4M16 2v4"></path></svg>
+              ${dateStr}
+            </span>
+            <span class="exd-dot"></span>
+            <span class="exd-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5"></path></svg>
+              ${EX_LABEL_TH[et] || et}
+            </span>
+            ${submittedStr ? `<span class="exd-dot"></span><span class="exd-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+              ยื่นเมื่อ ${submittedStr}</span>` : ''}
+          </div>
+        </div>
+        <div class="exd-reward">
+          <div class="exd-reward-a"><span class="exd-reward-b">฿</span>${reward.toLocaleString()}</div>
+          <div class="exd-reward-sub">${isGroup ? 'รางวัลกลุ่ม' : 'รางวัลเดี่ยว'}</div>
         </div>
       </div>
-    </div>
-  `;
 
-  const canDelete = cu.role === 'pm' || (!isApproved && e.email === cu.email);
-  actions.innerHTML = `
-    <div style="display:flex;width:100%;justify-content:space-between;align-items:center;padding:24px 0 0;">
-      ${canDelete ? `<button class="btn" onclick="deleteEx('${e.id}')" style="color:#ff6b6b;background:rgba(255,107,107,0.1);border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">
-        <i class="fa-solid fa-trash-can" style="margin-right:12px;"></i> ลบ
-      </button>` : `<div></div>`}
-      <div style="display:flex;gap:16px;">
-        <button class="btn" onclick="closeModal('modal-ex-detail')" style="background:rgba(255,255,255,0.08);color:#9094b8;border-radius:14px;height:64px;padding:0 32px;font-weight:700;border:none;font-size:20px;">ปิด</button>
-        ${canEdit ? `<button class="btn" onclick="editEx('${e.id}')" style="border-radius:14px;height:64px;padding:0 40px;font-weight:700;background:#738aff;color:#fff;border:none;display:flex;align-items:center;gap:12px;font-size:20px;"><i class="fa-solid fa-pencil"></i> แก้ไขใบเบิก</button>` : ''}
+      <div class="exd-sect">
+        <div class="exd-sect-h"><div class="exd-sect-title">ผู้ยื่นคำขอ</div></div>
+        <div class="exd-submitter">
+          <div class="exd-avatar lead" style="background:linear-gradient(135deg,${c1},${c2})">
+            ${_exdInitials(submitterName)}
+            <svg class="exd-crown" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16 3 6l5 4 4-6 4 6 5-4-2 10H5Z"></path></svg>
+          </div>
+          <div class="exd-submitter-info">
+            <div class="exd-submitter-name">
+              ${submitterNick || submitterName}
+              ${submitterDept ? `<span class="exd-dept-pill">${submitterDept}</span>` : ''}
+              <span class="exd-role-pill">ผู้นำกลุ่ม</span>
+            </div>
+            <div class="exd-submitter-email">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
+              ${e.email}
+            </div>
+          </div>
+        </div>
       </div>
+
+      ${isGroup ? `<div class="exd-sect">
+        <div class="exd-sect-h"><div class="exd-sect-title">สมาชิกร่วมกิจกรรม<span class="exd-ct">${allMembers.length} คน</span></div></div>
+        <div class="exd-members">${memberChips}</div>
+      </div>` : ''}
+
+      <div class="exd-sect">
+        <div class="exd-sect-h"><div class="exd-sect-title">หลักฐาน<span class="exd-ct">${allLinks.length}</span></div></div>
+        <div class="exd-evidence">${evidenceHtml}</div>
+        ${canUpdateProof ? `<div class="exd-add-area">
+          <div class="exd-add-row">
+            <div class="exd-add-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:#6c7390;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <input class="exd-add-input" id="exd-proof-input" placeholder="วางลิงก์หลักฐาน..." />
+            </div>
+            <button class="exd-btn-add" onclick="saveProofLinkFromDetail('${e.id}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>แนบ
+            </button>
+          </div>
+        </div>` : ''}
+      </div>
+
+      ${e.note ? `<div class="exd-note">📝 ${e.note}</div>` : ''}
     </div>
-  `;
+
+    <div class="exd-foot">
+      <div class="exd-foot-l">
+        ${canDelete ? `<button class="exd-btn exd-btn-danger" onclick="deleteEx('${e.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>ลบคำขอ
+        </button>` : ''}
+        ${canEdit ? `<button class="exd-btn exd-btn-edit" onclick="editEx('${e.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>แก้ไข
+        </button>` : ''}
+      </div>
+      <div class="exd-foot-r">
+        ${canApprove ? `
+          <button class="exd-btn exd-btn-reject" onclick="rejEx('${e.id}');closeModal('modal-ex-detail')">ไม่อนุมัติ</button>
+          <button class="exd-btn exd-btn-ok" onclick="appEx('${e.id}');closeModal('modal-ex-detail')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>อนุมัติ
+          </button>` : `<button class="exd-btn exd-btn-ghost" onclick="closeModal('modal-ex-detail')">ปิด</button>`}
+      </div>
+    </div>`;
 
   openModal('modal-ex-detail');
+}
+
+function saveProofLinkFromDetail(id) {
+  const link = document.getElementById('exd-proof-input')?.value.trim();
+  if (!link) { toast('⚠️ กรุณาใส่ลิงก์หลักฐาน'); return; }
+  const es = getExs(), i = es.findIndex(e => String(e.id) === String(id));
+  if (i < 0) return;
+  // ตรวจสิทธิ์: ต้องเป็นสมาชิกปัจจุบัน (ถอนตัวแล้วไม่สามารถเพิ่มได้)
+  if (!isUserInvolved(es[i], cu.email)) { toast('⛔ เฉพาะสมาชิกของคำขอนี้เท่านั้นที่แนบหลักฐานได้'); return; }
+  if (es[i].status === 'rejected') { toast('⛔ คำขอที่ไม่อนุมัติแล้วไม่สามารถแนบหลักฐานเพิ่มได้'); return; }
+  if (!es[i].proofLink) {
+    es[i].proofLink = link;
+    es[i].proofDoc = link;
+  } else {
+    es[i].proofLinks = [...(es[i].proofLinks || []), { url: link, addedBy: cu.email, addedByName: cu.name, addedAt: new Date().toISOString() }];
+  }
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  toast('✅ เพิ่มหลักฐานเรียบร้อย');
+  viewExDetail(id);
+}
+
+function _exdOpenEdit(idx) {
+  const row = document.getElementById('exd-ev-edit-' + idx);
+  if (row) row.style.display = 'flex';
+}
+
+function _exdCancelEdit(idx) {
+  const row = document.getElementById('exd-ev-edit-' + idx);
+  if (row) row.style.display = 'none';
+}
+
+function saveEditedProofLink(exId, isPrimary, extraIdx, idx) {
+  const input = document.getElementById('exd-ev-input-' + idx);
+  if (!input) return;
+  const newUrl = input.value.trim();
+  if (!newUrl) { toast('⚠️ กรุณาใส่ลิงก์'); return; }
+
+  const es = getExs(), i = es.findIndex(e => String(e.id) === String(exId));
+  if (i < 0) return;
+  // ตรวจสิทธิ์: เจ้าของลิงก์ หรือ PM เท่านั้น (enforce ใน server-side ผ่าน canEditLink ที่ render แล้ว)
+  const targetLink = isPrimary ? { addedByEmail: es[i].email } : (es[i].proofLinks || [])[extraIdx];
+  if (!targetLink) { toast('⚠️ ไม่พบลิงก์นี้'); return; }
+  if (cu.email !== targetLink.addedByEmail && cu.role !== 'pm') { toast('⛔ คุณไม่มีสิทธิ์แก้ไขลิงก์นี้'); return; }
+
+  if (isPrimary) {
+    es[i].proofLink = newUrl;
+    es[i].proofDoc = newUrl;
+  } else {
+    if (!es[i].proofLinks || extraIdx === null || es[i].proofLinks[extraIdx] === undefined) return;
+    es[i].proofLinks[extraIdx].url = newUrl;
+  }
+
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  toast('✅ แก้ไขลิงก์เรียบร้อย');
+  viewExDetail(exId);
+}
+
+function deleteProofLink(exId, isPrimary, extraIdx) {
+  if (!confirm('ยืนยันการลบลิงก์หลักฐานนี้?')) return;
+
+  const es = getExs(), i = es.findIndex(e => String(e.id) === String(exId));
+  if (i < 0) return;
+  // ตรวจสิทธิ์: เฉพาะเจ้าของลิงก์เท่านั้น (PM ลบรวมทั้งใบเบิกผ่าน deleteEx)
+  const ownerEmail = isPrimary ? es[i].email : (es[i].proofLinks || [])[extraIdx]?.addedBy;
+  if (cu.email !== ownerEmail) { toast('⛔ เฉพาะเจ้าของลิงก์เท่านั้นที่ลบได้'); return; }
+
+  if (isPrimary) {
+    // Promote first extra link to primary, or clear entirely
+    const extras = es[i].proofLinks || [];
+    if (extras.length > 0) {
+      const promoted = extras.shift();
+      es[i].proofLink = promoted.url;
+      es[i].proofDoc = promoted.url;
+      es[i].proofLinks = extras;
+    } else {
+      es[i].proofLink = '';
+      es[i].proofDoc = '';
+    }
+  } else {
+    if (!es[i].proofLinks || extraIdx === null || es[i].proofLinks[extraIdx] === undefined) return;
+    es[i].proofLinks.splice(extraIdx, 1);
+  }
+
+  saveExs(es);
+  apiSync('updateEx', es[i]);
+  toast('🗑️ ลบลิงก์เรียบร้อย');
+  viewExDetail(exId);
 }
 
 function deleteEx(id) {

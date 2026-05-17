@@ -58,7 +58,7 @@
       color: var(--text);
       min-height: 100vh;
       font-size: 20px;
-      line-height: 1.6;
+      line-height: 1.4;
     }
 
     #login-screen {
@@ -1285,6 +1285,813 @@
       }
     }
   </style>
+  <style id="exd-styles">
+    /* ── Exercise Detail Modal ── */
+    #modal-ex-detail .modal.exd-modal {
+      max-width: 680px;
+      width: 100%;
+      background: linear-gradient(180deg, #171b27 0%, #13161f 100%);
+      border: 1px solid #262b3c;
+      border-radius: 18px;
+      box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 48px);
+      padding: 0;
+    }
+
+    .exd-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.01);
+      flex-shrink: 0;
+    }
+
+    .exd-top-l {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0
+    }
+
+    .exd-label {
+      font-size: 11px;
+      color: #6c7390;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em
+    }
+
+    .exd-id {
+      background: #232838;
+      color: #9ea4bb;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: monospace
+    }
+
+    .exd-id .k {
+      color: #6c7390;
+      font-weight: 500
+    }
+
+    .exd-top-r {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .exd-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 11px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600
+    }
+
+    .exd-status.pending {
+      background: rgba(245, 163, 94, 0.14);
+      color: #f5a35e;
+      border: 1px solid rgba(245, 163, 94, 0.34)
+    }
+
+    .exd-status.approved {
+      background: rgba(78, 195, 154, 0.14);
+      color: #4ec39a;
+      border: 1px solid rgba(78, 195, 154, 0.32)
+    }
+
+    .exd-status.rejected {
+      background: rgba(239, 107, 124, 0.10);
+      color: #ef6b7c;
+      border: 1px solid rgba(239, 107, 124, 0.30)
+    }
+
+    .exd-status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor
+    }
+
+    .exd-status.pending .dot {
+      animation: exdPulse 1.6s infinite
+    }
+
+    @keyframes exdPulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .exd-x {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: transparent;
+      border: 0;
+      color: #6c7390;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background .15s, color .15s
+    }
+
+    .exd-x:hover {
+      background: #232838;
+      color: #e9ecf5
+    }
+
+    .exd-x svg {
+      width: 16px;
+      height: 16px
+    }
+
+    .exd-body {
+      padding: 20px 22px 12px;
+      overflow-y: auto;
+      flex: 1;
+      scrollbar-width: thin;
+      scrollbar-color: #232838 transparent
+    }
+
+    .exd-body::-webkit-scrollbar {
+      width: 6px
+    }
+
+    .exd-body::-webkit-scrollbar-thumb {
+      background: #232838;
+      border-radius: 4px
+    }
+
+    .exd-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 6px
+    }
+
+    .exd-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.015em;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1.15;
+      color: #e9ecf5;
+      margin: 0
+    }
+
+    .exd-week {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: rgba(240, 196, 90, 0.12);
+      color: #f0c45a;
+      border: 1px solid rgba(240, 196, 90, 0.30);
+      padding: 3px 9px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      line-height: 1.4;
+      align-self: center
+    }
+
+    .exd-reward {
+      text-align: right;
+      flex-shrink: 0
+    }
+
+    .exd-reward-a {
+      font-size: 22px;
+      font-weight: 700;
+      color: #6ee7a8;
+      letter-spacing: -.01em;
+      line-height: 1
+    }
+
+    .exd-reward-b {
+      color: #6c7390;
+      font-weight: 500;
+      margin-right: 2px;
+      font-size: 16px
+    }
+
+    .exd-reward-sub {
+      font-size: 13px;
+      color: #6c7390;
+      margin-top: 4px
+    }
+
+    .exd-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      color: #9ea4bb;
+      font-size: 15px;
+      margin-bottom: 18px
+    }
+
+    .exd-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px
+    }
+
+    .exd-meta svg {
+      width: 13px;
+      height: 13px;
+      color: #6c7390
+    }
+
+    .exd-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: #6c7390;
+      opacity: .5
+    }
+
+    .exd-sect {
+      margin-bottom: 16px
+    }
+
+    .exd-sect-h {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 10px
+    }
+
+    .exd-sect-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #6c7390;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px
+    }
+
+    .exd-ct {
+      background: #232838;
+      color: #9ea4bb;
+      padding: 1px 7px;
+      border-radius: 99px;
+      font-size: 11px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600
+    }
+
+    .exd-submitter {
+      background: #1c2030;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .exd-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      position: relative
+    }
+
+    .exd-avatar.lead::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 2px solid #f0c45a
+    }
+
+    .exd-crown {
+      position: absolute;
+      top: -9px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 16px;
+      color: #f0c45a
+    }
+
+    .exd-submitter-info {
+      flex: 1;
+      min-width: 0
+    }
+
+    .exd-submitter-name {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: #e9ecf5
+    }
+
+    .exd-role-pill {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: rgba(240, 196, 90, 0.12);
+      color: #f0c45a;
+      padding: 2px 7px;
+      border-radius: 5px;
+      text-transform: uppercase
+    }
+
+    .exd-dept-pill {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      background: rgba(124, 131, 255, 0.12);
+      color: #7c83ff;
+      padding: 2px 6px;
+      border-radius: 5px
+    }
+
+    .exd-submitter-email {
+      font-size: 13px;
+      color: #6c7390;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px
+    }
+
+    .exd-submitter-email svg {
+      width: 11px;
+      height: 11px
+    }
+
+    .exd-members {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px
+    }
+
+    .exd-member {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px 5px 8px;
+      border-radius: 99px;
+      background: #181d2e;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 13px;
+      font-weight: 500;
+      color: #c8cde8;
+      cursor: default;
+      transition: border-color .15s
+    }
+
+    .exd-member.lead {
+      border-color: rgba(240, 196, 90, 0.28);
+      background: rgba(240, 196, 90, 0.06)
+    }
+
+    .exd-mem-icon {
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px
+    }
+
+    .exd-mem-icon svg {
+      width: 14px;
+      height: 14px
+    }
+
+    .exd-mem-icon.lead svg {
+      color: #f0c45a
+    }
+
+    .exd-mem-icon.member svg {
+      color: #9b8fff
+    }
+
+    .exd-mem-name {
+      line-height: 1
+    }
+
+    .exd-av {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff
+    }
+
+    .exd-dept {
+      font-size: 10px;
+      font-weight: 700;
+      color: #9b8fff;
+      background: rgba(155, 143, 255, 0.12);
+      padding: 1px 6px;
+      border-radius: 5px;
+      letter-spacing: .04em;
+      line-height: 1.6
+    }
+
+    .exd-evidence {
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .exd-ev-item {
+      background: #1c2030;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color .15s
+    }
+
+    .exd-ev-item:hover {
+      border-color: #262b3c
+    }
+
+    .exd-ev-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 9px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center
+    }
+
+    .exd-ev-thumb.youtube {
+      background: rgba(255, 68, 68, 0.12);
+      color: #ff5252
+    }
+
+    .exd-ev-thumb.drive {
+      background: rgba(76, 175, 80, 0.10);
+      color: #66bb6a
+    }
+
+    .exd-ev-thumb.photo {
+      background: rgba(124, 131, 255, 0.12);
+      color: #7c83ff
+    }
+
+    .exd-ev-thumb.facebook {
+      background: rgba(33, 150, 243, 0.10);
+      color: #42a5f5
+    }
+
+    .exd-ev-thumb.tiktok {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff
+    }
+
+    .exd-ev-thumb.link {
+      background: #232838;
+      color: #9ea4bb
+    }
+
+    .exd-ev-thumb svg {
+      width: 20px;
+      height: 20px
+    }
+
+    .exd-ev-info {
+      flex: 1;
+      min-width: 0
+    }
+
+    .exd-ev-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e9ecf5
+    }
+
+    .exd-ev-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: #6c7390;
+      margin-top: 3px;
+      min-width: 0
+    }
+
+    .exd-ev-url {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      font-family: monospace;
+      font-size: 10.5px
+    }
+
+    .exd-ev-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0
+    }
+
+    .exd-ev-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      background: transparent;
+      border: 0;
+      color: #6c7390;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+      transition: background .15s, color .15s
+    }
+
+    .exd-ev-btn:hover {
+      background: #2b3147;
+      color: #e9ecf5
+    }
+
+    .exd-ev-btn svg {
+      width: 14px;
+      height: 14px
+    }
+
+    .exd-ev-btn.danger:hover {
+      background: rgba(239, 68, 68, .15);
+      color: #ef4444
+    }
+
+    .exd-ev-confirm:hover {
+      background: rgba(34, 197, 94, .15) !important;
+      color: #22c55e !important
+    }
+
+    .exd-ev-edit-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px 8px 10px
+    }
+
+    .exd-ev-edit-row input {
+      flex: 1;
+      background: #1a2035;
+      border: 1px solid #3a4060;
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #e9ecf5;
+      font-size: 13px;
+      outline: none
+    }
+
+    .exd-ev-edit-row input:focus {
+      border-color: var(--accent)
+    }
+
+    .exd-empty {
+      border: 1.5px dashed #262b3c;
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      color: #6c7390;
+      background: rgba(255, 255, 255, 0.01)
+    }
+
+    .exd-empty-ic {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #232838;
+      color: #6c7390;
+      display: inline-grid;
+      place-items: center;
+      margin-bottom: 8px
+    }
+
+    .exd-empty-ic svg {
+      width: 16px;
+      height: 16px
+    }
+
+    .exd-empty-t {
+      font-size: 13px;
+      color: #9ea4bb;
+      font-weight: 600
+    }
+
+    .exd-add-area {
+      margin-top: 10px;
+      background: #1c2030;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color .15s
+    }
+
+    .exd-add-area:focus-within {
+      border-color: rgba(124, 131, 255, 0.32)
+    }
+
+    .exd-add-row {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .exd-add-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0d0f17;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 9px;
+      padding: 2px 11px;
+      transition: border-color .15s
+    }
+
+    .exd-add-wrap:focus-within {
+      border-color: rgba(124, 131, 255, 0.32)
+    }
+
+    .exd-add-input {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: #e9ecf5;
+      font: inherit;
+      font-size: 13px
+    }
+
+    .exd-add-input::placeholder {
+      color: #6c7390
+    }
+
+    .exd-btn-add {
+      background: #7c83ff;
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      border: 0;
+      border-radius: 9px;
+      padding: 9px 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      transition: background .15s
+    }
+
+    .exd-btn-add:hover {
+      background: #5d65f0
+    }
+
+    .exd-btn-add svg {
+      width: 13px;
+      height: 13px
+    }
+
+    .exd-note {
+      margin-top: 4px;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+      font-size: 13px;
+      color: #9ea4bb;
+      border: 1px dashed rgba(255, 255, 255, 0.06)
+    }
+
+    .exd-foot {
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 13px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.15);
+      flex-shrink: 0
+    }
+
+    .exd-foot-l,
+    .exd-foot-r {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .exd-btn {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: background .15s, color .15s
+    }
+
+    .exd-btn svg {
+      width: 14px;
+      height: 14px
+    }
+
+    .exd-btn-ghost {
+      background: #232838;
+      color: #e9ecf5
+    }
+
+    .exd-btn-ghost:hover {
+      background: #2b3147
+    }
+
+    .exd-btn-danger {
+      background: transparent;
+      color: #ef6b7c;
+      border: 1px solid rgba(239, 107, 124, 0.30)
+    }
+
+    .exd-btn-danger:hover {
+      background: rgba(239, 107, 124, 0.10)
+    }
+
+    .exd-btn-ok {
+      background: #4ec39a;
+      color: #06291e;
+      box-shadow: 0 6px 16px -10px rgba(78, 195, 154, 0.5)
+    }
+
+    .exd-btn-ok:hover {
+      background: #5fd3a8
+    }
+
+    .exd-btn-reject {
+      background: transparent;
+      color: #ef6b7c;
+      border: 1px solid rgba(239, 107, 124, 0.30)
+    }
+
+    .exd-btn-reject:hover {
+      background: rgba(239, 107, 124, 0.10)
+    }
+
+    .exd-btn-edit {
+      background: rgba(124, 131, 255, 0.12);
+      color: #7c83ff;
+      border: 1px solid rgba(124, 131, 255, 0.20)
+    }
+
+    .exd-btn-edit:hover {
+      background: rgba(124, 131, 255, 0.20)
+    }
+  </style>
 </head>
 
 <body>
@@ -2078,12 +2885,7 @@
 
   <!-- MODAL: Exercise Detail -->
   <div class="modal-overlay" id="modal-ex-detail">
-    <div class="modal"
-      style="max-width: 620px; background: #1a1c26; border: 1px solid rgba(255,255,255,0.03); box-shadow: 0 40px 100px rgba(0,0,0,0.5); border-radius: 24px;">
-      <div id="ex-detail-body" class="modal-scroll-area" style="padding:40px 40px 16px;"></div>
-      <div id="ex-detail-actions"
-        style="flex-shrink:0; background:#1a1c26; border-top:1px solid rgba(255,255,255,0.05); padding:0 40px 32px;">
-      </div>
+    <div class="modal exd-modal">
     </div>
   </div>
 
