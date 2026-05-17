@@ -1607,19 +1607,42 @@ function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
   if (!sel) return;
   const allUsers = getUsers();
-  const today = document.getElementById('ex-date')?.value || new Date().toISOString().split('T')[0];
-  const mk = monthKey(today);
-  const es = getExs();
+  const dateVal = document.getElementById('ex-date')?.value || new Date().toISOString().split('T')[0];
+  const exType = document.getElementById('ex-type')?.value || 'solo';
+  const isGrp = isGroupEx(exType);
+  const mk = monthKey(dateVal);
+  const wk = wkKey(dateVal);
+  const es = _editingExId !== null ? getExs().filter(e => String(e.id) !== String(_editingExId)) : getExs();
 
-  // Sort by name, filter out current user and already-selected members
-  let available = allUsers.filter(u => u.email !== cu.email && !exMembers.some(m => m.email === u.email)).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  // Filter out current user and already-selected members
+  const available = allUsers
+    .filter(u => u.email !== cu.email && !exMembers.some(m => m.email === u.email))
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
-    const uMoGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
     const nick = u.nickname || u.name.split(' ')[0];
     const dept = u.dept ? ` (${u.dept})` : '';
-    const isFull = uMoGrp >= 4;
-    return `<option value="${u.email}" ${isFull ? 'disabled style="color:var(--text3)"' : ''}>${nick}${dept}${isFull ? ' (เต็ม)' : ''}</option>`;
+    let isFull = false;
+    let fullReason = '';
+
+    if (isGrp) {
+      // กลุ่ม: 1/สัปดาห์ และ 4/เดือน (เหมือนกันทั้ง กทม/ตจว)
+      const uWkGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
+      const uMoGrp = es.filter(x => isUserInvolved(x, u.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
+      if (uWkGrp >= 1) { isFull = true; fullReason = 'กลุ่มเต็ม/สป.'; }
+      else if (uMoGrp >= 4) { isFull = true; fullReason = 'กลุ่มเต็ม/ด.'; }
+    } else {
+      // เดี่ยว: ขึ้นกับ locationType ของสมาชิกนั้น
+      const uLoc = u.locationType || 'bkk';
+      const uWkLimit = uLoc === 'bkk' ? 2 : 3;
+      const uMoLimit = uLoc === 'bkk' ? 8 : 12;
+      const uWkSolo = es.filter(x => isUserInvolved(x, u.email) && getExType(x) === 'solo' && x.status !== 'rejected' && wkKey(x.date) === wk).length;
+      const uMoSolo = es.filter(x => isUserInvolved(x, u.email) && getExType(x) === 'solo' && x.status !== 'rejected' && monthKey(x.date) === mk).length;
+      if (uWkSolo >= uWkLimit) { isFull = true; fullReason = `เดี่ยวเต็ม/สป.`; }
+      else if (uMoSolo >= uMoLimit) { isFull = true; fullReason = `เดี่ยวเต็ม/ด.`; }
+    }
+
+    return `<option value="${u.email}" ${isFull ? 'disabled' : ''}>${nick}${dept}${isFull ? ` (${fullReason})` : ''}</option>`;
   }).join('');
 }
 
@@ -1773,7 +1796,10 @@ function updateQuota() {
   const [moY, moM] = mk.split('-').map(Number);
   const moName = new Date(moY, moM - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
   const exType = document.getElementById('ex-type')?.value || 'solo';
-  const all = getExs();
+  // เมื่อ edit ใบเบิกที่มีอยู่แล้ว ให้ exclude ใบนั้นออกจาก quota count เพื่อไม่ให้นับซ้ำ
+  const all = _editingExId !== null
+    ? getExs().filter(e => String(e.id) !== String(_editingExId))
+    : getExs();
   const wkLimit = isBkk ? 2 : 3, moLimit = isBkk ? 8 : 12;
 
   // Stats for the viewed week/month
@@ -2083,7 +2109,7 @@ function submitEx() {
     // Skip quota checks when PM edits an already-approved record
     const editingApproved = _editingExId !== null && getExs().find(e => e.id === _editingExId)?.status === 'approved';
     // Exclude the record being edited from quota counts so we don't double-count it
-    const all = getExs().filter(e => e.id !== _editingExId);
+    const all = getExs().filter(e => String(e.id) !== String(_editingExId));
 
     if (!editingApproved && exType === 'solo') {
       const wkLimit = isBkk ? 2 : 3;
@@ -2998,10 +3024,11 @@ function joinExGroup(id) {
   if (isUserInvolved(e, cu.email)) { toast('⚠️ คุณมีชื่ออยู่ในคำขอนี้แล้ว'); return; }
   const mk = monthKey(e.date);
   const wk = wkKey(e.date);
+  // กลุ่ม: 1/สัปดาห์ และ 4/เดือน (เหมือนกันทั้ง กทม/ตจว)
   const wkGrp = es.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
-  if (wkGrp >= 1) { toast('⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นี้ของคุณเต็มแล้ว (1/1)'); return; }
+  if (wkGrp >= 1) { toast('⚠️ โควต้ากิจกรรมกลุ่มสัปดาห์นั้นของคุณเต็มแล้ว (1/1 ครั้ง/สัปดาห์)'); return; }
   const moGrp = es.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
-  if (moGrp >= 4) { toast('⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้ของคุณเต็มแล้ว (4/4)'); return; }
+  if (moGrp >= 4) { toast('⚠️ โควต้ากิจกรรมกลุ่มเดือนนั้นของคุณเต็มแล้ว (4/4 ครั้ง/เดือน)'); return; }
 
   document.getElementById('conf-title').textContent = 'ยืนยันการเข้าร่วมกลุ่ม';
   document.getElementById('conf-body').innerHTML = '<div style="font-size:19px;line-height:1.6;color:var(--text);">เช็กให้ชัวร์ก่อนกดนะ! เพราะ PM จะตรวจสอบสิทธิ์จากหลักฐานที่คุณแจ้งไว้ เพื่อให้งานไม่สะดุด รบกวนตรวจสอบความถูกต้องอีกครั้งครับ/ค่ะ</div>';
@@ -3062,7 +3089,24 @@ function doLeaveExGroup(id) {
 
 // ══ LEADERBOARD ══════════════════════════
 function updateLB() {
-  const a = getExs().filter(e => e.status !== 'rejected');
+  const allExs = getExs().filter(e => e.status !== 'rejected');
+
+  // Populate month dropdown with available months
+  const lbMonthSel = document.getElementById('lb-month-select');
+  if (lbMonthSel) {
+    const availableMonths = [...new Set(allExs.map(e => monthKey(e.date)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+    const curMk = monthKey(new Date().toISOString().split('T')[0]);
+    if (!availableMonths.includes(curMk)) availableMonths.unshift(curMk);
+    if (!availableMonths.includes(_lbMonth)) _lbMonth = availableMonths[0] || curMk;
+    const fmtMk = (mk) => {
+      const [y, m] = mk.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+    };
+    lbMonthSel.innerHTML = availableMonths.map(mk => `<option value="${mk}"${mk === _lbMonth ? ' selected' : ''}>${fmtMk(mk)}</option>`).join('');
+  }
+
+  // Filter by selected month
+  const a = allExs.filter(e => monthKey(e.date) === _lbMonth);
   const sm = {}, gxm = {}, gem = {};
 
   a.forEach(e => {
@@ -3126,9 +3170,8 @@ function updateLB() {
 
   // --- ADD SUMMARY TABLE ---
   const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-  const today = new Date().toISOString().split('T')[0];
-  const mk = monthKey(today);
-  const allMo = a.filter(e => monthKey(e.date) === mk);
+  const mk = _lbMonth;
+  const allMo = a; // already filtered by _lbMonth above
   const [y, mm] = mk.split('-');
   const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
   const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
@@ -3164,7 +3207,7 @@ function updateLB() {
   if (summaryEl) {
     const sIcon = (f) => _lbSortField === f ? (_lbSortDir === 1 ? ' <i class="fa-solid fa-sort-up"></i>' : ' <i class="fa-solid fa-sort-down"></i>') : ' <i class="fa-solid fa-sort" style="opacity:0.3"></i>';
     summaryEl.innerHTML = `
-      <div style="margin-bottom:12px;font-size:16px;color:var(--text3);">รอบการคำนวณเงินรางวัล: ${rangeLabel} <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
+      <div style="margin-bottom:12px;font-size:16px;color:var(--text3);">รอบการคำนวณเงินรางวัล: <strong style="color:var(--text);">${rangeLabel}</strong> <span style="margin-left:12px;">(ตัวเลขในวงเล็บ = อนุมัติแล้ว)</span></div>
       <div class="table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow-x:auto;">
         <table class="balance-table" style="font-size:15px; min-width: 1000px;">
           <thead style="background:var(--surface3);">
@@ -3175,7 +3218,7 @@ function updateLB() {
               <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);cursor:pointer;user-select:none;" onclick="setLBSort('sC')">แบบเดี่ยว (100)${sIcon('sC')}</th>
               <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);cursor:pointer;user-select:none;" onclick="setLBSort('gexC')">แบบกลุ่มออก (500)${sIcon('gexC')}</th>
               <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);cursor:pointer;user-select:none;" onclick="setLBSort('geC')">แบบกลุ่มกิน (300)${sIcon('geC')}</th>
-              <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('totalA')">รวม (อนุมัติ)${sIcon('totalA')}</th>
+              <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('total')">รวม${sIcon('total')}</th>
             </tr>
             <tr style="font-size:13px;">
               <th style="background:rgba(61,214,140,0.05);">ครั้ง</th><th style="background:rgba(61,214,140,0.05);">เงิน</th>
@@ -3196,13 +3239,10 @@ function updateLB() {
                     ${s.locationType === 'bkk' ? 'กทม.' : 'ตจว.'}
                   </span>
                 </td>
-                <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR} <span style="opacity:0.6;font-size:13px;">(${s.sAR})</span></td>
-                <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR} <span style="opacity:0.6;font-size:13px;">(${s.gexAR})</span></td>
-                <td>${s.geC}</td><td style="color:var(--orange);font-family:var(--mono);">฿${s.geR} <span style="opacity:0.6;font-size:13px;">(${s.geAR})</span></td>
-                <td style="font-weight:500;background:rgba(255,255,255,0.03);font-family:var(--mono);font-size:16px;">
-                  ฿${s.total.toLocaleString()}
-                  <div style="font-size:14px;color:var(--green);opacity:0.8;">(฿${s.totalA.toLocaleString()})</div>
-                </td>
+                <td>${s.sC}</td><td style="color:var(--green);font-family:var(--mono);">฿${s.sR.toLocaleString()}</td>
+                <td>${s.gexC}</td><td style="color:var(--purple);font-family:var(--mono);">฿${s.gexR.toLocaleString()}</td>
+                <td>${s.geC}</td><td style="color:var(--orange);font-family:var(--mono);">฿${s.geR.toLocaleString()}</td>
+                <td style="font-weight:500;background:rgba(255,255,255,0.03);font-family:var(--mono);font-size:16px;">฿${s.total.toLocaleString()}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -3306,6 +3346,12 @@ function getWkLabel() {
 let _tt;
 let _lbSortField = 'name';
 let _lbSortDir = 1;
+let _lbMonth = monthKey(new Date().toISOString().split('T')[0]);
+
+function setLBMonth(val) {
+  _lbMonth = val;
+  updateLB();
+}
 
 function setLBSort(field) {
   if (_lbSortField === field) {
@@ -3439,15 +3485,15 @@ function viewExDetail(id) {
         <div class="exd-empty-t">ยังไม่มีหลักฐาน</div>
       </div>`
     : allLinks.map((link, idx) => {
-        const srcKey = _exdDetectSource(link.url);
-        let dom = '';
-        try { dom = new URL(link.url.startsWith('http') ? link.url : 'https://' + link.url).hostname.replace(/^www\./, ''); } catch {}
-        // เจ้าของ = คนที่แนบลิงก์นั้น เท่านั้นที่ลบได้ (PM ลบรวมทั้งใบเบิกผ่าน deleteEx แทน)
-        // แก้ไข URL: เจ้าของ หรือ PM
-        const isOwner = cu.email === link.addedByEmail;
-        const canEditLink = isOwner || cu.role === 'pm';
-        const canDeleteLink = isOwner; // เฉพาะเจ้าของเท่านั้น
-        return `<div class="exd-ev-item" id="exd-ev-${idx}">
+      const srcKey = _exdDetectSource(link.url);
+      let dom = '';
+      try { dom = new URL(link.url.startsWith('http') ? link.url : 'https://' + link.url).hostname.replace(/^www\./, ''); } catch { }
+      // เจ้าของ = คนที่แนบลิงก์นั้น เท่านั้นที่ลบได้ (PM ลบรวมทั้งใบเบิกผ่าน deleteEx แทน)
+      // แก้ไข URL: เจ้าของ หรือ PM
+      const isOwner = cu.email === link.addedByEmail;
+      const canEditLink = isOwner || cu.role === 'pm';
+      const canDeleteLink = isOwner; // เฉพาะเจ้าของเท่านั้น
+      return `<div class="exd-ev-item" id="exd-ev-${idx}">
           <div class="exd-ev-thumb ${srcKey}">${_exdSourceIcon(srcKey)}</div>
           <div class="exd-ev-info">
             <div class="exd-ev-title">หลักฐาน #${idx + 1}</div>
@@ -3479,7 +3525,7 @@ function viewExDetail(id) {
             </button>` : ''}
           </div>
         </div>`;
-      }).join('');
+    }).join('');
 
   const modal = document.querySelector('#modal-ex-detail .modal');
   modal.innerHTML = `
@@ -3875,12 +3921,12 @@ function renderExHistory() {
       const typeIcon = et === 'solo' ? 'fa-user' : 'fa-users';
 
       return `
-        <div style="background:var(--surface2); border-radius:16px; border:1px solid rgba(255,255,255,0.02); padding:16px; display:flex; flex-direction:column; justify-content:space-between; transition: transform 0.2s, box-shadow 0.2s; ${et === 'solo' ? '' : 'grid-column: 1 / -1;'}" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
+        <div style="background:${et === 'solo' ? 'rgba(155,143,255,0.07)' : 'rgba(255,153,51,0.10)'}; border-radius:16px; border:1px solid rgba(255,255,255,0.02); padding:16px; display:flex; flex-direction:column; justify-content:space-between; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
           
           <div style="display:flex; gap:20px; align-items:flex-start;">
             <!-- Calendar Block -->
             <div style="display:flex; flex-direction:column; width: 56px; border-radius: 12px; overflow: hidden; text-align: center; flex-shrink: 0;">
-              <div style="background: rgba(61, 69, 76, 0.59); color: var(--text2); font-size: 13px; font-weight: 600; padding: 2px 0 4px; text-transform: uppercase;">${month}</div>
+              <div style="background: rgba(61, 69, 76, 0.59); color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 0 4px; text-transform: uppercase;">${month}</div>
               <div style="background: rgba(26, 22, 22, 0.55); font-size: 22px; font-weight: 700; padding: 4px 0 6px; color: var(--text); font-family: var(--mono);">${day}</div>
             </div>
             
@@ -3895,7 +3941,7 @@ function renderExHistory() {
                   <i class="${statusCfg.icon}"></i> ${statusCfg.label}
                 </div>
               </div>
-              <div style="font-size:15px; color:var(--text3); font-family:var(--mono); display:flex; gap:16px;">
+              <div style="font-size:15px; color:var(--text2); font-family:var(--mono); display:flex; gap:16px;">
                 <span>${e.id}</span>
                 <span>${fullDate}</span>
               </div>
@@ -3908,7 +3954,7 @@ function renderExHistory() {
           </div>
 
           <div style="margin-top: 12px; display:flex; justify-content:space-between; align-items:flex-end;">
-            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; flex-wrap:wrap; gap:3px;">
               ${chips}
             </div>
             <div style="font-size:14px; color:var(--text3); cursor:pointer; font-weight:500; display:flex; align-items:center; gap:6px; padding: 4px 8px; transition: color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" onclick="viewExDetail('${e.id}')">
