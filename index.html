@@ -539,9 +539,47 @@
       width: 100%;
     }
     .date-wrap .date-display {
+      display: flex;
+      align-items: center;
+      gap: 0;
       width: 100%;
-      padding-right: 38px !important;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 38px 10px 12px;
       box-sizing: border-box;
+      transition: border-color .15s;
+      cursor: text;
+    }
+    .date-wrap .date-display:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108,138,255,.1);
+    }
+    .date-part {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: 'IBM Plex Sans', 'IBM Plex Sans Thai', sans-serif;
+      font-size: 18px;
+      padding: 0;
+      min-width: 0;
+      text-align: center;
+      width: auto;
+    }
+    .date-part[data-part="d"],
+    .date-part[data-part="m"] {
+      width: 1.8ch;
+    }
+    .date-part[data-part="y"] {
+      width: 4ch;
+    }
+    .date-sep {
+      color: var(--text3);
+      margin: 0 3px;
+      user-select: none;
+      font-size: 18px;
+      flex-shrink: 0;
     }
     .date-wrap .date-native {
       position: absolute;
@@ -2519,7 +2557,13 @@
           </div>
           <div class="form-group"><label>วันที่เริ่มลา</label>
   <span class="date-wrap">
-    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <span class="date-display">
+      <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+    </span>
     <input type="date" id="leave-start" class="date-native">
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
@@ -2538,7 +2582,13 @@
           <div class="form-group" id="leave-end-group" style="display:none;"><label>วันที่สิ้นสุด <span
                 style="font-size:15px;color:var(--text3);">(คำนวณอัตโนมัติ)</span></label>
   <span class="date-wrap">
-    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <span class="date-display">
+      <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+    </span>
     <input type="date" id="leave-end" class="date-native">
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
@@ -2608,7 +2658,13 @@
               placeholder="เช่น 123456789012345678" /></div>
           <div class="form-group"><label>วันเกิด</label>
   <span class="date-wrap">
-    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <span class="date-display">
+      <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+    </span>
     <input type="date" id="new-birth" class="date-native">
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
@@ -2664,7 +2720,13 @@
               placeholder="เช่น 123456789012345678" /></div>
           <div class="form-group"><label>วันเกิด</label>
   <span class="date-wrap">
-    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <span class="date-display">
+      <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+    </span>
     <input type="date" id="edit-birth" class="date-native">
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
@@ -2799,7 +2861,13 @@
               placeholder="วิ่ง 5km / ว่ายน้ำ / โยคะ" oninput="clearExErr()" /></div>
           <div class="form-group"><label>วันที่</label>
   <span class="date-wrap">
-    <input type="text" class="date-display" placeholder="วว/ดด/ปปปป" maxlength="10" autocomplete="off">
+    <span class="date-display">
+      <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+      <span class="date-sep">/</span>
+      <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+    </span>
     <input type="date" id="ex-date" class="date-native">
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>

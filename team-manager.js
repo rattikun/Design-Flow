@@ -356,59 +356,37 @@ function setupLeaveFormForRole() {
   if (typeSel.options[typeSel.selectedIndex]?.disabled) typeSel.value = 'sick';
 }
 
-// Parse input รูปแบบ DD/MM/YYYY (พ.ศ. 4 หลัก) หรือ YYYY-MM-DD (ค.ศ.)
-function _fpParseDate(str) {
-  if (!str) return null;
-  // รูปแบบเข้มงวด DD/MM/YYYY (วันที่ 2 หลัก / เดือน 2 หลัก / ปี 4 หลัก)
-  const dmy = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (dmy) {
-    let [, d, m, y] = dmy.map(Number);
-    if (y > 2300) y -= 543; // พ.ศ. 4 หลัก → ค.ศ.
-    const date = new Date(y, m - 1, d);
-    // ตรวจ validity (เช่น วันที่ 32 จะ overflow)
-    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) return date;
-    return null;
-  }
-  // รูปแบบ YYYY-MM-DD (ค.ศ. — ใช้ภายในระบบ)
-  const ymd = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (ymd) {
-    let [, y, m, d] = ymd.map(Number);
-    return new Date(y, m - 1, d);
-  }
-  return null;
-}
-
-// Auto-format altInput ขณะพิมพ์: DD/MM/YYYY
-function _fpMaskInput(e) {
-  const input = e.target;
-  let v = input.value.replace(/\D/g, '').slice(0, 8); // เอาแค่ตัวเลข max 8 หลัก
-  let out = '';
-  if (v.length > 0) out += v.slice(0, 2);
-  if (v.length > 2) out += '/' + v.slice(2, 4);
-  if (v.length > 4) out += '/' + v.slice(4, 8);
-  input.value = out;
-}
-
-function _syncDisplayFromNative(display, native) {
-  if (!native.value) { display.value = ''; return; }
+// Sync split display (DD / MM / YYYY fields) from native YYYY-MM-DD value
+function _syncDisplayFromNative(wrap, native) {
+  const dEl = wrap.querySelector('[data-part="d"]');
+  const mEl = wrap.querySelector('[data-part="m"]');
+  const yEl = wrap.querySelector('[data-part="y"]');
+  if (!dEl) return;
+  if (!native.value) { dEl.value = ''; mEl.value = ''; yEl.value = ''; return; }
   const [y, m, d] = native.value.split('-').map(Number);
-  display.value = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y + 543}`;
+  dEl.value = String(d).padStart(2, '0');
+  mEl.value = String(m).padStart(2, '0');
+  yEl.value = String(y);
 }
 
-function _syncNativeFromDisplay(display, native, onChange) {
-  const parsed = _fpParseDate(display.value);
-  if (parsed && !isNaN(parsed)) {
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, '0');
-    const d = String(parsed.getDate()).padStart(2, '0');
-    native.value = `${y}-${m}-${d}`;
-    display.value = `${d}/${m}/${y + 543}`;
-    if (onChange) onChange(native.value);
-  } else if (native.value) {
-    _syncDisplayFromNative(display, native); // revert to last valid
-  } else {
-    display.value = '';
+// Read split fields → validate → update native input
+function _syncNativeFromDisplay(wrap, native, onChange) {
+  const dEl = wrap.querySelector('[data-part="d"]');
+  const mEl = wrap.querySelector('[data-part="m"]');
+  const yEl = wrap.querySelector('[data-part="y"]');
+  if (!dEl) return;
+  const d = parseInt(dEl.value);
+  const m = parseInt(mEl.value);
+  const y = parseInt(yEl.value);
+  if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1000) {
+    const date = new Date(y, m - 1, d);
+    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) {
+      native.value = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (onChange) onChange(native.value);
+      return;
+    }
   }
+  if (!d && !m && !y) native.value = '';
 }
 
 function initNativeDateInput(id, onChange) {
@@ -416,28 +394,47 @@ function initNativeDateInput(id, onChange) {
   if (!native) return;
   const wrap = native.closest('.date-wrap');
   if (!wrap) return;
-  const display = wrap.querySelector('.date-display');
-  if (!display) return;
+  const dEl = wrap.querySelector('[data-part="d"]');
+  const mEl = wrap.querySelector('[data-part="m"]');
+  const yEl = wrap.querySelector('[data-part="y"]');
+  if (!dEl) return;
 
-  // Auto-format as user types (DD/MM/YYYY)
-  display.addEventListener('input', _fpMaskInput);
+  function syncParts() { _syncNativeFromDisplay(wrap, native, onChange); }
 
-  // Parse & sync on blur
-  display.addEventListener('blur', () => _syncNativeFromDisplay(display, native, onChange));
-
-  // Enter key triggers sync too
-  display.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); _syncNativeFromDisplay(display, native, onChange); }
+  // วว — กรองเฉพาะตัวเลข, auto-advance ไป เดือน
+  dEl.addEventListener('input', () => {
+    dEl.value = dEl.value.replace(/\D/g, '').slice(0, 2);
+    if (dEl.value.length === 2) mEl.focus();
+    syncParts();
+  });
+  // ดด — auto-advance ไป ปีปปปป
+  mEl.addEventListener('input', () => {
+    mEl.value = mEl.value.replace(/\D/g, '').slice(0, 2);
+    if (mEl.value.length === 2) yEl.focus();
+    syncParts();
+  });
+  // ปปปป
+  yEl.addEventListener('input', () => {
+    yEl.value = yEl.value.replace(/\D/g, '').slice(0, 4);
+    syncParts();
   });
 
-  // Calendar picker → update display
+  // Backspace เมื่อ field ว่าง → ย้อนกลับ field ก่อน
+  mEl.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && mEl.value === '') { e.preventDefault(); dEl.focus(); dEl.select(); }
+  });
+  yEl.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && yEl.value === '') { e.preventDefault(); mEl.focus(); mEl.select(); }
+  });
+
+  // Calendar picker → sync display
   native.addEventListener('change', () => {
-    _syncDisplayFromNative(display, native);
+    _syncDisplayFromNative(wrap, native);
     if (onChange) onChange(native.value);
   });
 
-  // Set initial value if already present
-  if (native.value) _syncDisplayFromNative(display, native);
+  // Init ถ้ามีค่าเริ่มต้น
+  if (native.value) _syncDisplayFromNative(wrap, native);
 }
 
 function initDatePickers() {
@@ -453,10 +450,7 @@ function setVal(id, val) {
   if (!el) return;
   el.value = val;
   const wrap = el.closest('.date-wrap');
-  if (wrap) {
-    const display = wrap.querySelector('.date-display');
-    if (display) _syncDisplayFromNative(display, el);
-  }
+  if (wrap) _syncDisplayFromNative(wrap, el);
 }
 
 // ══ MEMBER MANAGEMENT ════════════════════
@@ -629,7 +623,7 @@ function onLeaveDaysChange() {
   if (!val) { onLeaveChange(); return; }
   if (val === 'morning' || val === 'afternoon') {
     periodEl.value = val;
-    endEl.value = start || '';
+    setVal('leave-end', start || '');
     endEl.disabled = true;
   } else {
     periodEl.value = 'full';
@@ -637,11 +631,11 @@ function onLeaveDaysChange() {
     const numDays = parseInt(val);
     const endGroup = document.getElementById('leave-end-group');
     if (numDays === 1) {
-      if (start) endEl.value = start;
+      if (start) setVal('leave-end', start);
       if (endGroup) endGroup.style.display = 'none';
     } else {
       if (endGroup) endGroup.style.display = 'block';
-      if (start && numDays >= 2) endEl.value = calcEndDateByDays(start, numDays);
+      if (start && numDays >= 2) setVal('leave-end', calcEndDateByDays(start, numDays));
     }
   }
   onLeaveChange();
@@ -659,7 +653,7 @@ function onLeaveChange() {
     const leaveVal = document.getElementById('leave-days')?.value;
     const selectedNumDays = (leaveVal && leaveVal !== 'morning' && leaveVal !== 'afternoon') ? parseInt(leaveVal) : null;
     if (selectedNumDays !== null && selectedNumDays >= 1 && start) {
-      document.getElementById('leave-end').value = calcEndDateByDays(start, selectedNumDays);
+      setVal('leave-end', calcEndDateByDays(start, selectedNumDays));
     }
     const endCurrent = document.getElementById('leave-end').value;
     // Allow continuing if we have a valid selected-days value even if endCurrent is temporarily empty
@@ -668,7 +662,7 @@ function onLeaveChange() {
     document.getElementById('leave-period-group')?.style && (document.getElementById('leave-period-group').style.display = 'none');
     const isHalf = document.getElementById('leave-period').value !== 'full';
     const endEl = document.getElementById('leave-end');
-    if (isHalf) { endEl.value = start; endEl.disabled = true; } else { endEl.disabled = false; }
+    if (isHalf) { setVal('leave-end', start); endEl.disabled = true; } else { endEl.disabled = false; }
     const rawDays = countWorkingDays(start, isHalf ? start : (endCurrent || start));
     // Use the dropdown-selected days as the authoritative count (user explicitly chose this many days)
     // Fall back to calculated working days only when no dropdown value is selected

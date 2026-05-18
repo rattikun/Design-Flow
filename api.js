@@ -445,6 +445,7 @@ function mapUserFromAPI(u) {
     email: u.email,
     name: u.name,
     nickname: u.nickname || '',
+    discordId: u.discordId || u.discord_id || '',
     birthday: u.birthday || '',
     role: u.role,
     dept: u.dept,
