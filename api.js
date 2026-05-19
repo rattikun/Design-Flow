@@ -519,6 +519,8 @@ function mapExFromAPI(e) {
     status: e.status || 'pending',
     submittedAt: e.submitted_at || e.submittedAt || new Date().toISOString(),
     approvedBy: e.approved_by || e.approvedBy || '',
+    rejectReason: e.reject_reason || e.rejectReason || '',
+    rejectedBy: e.rejected_by || e.rejectedBy || '',
     dept: e.dept,
     proofDoc: e.proof_doc || e.proofDoc || null,
     proofLink: e.proof_link || e.proofLink || '',

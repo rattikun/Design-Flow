@@ -2694,10 +2694,15 @@ function renderExR() {
           </div>
           <div style="font-size:22px; font-weight:500; color:${tcolor}; font-family:var(--mono);">฿${reward.toLocaleString()}</div>
         </div>
-        <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:16px; margin-bottom:12px; font-weight:500;">
+        <div style="display:flex; align-items:center; gap:8px; color:#5a5e7a; font-size:16px; margin-bottom:${e.rejectReason ? '8px' : '12px'}; font-weight:500;">
           <i class="fa-regular fa-calendar" style="font-size:15px;"></i>
           <span>${new Date(e.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </div>
+        ${e.rejectReason ? `
+        <div style="display:flex;align-items:flex-start;gap:8px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.2);border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+          <i class="fa-solid fa-circle-xmark" style="color:var(--red);font-size:14px;margin-top:3px;flex-shrink:0;"></i>
+          <div style="font-size:14px;color:var(--red);font-weight:500;">${e.rejectReason}</div>
+        </div>` : ''}
 
         <!-- Bottom Row: Members & Actions -->
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
@@ -2843,10 +2848,32 @@ function apprEx(id) {
 function rejEx(id) {
   if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
   const es = getExs(), i = es.findIndex(e => e.id === id); if (i < 0) return;
-  es[i].status = 'rejected';
-  saveExs(es);
-  apiSync('updateEx', es[i]);
-  toast('✕ ไม่อนุมัติ'); renderExR();
+
+  // เปิด modal ขอเหตุผล
+  document.getElementById('conf-title').textContent = 'ระบุเหตุผลไม่อนุมัติ';
+  document.getElementById('conf-body').innerHTML = `
+    <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
+      กิจกรรม <strong style="color:var(--text);">${es[i].activity || ''}</strong> ของ <strong style="color:var(--text);">${es[i].name || ''}</strong>
+    </div>
+    <textarea id="reject-reason-input" placeholder="กรอกเหตุผลที่ไม่อนุมัติ..." rows="3"
+      style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;resize:vertical;outline:none;"></textarea>
+    <div id="reject-reason-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาระบุเหตุผล</div>
+  `;
+  const okBtn = document.getElementById('conf-ok');
+  okBtn.textContent = 'ยืนยันไม่อนุมัติ';
+  okBtn.className = 'btn btn-red';
+  okBtn.onclick = () => {
+    const reason = (document.getElementById('reject-reason-input')?.value || '').trim();
+    if (!reason) { document.getElementById('reject-reason-err').style.display = 'block'; return; }
+    es[i].status = 'rejected';
+    es[i].rejectReason = reason;
+    es[i].rejectedBy = cu.name;
+    saveExs(es);
+    apiSync('updateEx', es[i]);
+    closeModal('modal-confirm');
+    toast('✕ ไม่อนุมัติ'); renderExR();
+  };
+  openModal('modal-confirm');
 }
 function revertExToPending(id) {
   if (cu.role !== 'pm') { toast('⚠️ เฉพาะ PM เท่านั้น'); return; }
@@ -3716,6 +3743,15 @@ function viewExDetail(id) {
       </div>
 
       ${e.note ? `<div class="exd-note">📝 ${e.note}</div>` : ''}
+
+      ${e.status === 'rejected' && e.rejectReason ? `
+      <div style="display:flex;align-items:flex-start;gap:10px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.25);border-radius:12px;padding:12px 16px;margin-top:4px;">
+        <i class="fa-solid fa-circle-xmark" style="color:var(--red);font-size:16px;margin-top:2px;flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:13px;color:var(--red);opacity:0.75;font-weight:600;margin-bottom:4px;">เหตุผลที่ไม่อนุมัติ${e.rejectedBy ? ` — โดย ${e.rejectedBy}` : ''}</div>
+          <div style="font-size:15px;color:var(--red);font-weight:500;">${e.rejectReason}</div>
+        </div>
+      </div>` : ''}
     </div>
 
     <div class="exd-foot">
@@ -3729,7 +3765,7 @@ function viewExDetail(id) {
       </div>
       <div class="exd-foot-r">
         ${canApprove ? `
-          <button class="exd-btn exd-btn-reject" onclick="rejEx('${e.id}');closeModal('modal-ex-detail')">ไม่อนุมัติ</button>
+          <button class="exd-btn exd-btn-reject" onclick="closeModal('modal-ex-detail');rejEx('${e.id}')">ไม่อนุมัติ</button>
           <button class="exd-btn exd-btn-ok" onclick="appEx('${e.id}');closeModal('modal-ex-detail')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>อนุมัติ
           </button>` : `<button class="exd-btn exd-btn-ghost" onclick="closeModal('modal-ex-detail')">ปิด</button>`}
@@ -3950,22 +3986,112 @@ function renderExHistory() {
     curr.setDate(curr.getDate() + 1);
   }
 
+  // แยก rejected ออกจาก active
+  const activeFiltered = filtered.filter(e => e.status !== 'rejected');
+  const rejectedFiltered = filtered.filter(e => e.status === 'rejected');
+
   if (!filtered.length) {
     elList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:15px;background:var(--surface2);border-radius:12px;border:1px dashed var(--border2);">ยังไม่มีกิจกรรมในเดือนนี้</div>';
     return;
   }
 
-  // Group by week
+  // ── History Card Helper ─────────────────────────────────────────────────
+  const renderHistCard = (e) => {
+    const et = getExType(e);
+    const reward = EX_REWARD[et] || 100;
+    const isRej = e.status === 'rejected';
+
+    const d = new Date(e.date);
+    const day = d.getDate();
+    const month = d.toLocaleDateString('th-TH', { month: 'short' });
+    const fullDate = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const allMembers = [
+      { email: e.email, name: e.name, kind: 'submitter' },
+      ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
+    ];
+
+    const chips = allMembers.map(m => {
+      const isSub = m.kind === 'submitter';
+      const isCurrent = m.email === cu.email;
+      const icon = isSub ? 'fa-crown' : 'fa-user';
+      const iconColor = isSub ? '#e6b981' : 'var(--accent)';
+      return `
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.04);padding:4px 12px;border-radius:20px;font-size:13px;color:${isCurrent ? 'var(--text)' : 'var(--text2)'};">
+          <i class="fa-solid ${icon}" style="color:${iconColor};font-size:11px;"></i>
+          <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
+        </div>`;
+    }).join('');
+
+    const statusCfg = e.status === 'approved'
+      ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-regular fa-circle-check' }
+      : e.status === 'rejected'
+        ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-regular fa-circle-xmark' }
+        : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock' };
+
+    const typeLabel = et === 'solo' ? 'เดี่ยว' : 'กลุ่ม';
+    const typeColor = et === 'solo' ? 'var(--accent)' : 'var(--orange)';
+    const typeBg = et === 'solo' ? 'rgba(108, 138, 255, 0.15)' : 'rgba(255, 153, 51, 0.15)';
+    const typeIcon = et === 'solo' ? 'fa-user' : 'fa-users';
+    const cardBg = isRej
+      ? 'rgba(255,107,107,0.06)'
+      : et === 'solo' ? 'rgba(155,143,255,0.07)' : 'rgba(255,153,51,0.10)';
+
+    return `
+      <div style="background:${cardBg}; border-radius:16px; border:1px solid ${isRej ? 'rgba(255,107,107,0.12)' : 'rgba(255,255,255,0.02)'}; padding:16px; display:flex; flex-direction:column; justify-content:space-between; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
+        <div style="display:flex; gap:20px; align-items:flex-start;">
+          <div style="display:flex; flex-direction:column; width: 56px; border-radius: 12px; overflow: hidden; text-align: center; flex-shrink: 0;">
+            <div style="background: rgba(61, 69, 76, 0.59); color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 0 4px; text-transform: uppercase;">${month}</div>
+            <div style="background: rgba(26, 22, 22, 0.55); font-size: 22px; font-weight: 700; padding: 4px 0 6px; color: var(--text); font-family: var(--mono);">${day}</div>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+              <div style="font-size: 18px; font-weight: 700; color: var(--text);">${e.activity || 'กิจกรรม'}</div>
+              <div style="display:flex; align-items:center; gap: 6px; background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;">
+                <i class="fa-solid ${typeIcon}" style="font-size: 11px;"></i> ${typeLabel}
+              </div>
+              <div style="display:flex; align-items:center; gap: 6px; color: ${statusCfg.color}; font-size: 14px; font-weight: 600;">
+                <i class="${statusCfg.icon}"></i> ${statusCfg.label}
+              </div>
+            </div>
+            <div style="font-size:15px; color:var(--text2); font-family:var(--mono); display:flex; gap:16px;">
+              <span>${e.id}</span>
+              <span>${fullDate}</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:24px; font-weight:700; color:${isRej ? 'var(--text3)' : 'var(--green)'}; font-family:var(--mono); line-height:1;${isRej ? 'text-decoration:line-through;opacity:0.5;' : ''}"><span style="font-size:16px; color:var(--text3); margin-right:4px;">฿</span>${reward.toLocaleString()}</div>
+          </div>
+        </div>
+        ${isRej ? `
+        <div style="display:flex;align-items:flex-start;gap:8px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.2);border-radius:8px;padding:8px 12px;margin-top:10px;">
+          <i class="fa-solid fa-circle-xmark" style="color:var(--red);font-size:13px;margin-top:3px;flex-shrink:0;"></i>
+          <div>
+            <div style="font-size:12px;color:var(--red);opacity:0.7;font-weight:600;margin-bottom:2px;">เหตุผลที่ไม่อนุมัติ${e.rejectedBy ? ` — โดย ${e.rejectedBy}` : ''}</div>
+            <div style="font-size:14px;color:${e.rejectReason ? 'var(--red)' : 'var(--text3)'};font-weight:500;">${e.rejectReason || 'ไม่ได้ระบุเหตุผล'}</div>
+          </div>
+        </div>` : ''}
+        <div style="margin-top: 12px; display:flex; justify-content:space-between; align-items:flex-end;">
+          <div style="display:flex; flex-wrap:wrap; gap:3px;">${chips}</div>
+          <div style="font-size:14px; color:var(--text3); cursor:pointer; font-weight:500; display:flex; align-items:center; gap:6px; padding: 4px 8px; transition: color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" onclick="viewExDetail('${e.id}')">
+            รายละเอียด <i class="fa-solid fa-chevron-right" style="font-size:11px; opacity:0.7;"></i>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  // ── Weekly Groups (active only) ─────────────────────────────────────────
   const groups = {};
-  filtered.forEach(e => {
+  activeFiltered.forEach(e => {
     const wk = wkKey(e.date);
     if (!groups[wk]) groups[wk] = [];
     groups[wk].push(e);
   });
 
-  const sortedWeeks = Object.keys(groups).sort().reverse();
+  const fmtShort = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  const _soloWkLimit = (cu.locationType || 'bkk') === 'bkk' ? 2 : 3;
 
-  elList.innerHTML = sortedWeeks.map(wk => {
+  const weeklyHtml = Object.keys(groups).sort().reverse().map(wk => {
     const items = groups[wk];
     const wkNum = weekOpts.indexOf(wk) + 1;
     let [wy, wm, wd] = wk.split('-').map(Number);
@@ -3973,133 +4099,48 @@ function renderExHistory() {
     let we = new Date(ws); we.setDate(ws.getDate() + 6);
     if (we > dEnd) we.setTime(dEnd.getTime());
 
-    const fmtShort = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-    const wkLabel = `สัปดาห์ที่ ${wkNum}`;
-    const dateRange = `${fmtShort(ws)} – ${fmtShort(we)}`;
-
-    const wkSolo = items.filter(e => getExType(e) === 'solo' && e.status !== 'rejected').length;
-    const wkGrp = items.filter(e => isGroupEx(getExType(e)) && e.status !== 'rejected').length;
-
-    const _soloWkLimit = (cu.locationType || 'bkk') === 'bkk' ? 2 : 3;
+    const wkSolo = items.filter(e => getExType(e) === 'solo').length;
+    const wkGrp  = items.filter(e => isGroupEx(getExType(e))).length;
     const soloStatus = wkSolo >= _soloWkLimit ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkSolo}/${_soloWkLimit}</span>`;
-    const grpStatus = wkGrp >= 1 ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkGrp}/1</span>`;
-
-    // Helper for history card
-    const renderHistCard = (e) => {
-      const et = getExType(e);
-      const reward = EX_REWARD[et] || 100;
-
-      const d = new Date(e.date);
-      const day = d.getDate();
-      const month = d.toLocaleDateString('th-TH', { month: 'short' });
-      const fullDate = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
-
-      const allMembers = [
-        { email: e.email, name: e.name, kind: 'submitter' },
-        ...(e.members || []).map(m => ({ email: m.email, name: m.name, kind: m.type, dept: m.dept }))
-      ];
-
-      const chips = allMembers.map(m => {
-        const isSub = m.kind === 'submitter';
-        const isCurrent = m.email === cu.email;
-        const icon = isSub ? 'fa-crown' : 'fa-user';
-        const iconColor = isSub ? '#e6b981' : 'var(--accent)';
-        const bg = 'rgba(255,255,255,0.06)';
-        const border = '1px solid rgba(255,255,255,0.04)';
-        const fg = isCurrent ? 'var(--text)' : 'var(--text2)';
-
-        return `
-          <div style="display:flex;align-items:center;gap:6px;background:${bg};border:${border};padding:4px 12px;border-radius:20px;font-size:13px;color:${fg};">
-            <i class="fa-solid ${icon}" style="color:${iconColor};font-size:11px;"></i>
-            <span style="font-weight:500;">${uNick(m.email, m.name)}</span>
-          </div>`;
-      }).join('');
-
-      const statusCfg = e.status === 'approved'
-        ? { label: 'อนุมัติแล้ว', color: 'var(--green)', icon: 'fa-regular fa-circle-check' }
-        : e.status === 'rejected'
-          ? { label: 'ไม่อนุมัติ', color: 'var(--red)', icon: 'fa-regular fa-circle-xmark' }
-          : { label: 'รออนุมัติ', color: 'var(--yellow)', icon: 'fa-regular fa-clock' };
-
-      const typeLabel = et === 'solo' ? 'เดี่ยว' : 'กลุ่ม';
-      const typeColor = et === 'solo' ? 'var(--accent)' : 'var(--orange)';
-      const typeBg = et === 'solo' ? 'rgba(108, 138, 255, 0.15)' : 'rgba(255, 153, 51, 0.15)';
-      const typeIcon = et === 'solo' ? 'fa-user' : 'fa-users';
-
-      return `
-        <div style="background:${et === 'solo' ? 'rgba(155,143,255,0.07)' : 'rgba(255,153,51,0.10)'}; border-radius:16px; border:1px solid rgba(255,255,255,0.02); padding:16px; display:flex; flex-direction:column; justify-content:space-between; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='none'; this.style.boxShadow='none'">
-          
-          <div style="display:flex; gap:20px; align-items:flex-start;">
-            <!-- Calendar Block -->
-            <div style="display:flex; flex-direction:column; width: 56px; border-radius: 12px; overflow: hidden; text-align: center; flex-shrink: 0;">
-              <div style="background: rgba(61, 69, 76, 0.59); color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 0 4px; text-transform: uppercase;">${month}</div>
-              <div style="background: rgba(26, 22, 22, 0.55); font-size: 22px; font-weight: 700; padding: 4px 0 6px; color: var(--text); font-family: var(--mono);">${day}</div>
-            </div>
-            
-            <!-- Info -->
-            <div style="flex:1; min-width:0;">
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
-                <div style="font-size: 18px; font-weight: 700; color: var(--text);">${e.activity || 'กิจกรรม'}</div>
-                <div style="display:flex; align-items:center; gap: 6px; background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;">
-                  <i class="fa-solid ${typeIcon}" style="font-size: 11px;"></i> ${typeLabel}
-                </div>
-                <div style="display:flex; align-items:center; gap: 6px; color: ${statusCfg.color}; font-size: 14px; font-weight: 600;">
-                  <i class="${statusCfg.icon}"></i> ${statusCfg.label}
-                </div>
-              </div>
-              <div style="font-size:15px; color:var(--text2); font-family:var(--mono); display:flex; gap:16px;">
-                <span>${e.id}</span>
-                <span>${fullDate}</span>
-              </div>
-            </div>
-            
-            <!-- Reward (Desktop) -->
-            <div style="text-align:right;">
-              <div style="font-size:24px; font-weight:700; color:var(--green); font-family:var(--mono); line-height:1;"><span style="font-size:16px; color:var(--text3); margin-right:4px;">฿</span>${reward.toLocaleString()}</div>
-            </div>
-          </div>
-
-          <div style="margin-top: 12px; display:flex; justify-content:space-between; align-items:flex-end;">
-            <div style="display:flex; flex-wrap:wrap; gap:3px;">
-              ${chips}
-            </div>
-            <div style="font-size:14px; color:var(--text3); cursor:pointer; font-weight:500; display:flex; align-items:center; gap:6px; padding: 4px 8px; transition: color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" onclick="viewExDetail('${e.id}')">
-              รายละเอียด <i class="fa-solid fa-chevron-right" style="font-size:11px; opacity:0.7;"></i>
-            </div>
-          </div>
-        </div>`;
-    };
+    const grpStatus  = wkGrp  >= 1            ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkGrp}/1</span>`;
 
     return `
       <div style="background:var(--surface3); border-radius:16px; border:1px solid var(--border2); padding: 24px; margin-bottom: 16px;">
-        <!-- Week Header -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:16px;">
-           <div style="display:flex; align-items:center; gap:12px;">
-             <div style="background: rgba(126, 102, 15, 0.52); color: var(--text); font-family: var(--mono); font-weight: 700; font-size: 22x; padding: 2px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">W${wkNum}</div>
-             <div>
-               <div style="font-size:16px; font-weight:700; color:var(--text);">${wkLabel}</div>
-               <div style="font-size:13px; color:var(--text3);">${dateRange}</div>
-             </div>
-           </div>
-           <div style="display:flex; gap:12px; font-size:13px; background:rgba(255,255,255,0.03); padding:6px 16px; border-radius:24px; border:1px solid var(--border2);">
-             <div style="display:flex; gap:6px; align-items:center;">
-               <span style="color:var(--text2);">เดี่ยว</span>
-               ${soloStatus}
-             </div>
-             <div style="width:1px; height:14px; background:var(--border2); align-self:center;"></div>
-             <div style="display:flex; gap:6px; align-items:center;">
-               <span style="color:var(--text2);">กลุ่ม</span>
-               ${grpStatus}
-             </div>
-           </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="background: rgba(126, 102, 15, 0.52); color: var(--text); font-family: var(--mono); font-weight: 700; padding: 2px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">W${wkNum}</div>
+            <div>
+              <div style="font-size:16px; font-weight:700; color:var(--text);">สัปดาห์ที่ ${wkNum}</div>
+              <div style="font-size:13px; color:var(--text3);">${fmtShort(ws)} – ${fmtShort(we)}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; font-size:13px; background:rgba(255,255,255,0.03); padding:6px 16px; border-radius:24px; border:1px solid var(--border2);">
+            <div style="display:flex; gap:6px; align-items:center;"><span style="color:var(--text2);">เดี่ยว</span>${soloStatus}</div>
+            <div style="width:1px; height:14px; background:var(--border2); align-self:center;"></div>
+            <div style="display:flex; gap:6px; align-items:center;"><span style="color:var(--text2);">กลุ่ม</span>${grpStatus}</div>
+          </div>
         </div>
-
-        <div class="review-grid" style="align-items:start;">
-          ${items.map(renderHistCard).join('')}
-        </div>
-      </div>
-    `;
+        <div class="review-grid" style="align-items:start;">${items.map(renderHistCard).join('')}</div>
+      </div>`;
   }).join('');
+
+  // ── Rejected Section ───────────────────────────────────────────────────
+  const rejectedHtml = rejectedFiltered.length ? `
+    <div style="margin-top:8px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="width:4px;height:22px;background:var(--red);border-radius:4px;"></div>
+        <div style="font-size:16px;font-weight:700;color:var(--red);">ไม่อนุมัติ</div>
+        <div style="background:var(--red-bg);color:var(--red);font-size:13px;font-weight:700;padding:2px 10px;border-radius:20px;">${rejectedFiltered.length} รายการ</div>
+      </div>
+      <div style="background:rgba(255,107,107,0.03);border:1px solid rgba(255,107,107,0.12);border-radius:16px;padding:16px;">
+        <div class="review-grid" style="align-items:start;">${rejectedFiltered.map(renderHistCard).join('')}</div>
+      </div>
+    </div>` : '';
+
+  elList.innerHTML = (activeFiltered.length
+    ? weeklyHtml
+    : '<div style="text-align:center;padding:40px;color:var(--text3);font-size:15px;background:var(--surface2);border-radius:12px;border:1px dashed var(--border2);">ยังไม่มีกิจกรรมที่อนุมัติในเดือนนี้</div>'
+  ) + rejectedHtml;
 }
 
 window.onload = tryRestore;
