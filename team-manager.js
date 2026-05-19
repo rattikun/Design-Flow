@@ -2207,9 +2207,13 @@ function submitEx() {
       if (moGrp >= 4) { showExErr(`⚠️ โควต้ากิจกรรมกลุ่มเดือนนี้เต็มแล้ว<br>สูงสุด 4 ครั้ง/เดือน (รวมทุกประเภทกลุ่ม) ใช้ไปแล้ว ${moGrp} ครั้ง`); return; }
     }
 
-    const reward = EX_REWARD[exType] || 100;
     const sysCount = isGroupEx(exType) ? exMembers.filter(m => m.type === 'sys').length : 0;
     const count = 1 + sysCount;
+    if (isGroupEx(exType) && count < 3) {
+      showExErr(`⚠️ กิจกรรมกลุ่มต้องมีสมาชิกอย่างน้อย 3 คน (ขณะนี้มี ${count} คน)<br>กรุณาเพิ่มสมาชิกให้ครบก่อนยื่น`);
+      return;
+    }
+    const reward = EX_REWARD[exType] || 100;
     const total = reward;
     const summary = `
       <div style="margin-bottom:12px;padding:12px;background:var(--surface3);border-radius:8px;border:1px solid var(--border);">
