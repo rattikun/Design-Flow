@@ -2581,8 +2581,11 @@ function renderExR() {
           <div style="width:1px;height:40px;background:rgba(255,255,255,0.05);margin:0 8px;"></div>
           <div style="flex:1;position:relative;">
             <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;"></i>
-            <input type="text" id="ex-review-search-input" placeholder="ค้นหาชื่อ, กิจกรรม หรือรหัส DS..." value="${_exReviewSearch || ''}" oninput="setExReviewSearch(this.value)" 
+            <input type="text" id="ex-review-search-input" placeholder="ค้นหาชื่อ, ชื่อเล่น, อีเมล, กิจกรรม หรือรหัส DS..." value="${_exReviewSearch || ''}" oninput="setExReviewSearch(this.value)"
               style="width:100%;height:44px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:0 15px 0 40px;color:#fff;font-size:16px;outline:none;transition:all 0.2s;" />
+            <div style="font-size:13px;color:var(--text3);margin-top:6px;padding-left:4px;">
+              พิมพ์ <span style="font-family:var(--mono);background:rgba(255,255,255,0.06);padding:1px 7px;border-radius:5px;color:var(--accent);">all&nbsp;คำค้นหา</span> เพื่อค้นหาจากข้อมูลทุกเดือน
+            </div>
           </div>
         </div>
       </div>`;
@@ -2597,12 +2600,27 @@ function renderExR() {
     }
   }
 
-  const q = (_exReviewSearch || '').toLowerCase();
-  // ถ้ามี search query ให้ค้นข้ามทุกเดือน ไม่จำกัดแค่เดือนที่เลือก
-  const pool = q ? all : all.filter(e => monthKey(e.date) === mk);
+  const rawSearch = (_exReviewSearch || '').trimStart();
+  const isAllMode = /^all\s/i.test(rawSearch);
+  const q = isAllMode ? rawSearch.slice(4).toLowerCase().trim() : rawSearch.toLowerCase();
+  // all <คำ> = ค้นหาทุกเดือน, ปกติ = เฉพาะเดือนที่เลือก
+  const pool = isAllMode ? all : all.filter(e => monthKey(e.date) === mk);
+  // build email→nickname map สำหรับ search
+  const nickMap = Object.fromEntries(getUsers().map(u => [u.email, (u.nickname || '').toLowerCase()]));
   const filtered = pool.filter(e => {
     if (!q) return true;
-    return (e.name || '').toLowerCase().includes(q) || (e.email || '').toLowerCase().includes(q) || (e.activity || '').toLowerCase().includes(q) || (e.id || '').toString().toLowerCase().includes(q);
+    const nick = nickMap[e.email] || '';
+    if ((e.name || '').toLowerCase().includes(q)) return true;
+    if (nick.includes(q)) return true;
+    if ((e.email || '').toLowerCase().includes(q)) return true;
+    if ((e.activity || '').toLowerCase().includes(q)) return true;
+    if ((e.id || '').toString().toLowerCase().includes(q)) return true;
+    // ค้นหาในรายชื่อสมาชิก (กรณี group exercise)
+    return (e.members || []).some(m =>
+      (m.name || '').toLowerCase().includes(q) ||
+      (m.email || '').toLowerCase().includes(q) ||
+      (nickMap[m.email] || '').includes(q)
+    );
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -2628,8 +2646,11 @@ function renderExR() {
 
   const statsCardEl = document.getElementById('ex-review-stats-card');
   if (statsCardEl) {
+    const statsTitle = isAllMode
+      ? `📊 สรุปทุกเดือน${q ? ` — ค้นหา "${q}"` : ''}`
+      : `📊 สรุปรอบ ${moName}${q ? ` — ค้นหา "${q}"` : ''}`;
     statsCardEl.innerHTML = `
-      <div class="card-title" style="margin-bottom:14px; font-size:18px;">📊 สรุปรอบ ${moName}</div>
+      <div class="card-title" style="margin-bottom:14px; font-size:18px;">${statsTitle}</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         ${statBox('รออนุมัติ', pending.length, 'var(--yellow)')}
         ${statBox('อนุมัติแล้ว', approved.length, 'var(--green)')}
