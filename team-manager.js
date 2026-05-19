@@ -250,7 +250,34 @@ function setupSidebar() {
 // ══ NAVIGATION ═══════════════════════════
 const VALID_PAGES = new Set(['dashboard', 'leave-review', 'leave-pm', 'leave-history', 'leave-balance', 'my-balance', 'exercise-log', 'exercise-share', 'exercise-review', 'leaderboard', 'members', 'team-hist']);
 
+// null = ทุก role เข้าได้, array = เฉพาะ role ที่ระบุ
+const PAGE_ROLES = {
+  'dashboard':        null,
+  'leave-history':    null,
+  'exercise-log':     null,
+  'exercise-share':   null,
+  'my-balance':       null,
+  'leave-review':     ['lead'],
+  'leave-pm':         ['pm'],
+  'leave-balance':    ['lead', 'pm'],
+  'exercise-review':  ['pm'],
+  'leaderboard':      ['lead', 'pm'],
+  'members':          ['lead', 'pm'],
+  'team-hist':        ['lead', 'pm'],
+};
+
+function canAccessPage(id) {
+  if (!cu) return false;
+  const allowed = PAGE_ROLES[id];
+  return allowed === null || allowed === undefined || allowed.includes(cu.role);
+}
+
 function showPage(id, { updateHash = true } = {}) {
+  if (!canAccessPage(id)) {
+    console.warn(`[Route Guard] ไม่มีสิทธิ์เข้าหน้า "${id}" (role: ${cu?.role}) — redirect ไป dashboard`);
+    showPage('dashboard');
+    return;
+  }
   closeSidebar();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
