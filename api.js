@@ -484,7 +484,9 @@ function mapLeaveFromAPI(l) {
     addedBy: l.addedBy || null,
     dept: l.dept,
     reviewedBy: l.reviewedBy || '',
-    reviewedAt: l.reviewedAt || ''
+    reviewedAt: l.reviewedAt || '',
+    rejectReason: l.reject_reason || l.rejectReason || '',
+    rejectedBy: l.rejected_by || l.rejectedBy || ''
   };
 }
 

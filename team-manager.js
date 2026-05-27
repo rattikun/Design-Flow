@@ -979,7 +979,7 @@ function renderLR() {
     </div>`;
   }).join('');
 }
-function lAct(id, action) {
+function lAct(id, action, rejectReason) {
   const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
   const r = ls[idx]; r.leadNote = document.getElementById('ln-' + id)?.value || '';
   r.leadAction = action;
@@ -988,7 +988,32 @@ function lAct(id, action) {
     toast('✅ ส่งต่อใบลาของ ' + r.name + ' ให้ PM พิจารณาแล้ว');
     notifyLeave(r, 'lead_approved_leave', 'pm');
   } else {
+    if (rejectReason === undefined) {
+      // เปิด modal ขอเหตุผลก่อน
+      document.getElementById('conf-title').textContent = 'ระบุเหตุผลไม่อนุมัติใบลา';
+      document.getElementById('conf-body').innerHTML = `
+        <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
+          ใบลาของ <strong style="color:var(--text);">${r.name}</strong> — ${LT[r.type] || r.type}
+        </div>
+        <textarea id="reject-reason-input" placeholder="กรอกเหตุผลที่ไม่อนุมัติ..." rows="3"
+          style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;resize:vertical;outline:none;"></textarea>
+        <div id="reject-reason-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาระบุเหตุผล</div>
+      `;
+      const okBtn = document.getElementById('conf-ok');
+      okBtn.textContent = 'ยืนยันไม่อนุมัติ';
+      okBtn.className = 'btn btn-red';
+      okBtn.onclick = () => {
+        const reason = (document.getElementById('reject-reason-input')?.value || '').trim();
+        if (!reason) { document.getElementById('reject-reason-err').style.display = 'block'; return; }
+        closeModal('modal-confirm');
+        lAct(id, 'reject', reason);
+      };
+      openModal('modal-confirm');
+      return;
+    }
     r.status = 'rejected';
+    r.rejectReason = rejectReason;
+    r.rejectedBy = cu.name;
     toast('✕ ไม่อนุมัติ ' + r.name);
   }
   saveLeaves(ls);
@@ -1034,12 +1059,36 @@ function renderLP() {
     </div>`;
   }).join('');
 }
-function pAct(id, action) {
+function pAct(id, action, rejectReason) {
   const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
   const r = ls[idx];
   r.pmNote = document.getElementById('pn-' + id)?.value || '';
   r.pmAction = action;
+  if (action === 'reject' && rejectReason === undefined) {
+    // เปิด modal ขอเหตุผลก่อน
+    document.getElementById('conf-title').textContent = 'ระบุเหตุผลไม่อนุมัติใบลา';
+    document.getElementById('conf-body').innerHTML = `
+      <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
+        ใบลาของ <strong style="color:var(--text);">${r.name}</strong> — ${LT[r.type] || r.type}
+      </div>
+      <textarea id="reject-reason-input" placeholder="กรอกเหตุผลที่ไม่อนุมัติ..." rows="3"
+        style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;resize:vertical;outline:none;"></textarea>
+      <div id="reject-reason-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาระบุเหตุผล</div>
+    `;
+    const okBtn = document.getElementById('conf-ok');
+    okBtn.textContent = 'ยืนยันไม่อนุมัติ';
+    okBtn.className = 'btn btn-red';
+    okBtn.onclick = () => {
+      const reason = (document.getElementById('reject-reason-input')?.value || '').trim();
+      if (!reason) { document.getElementById('reject-reason-err').style.display = 'block'; return; }
+      closeModal('modal-confirm');
+      pAct(id, 'reject', reason);
+    };
+    openModal('modal-confirm');
+    return;
+  }
   r.status = action === 'approve' ? 'approved' : 'rejected';
+  if (action === 'reject') { r.rejectReason = rejectReason; r.rejectedBy = cu.name; }
   saveLeaves(ls);
   _markLeaveModified(r);
   apiSync('updateLeave', r);
@@ -1092,7 +1141,16 @@ function renderHist(f) {
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
-      <td>${ch[r.status] || ''}</td>
+      <td>
+        ${ch[r.status] || ''}
+        ${r.status === 'rejected' ? `<div style="margin-top:6px;display:flex;align-items:flex-start;gap:6px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.2);border-radius:8px;padding:6px 10px;max-width:220px;">
+          <i class="fa-solid fa-circle-xmark" style="color:var(--red);font-size:12px;margin-top:2px;flex-shrink:0;"></i>
+          <div>
+            ${r.rejectedBy ? `<div style="font-size:11px;color:var(--red);opacity:0.7;font-weight:600;margin-bottom:2px;">โดย ${r.rejectedBy}</div>` : ''}
+            <div style="font-size:13px;color:var(--red);font-weight:500;">${r.rejectReason || 'ไม่ได้ระบุเหตุผล'}</div>
+          </div>
+        </div>` : ''}
+      </td>
       <td>${bFlow(r)}${editBtn}${cancelBtn}${pmDelBtn}</td>
     </tr>`;
   }).join('');
