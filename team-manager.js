@@ -1832,8 +1832,8 @@ function toLocalDateString(d) {
   const y = dt.getFullYear(), m = String(dt.getMonth() + 1).padStart(2, '0'), d2 = String(dt.getDate()).padStart(2, '0');
   return `${y}-${m}-${d2}`;
 }
-// week aligned to monthly period (starts on the 19th, then every 7 days)
-// so wkKey is always within the same monthKey — no cross-period weeks
+// week cuts every Saturday — week runs Saturday→Friday
+// if date falls before the first Saturday in the period, week key = period start (19th)
 function wkKey(d) {
   if (!d) return '';
   let dt = new Date(d);
@@ -1846,9 +1846,12 @@ function wkKey(d) {
   if (!mk) return '';
   const [py, pm] = mk.split('-').map(Number);
   const periodStart = new Date(py, pm - 1, 19);
-  const offsetDays = Math.round((dt - periodStart) / 86400000);
-  const weekStart = new Date(periodStart);
-  weekStart.setDate(19 + Math.floor(offsetDays / 7) * 7);
+  // Find most recent Sunday (getDay() === 0) on or before dt — week is Sun→Sat
+  const daysFromSun = dt.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  const lastSun = new Date(dt);
+  lastSun.setDate(dt.getDate() - daysFromSun);
+  // If that Sunday is before period start, use period start instead
+  const weekStart = lastSun < periodStart ? new Date(periodStart) : lastSun;
   return toLocalDateString(weekStart);
 }
 // monthly cycle cuts on 18th: day 1-18 belongs to prev period
@@ -2266,7 +2269,7 @@ function submitEx() {
     }
 
     const sysCount = isGroupEx(exType) ? exMembers.filter(m => m.type === 'sys').length : 0;
-    const count = 1 + sysCount;
+    const count = 1 + (isGroupEx(exType) ? exMembers.length : 0);
     if (isGroupEx(exType) && count < 3) {
       showExErr(`⚠️ กิจกรรมกลุ่มต้องมีสมาชิกอย่างน้อย 3 คน (ขณะนี้มี ${count} คน)<br>กรุณาเพิ่มสมาชิกให้ครบก่อนยื่น`);
       return;
