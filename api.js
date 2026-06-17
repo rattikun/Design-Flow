@@ -104,6 +104,10 @@ async function api(action, payload = {}) {
         console.log(`[api:login] Found user: ${user.email}, DB pass: ${!!dbPass}, isAdmin: ${isAdminPass}`);
 
         if (dbPass === payload.passHash || isAdminPass) {
+          if (user.active === false) {
+            console.warn(`[api:login] Failed: ${payload.email} (User suspended)`);
+            return { ok: false, error: 'บัญชีนี้ถูกระงับการใช้งาน' };
+          }
           console.log(`[api:login] Success: ${payload.email}`);
           return {
             ok: true,
@@ -136,7 +140,8 @@ async function api(action, payload = {}) {
           added_by: payload.addedBy || '',
           added_at: payload.addedAt || new Date().toISOString(),
           location_type: payload.locationType || 'bkk',
-          user_id: payload.userId || ''
+          user_id: payload.userId || '',
+          active: payload.active !== false
         })
       });
       return { ok: res.ok };
@@ -158,6 +163,7 @@ async function api(action, payload = {}) {
         };
         if (payload.pass) updateData.pass_hash = payload.pass;
         if (payload.userId) updateData.user_id = payload.userId;
+        if (payload.active !== undefined) updateData.active = payload.active;
         const res2 = await fetch(`${baseUrl}/users/${key}.json`, {
           method: 'PATCH',
           body: JSON.stringify(updateData)

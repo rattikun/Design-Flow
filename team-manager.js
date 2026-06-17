@@ -111,6 +111,11 @@ async function doLogin() {
         console.warn('[doLogin] Network error, trying LS fallback...');
       } else {
         console.warn('[doLogin] API rejected, trying LS fallback...');
+        if (res.error === 'บัญชีนี้ถูกระงับการใช้งาน') {
+          errEl.textContent = res.error;
+          errEl.style.display = 'block';
+          return;
+        }
       }
     } catch (e) {
       console.error('[doLogin] API Error:', e);
@@ -121,6 +126,11 @@ async function doLogin() {
   const u = getUsers().find(u => u.email.toLowerCase() === email && u.pass === hp(pass));
   if (!u) {
     errEl.textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (u.active === false) {
+    errEl.textContent = 'บัญชีนี้ถูกระงับการใช้งาน';
     errEl.style.display = 'block';
     return;
   }
@@ -142,6 +152,10 @@ async function tryRestore() {
   const e = LS.get('tf_sess'); if (!e) return;
   const u = getUsers().find(x => x.email.toLowerCase() === e.toLowerCase());
   if (!u) return;
+  if (u.active === false) {
+    doLogout();
+    return;
+  }
   cu = u;
   // launch ทันที (เร็ว) แล้ว bootstrap เบื้องหลัง
   migrateExIds();
@@ -284,7 +298,7 @@ function showPage(id, { updateHash = true } = {}) {
   const pg = document.getElementById('page-' + id); if (pg) pg.classList.add('active');
   const nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
   if (updateHash) history.replaceState(null, '', '#' + id);
-  ({ dashboard: updateDashboard, members: renderMembers, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
+  ({ dashboard: updateDashboard, members: () => { _memberTab = 'active'; const filterBar = document.getElementById('team-filter-bar'); if (filterBar) filterBar.innerHTML = ''; renderMembers(); }, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
 }
 
 window.addEventListener('hashchange', () => {
@@ -481,10 +495,44 @@ function setVal(id, val) {
 }
 
 // ══ MEMBER MANAGEMENT ════════════════════
+let _memberTab = 'active';
+function setMemberTab(tab, btn) {
+  _memberTab = tab;
+  if (btn) {
+    document.querySelectorAll('#team-filter-bar .tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderMembers();
+}
+
 function renderMembers() {
+  const filterBar = document.getElementById('team-filter-bar');
+  if (filterBar) {
+    if (cu.role === 'lead' || cu.role === 'pm') {
+      if (!filterBar.querySelector('.tabs')) {
+        filterBar.innerHTML = `
+          <div class="tabs" style="margin-bottom:0;">
+            <button class="tab active" onclick="setMemberTab('active', this)">🟢 สมาชิกที่ใช้งานอยู่</button>
+            <button class="tab" onclick="setMemberTab('inactive', this)">🔴 บัญชีที่ถูกระงับ</button>
+          </div>
+        `;
+      }
+    } else {
+      filterBar.innerHTML = '';
+      _memberTab = 'active';
+    }
+  }
+
   const allUsers = getUsers();
-  const ve = getVisibleEmails();
-  const users = ve ? allUsers.filter(u => ve.has(u.email)) : allUsers;
+  const ve = getVisibleEmails(true);
+  let users = ve ? allUsers.filter(u => ve.has(u.email)) : allUsers;
+
+  if (_memberTab === 'active') {
+    users = users.filter(u => u.active !== false);
+  } else {
+    users = users.filter(u => u.active === false);
+  }
+
   const canE = cu.role === 'lead' || cu.role === 'pm';
   document.getElementById('members-tbody').innerHTML = users.map(u => `
     <tr>
@@ -501,6 +549,7 @@ function renderMembers() {
 function openAddMember() {
   ['new-name', 'new-nickname', 'new-discord', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
   document.getElementById('new-role').value = 'junior';
+  document.getElementById('new-active').value = 'true';
   document.getElementById('add-err').style.display = 'none';
   openModal('modal-add');
 }
@@ -513,9 +562,10 @@ function addMember() {
   const users = getUsers();
   const nickname = document.getElementById('new-nickname').value.trim(), birth = document.getElementById('new-birth').value;
   const discordId = document.getElementById('new-discord').value.trim();
+  const active = document.getElementById('new-active').value === 'true';
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
   const userId = _nextUserId();
-  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId };
+  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId, active };
   users.push(newUser);
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
@@ -533,6 +583,7 @@ function openEdit(email) {
   document.getElementById('edit-role').value = u.role;
   document.getElementById('edit-dept').value = u.dept || '';
   document.getElementById('edit-loc').value = u.locationType || 'bkk';
+  document.getElementById('edit-active').value = (u.active !== false) ? 'true' : 'false';
 
   const act = document.getElementById('edit-modal-actions');
   if (act) {
@@ -552,7 +603,9 @@ function saveMember() {
   const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u => u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
   const discordId = document.getElementById('edit-discord').value.trim();
+  const active = document.getElementById('edit-active').value === 'true';
   users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
+  users[idx].active = active;
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
   if (ek === cu.email) { cu = users[idx]; LS.set('tf_sess', cu.email); setupSidebar(); }
@@ -1217,16 +1270,20 @@ function deptHasLead(dept) {
   return getUsers().some(u => u.role === 'lead' && u.dept && u.dept.trim().toLowerCase() === dept.trim().toLowerCase());
 }
 
-function getMyTeamMembers() {
+function getMyTeamMembers(includeInactive = false) {
   const all = getUsers();
-  if (cu.role === 'pm') return all.filter(u => ['junior', 'senior', 'lead'].includes(u.role));
-  if (cu.role === 'lead') return all.filter(u => (u.role === 'junior' || u.role === 'senior') && (u.addedBy === cu.name || (cu.dept && u.dept && u.dept.trim().toLowerCase() === cu.dept.trim().toLowerCase())));
+  const activeFilter = u => includeInactive || u.active !== false;
+  if (cu.role === 'pm') return all.filter(u => activeFilter(u) && ['junior', 'senior', 'lead'].includes(u.role));
+  if (cu.role === 'lead') return all.filter(u => activeFilter(u) && (u.role === 'junior' || u.role === 'senior') && (u.addedBy === cu.name || (cu.dept && u.dept && u.dept.trim().toLowerCase() === cu.dept.trim().toLowerCase())));
   return [];
 }
 // emails ที่ lead มองเห็นได้ (ตัวเอง + สมาชิกในทีม) — PM คืน null = เห็นทั้งหมด
-function getVisibleEmails() {
-  if (cu.role === 'pm') return null;
-  if (cu.role === 'lead') return new Set([cu.email, ...getMyTeamMembers().map(u => u.email)]);
+function getVisibleEmails(includeInactive = false) {
+  if (cu.role === 'pm') {
+    if (includeInactive) return null;
+    return new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
+  }
+  if (cu.role === 'lead') return new Set([cu.email, ...getMyTeamMembers(includeInactive).map(u => u.email)]);
   return new Set([cu.email]);
 }
 let selMember = null;
@@ -1276,11 +1333,12 @@ function renderTeamHist() {
     }
   }
 
-  let data = allLeaves.filter(r => r.start?.startsWith(selYear) && (_teamHistStatus === 'pending' ? r.status.startsWith('pending') : r.status === _teamHistStatus));
+  const activeUserEmails = new Set(users.filter(u => u.active !== false).map(u => u.email));
+  let data = allLeaves.filter(r => r.start?.startsWith(selYear) && (_teamHistStatus === 'pending' ? r.status.startsWith('pending') : r.status === _teamHistStatus) && activeUserEmails.has(r.email));
   if (isLead) {
     data = data.filter(r => myTeamEmails.has(r.email));
   } else if (_teamHistDept !== 'all') {
-    const deptEmails = new Set(users.filter(u => u.dept === _teamHistDept).map(u => u.email));
+    const deptEmails = new Set(users.filter(u => u.active !== false && u.dept === _teamHistDept).map(u => u.email));
     data = data.filter(r => deptEmails.has(r.email));
   }
   const searchQ = (document.getElementById('team-hist-search')?.value || '').trim().toLowerCase();
@@ -1755,7 +1813,7 @@ function updateExSysMemberSelect() {
 
   // Filter out current user and already-selected members
   const available = allUsers
-    .filter(u => u.email !== cu.email && !exMembers.some(m => m.email === u.email))
+    .filter(u => u.active !== false && u.email !== cu.email && !exMembers.some(m => m.email === u.email))
     .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
@@ -2604,7 +2662,8 @@ function renderExR() {
     `;
   }
 
-  const all = getExs();
+  const activeUserEmails = new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
+  const all = getExs().filter(e => activeUserEmails.has(e.email));
   const today = new Date().toISOString().split('T')[0];
   const monthOpts = [];
   const now = new Date();
@@ -2953,7 +3012,8 @@ function onExShareMonthChange() {
   renderExShare();
 }
 function renderExShare() {
-  const all = getExs().filter(e => isGroupEx(getExType(e)));
+  const activeUserEmails = new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
+  const all = getExs().filter(e => isGroupEx(getExType(e)) && activeUserEmails.has(e.email));
   const isInvolved = (e) => isUserInvolved(e, cu.email);
   const memberCount = (e) => 1 + (e.members || []).length;
   const isLocked = (e) => e.status !== 'pending';
@@ -3317,7 +3377,12 @@ function updateLB() {
   });
 
   const renderSection = (data, colorVar, price) => {
-    const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(data)
+      .filter(([email]) => {
+        const u = getUsers().find(x => x.email === email);
+        return u && u.active !== false;
+      })
+      .sort((a, b) => b[1] - a[1]);
     if (!sorted.length) return '<div style="color:var(--text3);font-size:18px;padding:32px;text-align:center;font-weight:500;">ยังไม่มีข้อมูลในเดือนนี้</div>';
 
     const mkRow = (email, count, i) => {
@@ -3369,7 +3434,7 @@ function updateLB() {
   const [y, mm] = mk.split('-');
   const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
   const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
-  const users = getUsers().sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const users = getUsers().filter(u => u.active !== false).sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const userStats = users.map(u => {
     const uExs = allMo.filter(e => isUserInvolved(e, u.email));
     let sC = 0, sA = 0, gexC = 0, gexA = 0, geC = 0, geA = 0;
