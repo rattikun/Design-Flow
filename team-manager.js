@@ -309,7 +309,7 @@ window.addEventListener('hashchange', () => {
 
 // ══ INIT ═════════════════════════════════
 function initApp() {
-  const t = new Date().toISOString().split('T')[0];
+  const t = toLocalDateString(new Date());
   ['leave-start', 'leave-end', 'ex-date'].forEach(id => setVal(id, t));
   document.getElementById('leave-name').value = cu.name;
   document.getElementById('ex-name').value = cu.name;
@@ -433,6 +433,9 @@ function _syncNativeFromDisplay(wrap, native, onChange) {
 function initNativeDateInput(id, onChange) {
   const native = document.getElementById(id);
   if (!native) return;
+  if (id === 'ex-date') {
+    native.setAttribute('max', toLocalDateString(new Date()));
+  }
   const wrap = native.closest('.date-wrap');
   if (!wrap) return;
   const dEl = wrap.querySelector('[data-part="d"]');
@@ -2301,6 +2304,12 @@ function submitEx() {
     if (!link) missing.push('หลักฐาน (ลิงก์)');
     if (missing.length) {
       showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• '));
+      return;
+    }
+
+    const today = toLocalDateString(new Date());
+    if (date > today) {
+      showExErr('⚠️ ไม่สามารถยื่นออกกำลังกายล่วงหน้าได้');
       return;
     }
 
@@ -4277,7 +4286,7 @@ function openExModal() {
   openModal('modal-ex-form');
   setupExForm();
   document.getElementById('ex-name').value = cu.name;
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString(new Date());
   setVal('ex-date', today);
   updateQuota();
 }
