@@ -3,6 +3,10 @@
  * ────────────────────────────────────────────
  */
 
+// [SECURITY] หากต้องการใช้ระบบ Secret Path (แก้เรื่องคำเตือนและป้องกันบอท) ให้ระบุคีย์ลับที่นี่ (เช่น 'design_flow_v1')
+// หากเว้นว่างไว้ ('') จะเป็นการเข้าถึงระดับบนสุด (Root) ของ Firebase ตามเดิม
+const DB_PATH_KEY = 'design_flow_v1';
+
 const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.app/';
 // [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
@@ -75,15 +79,35 @@ function n8nUrl(url) {
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
-
+/**
+ * Helper to fetch from Firebase and parse error responses cleanly
+ */
+async function fetchFirebase(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let errMsg = `HTTP ${res.status}`;
+    try {
+      const errJson = await res.json();
+      if (errJson && errJson.error) {
+        errMsg = errJson.error;
+      }
+    } catch {}
+    throw new Error(errMsg);
+  }
+  return res;
+}
 
 /**
  * Core API helper for Firebase Realtime Database
  */
 async function api(action, payload = {}) {
+  const fetch = fetchFirebase; // Shadow global fetch inside api function to catch errors
   try {
     // Clean URL (remove trailing slash from DB_URL if present)
-    const baseUrl = DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL;
+    let baseUrl = DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL;
+    if (typeof DB_PATH_KEY !== 'undefined' && DB_PATH_KEY) {
+      baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
+    }
 
     // 1. LOGIN
     if (action === 'login') {
