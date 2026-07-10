@@ -808,3 +808,40 @@ function syncExerciseToSheets(ex, event) {
     })
   }).catch(() => {});
 }
+
+/**
+ * Backfill nickname field into existing leave records in Firebase
+ * Run from browser console: backfillLeaveNicknames()
+ */
+async function backfillLeaveNicknames() {
+  const baseUrl = (DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL) + (DB_PATH_KEY ? `/${DB_PATH_KEY}` : '');
+  const users = typeof getUsers === 'function' ? getUsers() : [];
+
+  console.log('[backfill] Fetching all leaves...');
+  const res = await fetch(`${baseUrl}/leaves.json`);
+  const data = await res.json();
+  if (!data) { console.log('[backfill] No leave data found'); return; }
+
+  const keys = Object.keys(data);
+  let updated = 0, skipped = 0;
+
+  for (const key of keys) {
+    const leave = data[key];
+    if (!leave || leave.nickname) { skipped++; continue; }
+
+    const u = users.find(x => x.email === leave.email);
+    const nickname = u ? (u.nickname || u.name.split(' ')[0]) : (leave.name || '').split(' ')[0];
+
+    await fetch(`${baseUrl}/leaves/${key}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname })
+    });
+
+    console.log(`[backfill] ✅ ${leave.email} → nickname: "${nickname}"`);
+    updated++;
+  }
+
+  console.log(`[backfill] Done — updated: ${updated}, skipped (already had nickname): ${skipped}`);
+}
+}
