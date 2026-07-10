@@ -956,8 +956,8 @@ function submitLeave() {
       if (da < 7) { toast('⏰ ต้องลาล่วงหน้า 7 วัน (ตอนนี้ ' + da + ' วัน)'); return; }
     }
   }
-  let targetEmail = cu.email, targetName = cu.nickname || cu.name.split(' ')[0];
-  if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.nickname || m.name.split(' ')[0]; } }
+  let targetEmail = cu.email, targetName = cu.name, targetNickname = cu.nickname || cu.name.split(' ')[0];
+  if (forMemberEmail) { const m = getUsers().find(u => u.email === forMemberEmail); if (m) { targetEmail = m.email; targetName = m.name; targetNickname = m.nickname || m.name.split(' ')[0]; } }
   // เช็กวันก่อนหน้า start ว่ามีใบลาของ targetEmail อยู่แล้วหรือไม่
   const _aPrev = new Date(start + 'T00:00:00'); _aPrev.setDate(_aPrev.getDate() - 1);
   const _aPrevDay = _aPrev.toISOString().slice(0, 10);
@@ -965,7 +965,7 @@ function submitLeave() {
   const needDocAdd = (type === 'sick' && (diff >= 2 || _aPrevLeave));
   if (needDocAdd && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์' + (_aPrevLeave ? ' (ต่อเนื่องจากการลาวันก่อนหน้า)' : '')); return; }
   const conf = leaveConflict(targetEmail, start, end, isHalf, period, null);
-  if (conf) { toast('⚠️ ' + (forMemberEmail ? targetName : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
+  if (conf) { toast('⚠️ ' + (forMemberEmail ? targetNickname : 'คุณ') + ' มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
   const isPM = cu.role === 'pm';
   const isLead = cu.role === 'lead';
   const ls = getLeaves();
@@ -983,7 +983,7 @@ function submitLeave() {
   LS.set('tf_lid_counter', String(_newId));
   const _yr = new Date().getFullYear();
   const _refNo = 'LV' + _yr + '-' + String(_newId).padStart(4, '0');
-  const newLeave = { id: _newId, refNo: _refNo, name: targetName, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
+  const newLeave = { id: _newId, refNo: _refNo, name: targetName, nickname: targetNickname, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
   ls.unshift(newLeave);
   saveLeaves(ls);
   _pendingNewLeaves.set(newLeave.id, newLeave);
