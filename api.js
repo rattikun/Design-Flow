@@ -71,7 +71,7 @@ function getHolidaySet() {
 
 // ── N8N MODE ─────────────────────────────────
 // true = ส่งไป webhook-test (ทดสอบ), false = production
-const N8N_TEST_MODE = true;
+const N8N_TEST_MODE = false;
 function n8nUrl(url) {
   if (!url) return url;
   return N8N_TEST_MODE ? url.replace('/webhook/', '/webhook-test/') : url;
