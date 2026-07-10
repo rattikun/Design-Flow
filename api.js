@@ -844,4 +844,3 @@ async function backfillLeaveNicknames() {
 
   console.log(`[backfill] Done — updated: ${updated}, skipped (already had nickname): ${skipped}`);
 }
-}
