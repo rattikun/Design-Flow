@@ -2240,6 +2240,7 @@
               <button class="tab active" onclick="filterHist('pending',this)">รออนุมัติ</button>
               <button class="tab" onclick="filterHist('approved',this)">อนุมัติแล้ว</button>
               <button class="tab" onclick="filterHist('rejected',this)">ปฏิเสธ</button>
+              <button id="tab-need-doc" class="tab" onclick="filterHist('need_doc',this)" style="display:none;color:var(--yellow);border-color:rgba(245,200,66,.4);">⚠️ รอเอกสาร</button>
             </div>
             <select id="hist-year" onchange="filterHist(null,null)"
               style="width:auto;font-size:15px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);border:1px solid var(--border);"></select>
@@ -2968,8 +2969,8 @@
 
   <div id="toast"></div>
 
-  <script src="api.js?v=20260710a"></script>
-  <script src="team-manager.js?v=20260710a"></script>
+  <script src="api.js?v=20260713a"></script>
+  <script src="team-manager.js?v=20260713a"></script>
 </body>
 
 </html>

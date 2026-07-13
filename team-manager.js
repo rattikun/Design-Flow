@@ -309,7 +309,7 @@ function showPage(id, { updateHash = true } = {}) {
   const pg = document.getElementById('page-' + id); if (pg) pg.classList.add('active');
   const nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
   if (updateHash) history.replaceState(null, '', '#' + id);
-  ({ dashboard: updateDashboard, members: () => { _memberTab = 'active'; const filterBar = document.getElementById('team-filter-bar'); if (filterBar) filterBar.innerHTML = ''; renderMembers(); }, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist('pending'); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
+  ({ dashboard: updateDashboard, members: () => { _memberTab = 'active'; const filterBar = document.getElementById('team-filter-bar'); if (filterBar) filterBar.innerHTML = ''; renderMembers(); }, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist(_histFilter); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
 }
 
 window.addEventListener('hashchange', () => {
@@ -973,7 +973,7 @@ function submitLeave() {
   const targetDept = (targetUser && targetUser.dept) ? targetUser.dept : (cu.dept || '');
   let initialStatus;
   if (isPM && forMemberEmail) initialStatus = 'approved';
-  else if (isPM) initialStatus = 'pending_pm';
+  else if (isPM) initialStatus = 'approved'; // PM's own leave is auto-approved
   else if (isLead) initialStatus = 'pending_pm';
   else initialStatus = deptHasLead(targetDept) ? 'pending_lead' : 'pending_pm';
   const _maxFromLeaves = ls.length ? Math.max(...ls.map(l => l.id || 0)) : 0;
@@ -993,6 +993,9 @@ function submitLeave() {
   if (!isPM) {
     if (isLead) notifyLeave(newLeave, 'new_leave_lead', 'pm');
     else notifyLeave(newLeave, 'new_leave_member', 'lead');
+  } else if (!forMemberEmail) {
+    // PM's own leave is auto-approved — sync to Sheets
+    if (typeof syncLeaveApprovedToSheets === 'function') syncLeaveApprovedToSheets(newLeave, cu.name);
   }
 
   updateBadges(); updateDashboard(); clearLeaveForm(); renderMyBal(); closeModal('modal-leave');
@@ -1198,7 +1201,13 @@ function renderHist(f) {
     if (selYear) data = data.filter(r => r.start?.startsWith(selYear));
   }
 
+  // show/hide รอเอกสาร tab
+  const needDocTab = document.getElementById('tab-need-doc');
+  const hasNeedDoc = getLeaves().some(r => r.email === cu.email && r.type === 'dental' && !r.docName);
+  if (needDocTab) needDocTab.style.display = hasNeedDoc ? '' : 'none';
+
   if (f === 'pending') data = data.filter(r => r.status.startsWith('pending'));
+  else if (f === 'need_doc') data = data.filter(r => r.type === 'dental' && !r.docName);
   else if (f !== 'all') data = data.filter(r => r.status === f);
   const tb = document.getElementById('hist-tbody');
   if (!data.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">ไม่มีรายการ</td></tr>'; return; }
@@ -1212,6 +1221,7 @@ function renderHist(f) {
     const cancelBtn = canDelete ? `<button class="btn btn-red btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>` : '';
     const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
+    const attachBtn = r.type === 'dental' && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
     return `<tr>
       <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
@@ -1227,7 +1237,7 @@ function renderHist(f) {
           </div>
         </div>` : ''}
       </td>
-      <td>${bFlow(r)}${editBtn}${cancelBtn}${pmDelBtn}</td>
+      <td>${bFlow(r)}${editBtn}${cancelBtn}${pmDelBtn}${attachBtn}</td>
     </tr>`;
   }).join('');
 }
@@ -1897,6 +1907,7 @@ function attachDentalDoc(id) {
 // ══ EXERCISE ═════════════════════════════
 let exMembers = [];
 let _editingExId = null;
+let _exSubmitting = false;
 let _editingLeaveId = null;
 function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
@@ -2382,6 +2393,7 @@ function updateQuota() {
 function showExErr(msg) { const el = document.getElementById('ex-err'); el.innerHTML = msg; el.style.display = 'block'; el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 function clearExErr() { const el = document.getElementById('ex-err'); if (el) el.style.display = 'none'; }
 function submitEx() {
+  if (_exSubmitting) return;
   try {
     const exType = document.getElementById('ex-type').value;
     const act = document.getElementById('ex-act').value.trim();
@@ -2458,14 +2470,19 @@ function submitEx() {
     okBtn.textContent = isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันยื่นเบิก';
     okBtn.className = 'btn btn-primary';
     okBtn.onclick = async () => {
+      if (_exSubmitting) return;
+      _exSubmitting = true;
       okBtn.disabled = true;
       okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
       const label = isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันยื่นเบิก';
       try {
         await doSubmitEx({ exType, act, date, note, link, isGrp: isGroupEx(exType) });
-      } finally {
+      } catch (err) {
         okBtn.disabled = false;
         okBtn.textContent = label;
+        toast('❌ เกิดข้อผิดพลาด: ' + err.message);
+      } finally {
+        _exSubmitting = false;
       }
     };
     openModal('modal-confirm');

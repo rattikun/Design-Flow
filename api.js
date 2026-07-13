@@ -396,7 +396,7 @@ function apiSync(action, payload, opts = {}) {
     if (!res.ok) {
       const msg = res._network
         ? '⚠️ Network error — บันทึกแค่ในเครื่อง'
-        : '⚠️ Sync ไม่สำเร็จ: ' + res.error;
+        : '⚠️ Sync ไม่สำเร็จ [' + action + ']: ' + (res.error || 'unknown');
       if (!silent && typeof toast === 'function') toast(msg);
       console.warn('[apiSync] ' + action + ':', res.error);
     }
