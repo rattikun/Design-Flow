@@ -1402,7 +1402,19 @@ function renderTeamHist() {
   }
 
   const activeUserEmails = new Set(users.filter(u => u.active !== false).map(u => u.email));
-  let data = allLeaves.filter(r => r.start?.startsWith(selYear) && (_teamHistStatus === 'pending' ? r.status.startsWith('pending') : r.status === _teamHistStatus) && activeUserEmails.has(r.email));
+
+  const needDocTab = document.getElementById('team-hist-tab-need-doc');
+  if (needDocTab) {
+    const hasTeamNeedDoc = allLeaves.some(r => activeUserEmails.has(r.email) && leaveNeedsDoc(r) && !r.docName);
+    needDocTab.style.display = hasTeamNeedDoc ? '' : 'none';
+  }
+
+  let data = allLeaves.filter(r => {
+    if (!r.start?.startsWith(selYear) || !activeUserEmails.has(r.email)) return false;
+    if (_teamHistStatus === 'pending') return r.status.startsWith('pending');
+    if (_teamHistStatus === 'need_doc') return leaveNeedsDoc(r) && !r.docName;
+    return r.status === _teamHistStatus;
+  });
   if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
     data = data.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@mail.com');
   }
