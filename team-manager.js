@@ -1068,7 +1068,7 @@ function renderLR() {
             ${r.addedBy ? ` <span style="color:var(--purple);font-size:15px;">✎ เพิ่มโดย ${r.addedBy}</span>` : ''}
           </div>
           <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (leaveNeedsDoc(r) ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสาร${r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์'}</span></div>` : '')}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสาร</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (leaveNeedsDoc(r) ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสาร${r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์'}</span></div>` : '')}
         </div>
         <span class="chip chip-pending">รอพิจารณา</span>
       </div>
@@ -1152,7 +1152,7 @@ function renderLP() {
           <div style="font-size:17px;color:var(--text2);margin-top:6px;">${r.reason}</div>
           ${r.autoEscalated ? '<div style="font-size:16px;color:var(--purple);margin-top:4px;">⚡ ส่งอัตโนมัติ — ลาเกิน 3 วัน</div>' : ''}
           ${r.leadNote ? `<div style="font-size:16px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
-          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสารบน Drive</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (leaveNeedsDoc(r) ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสาร${r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์'}</span></div>` : '')}
+          ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสาร</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (leaveNeedsDoc(r) ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสาร${r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์'}</span></div>` : '')}
         </div>
         <span class="chip ${r.autoEscalated ? 'chip-pm' : 'chip-escalated'}">${r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า'}</span>
       </div>
@@ -1267,7 +1267,7 @@ function renderHist(f) {
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
     const attachBtn = r.type === 'dental' && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
@@ -1488,7 +1488,7 @@ function renderTeamHist() {
       <td><span style="font-size:14px;color:var(--text2);">${dept}</span></td>
       <td>
         ${LT[r.type] || r.type}
-        ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
+        ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
         ${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:11px;color:var(--red);max-width:180px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
       </td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span></td>
@@ -3824,6 +3824,22 @@ function setLBSort(field) {
 function toast(msg) { const el = document.getElementById('toast'); el.innerHTML = msg; el.classList.add('show'); clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 3200); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function viewDocPopup(url) {
+  if (!url) return;
+  const body = document.getElementById('doc-preview-body');
+  const isImage = /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url);
+  const isPdf = /\.pdf(\?|$)/i.test(url);
+  if (isImage) {
+    body.innerHTML = `<img src="${url}" style="max-width:100%;max-height:75vh;border-radius:8px;" />`;
+  } else if (isPdf) {
+    body.innerHTML = `<iframe src="${url}" style="width:100%;height:75vh;border:none;border-radius:8px;"></iframe>`;
+  } else {
+    body.innerHTML = `<div style="padding:30px;color:var(--text2);">ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้ กรุณาเปิดในแท็บใหม่</div>`;
+  }
+  document.getElementById('doc-preview-open-link').href = url;
+  openModal('modal-doc-preview');
+}
 
 function openConfirm(title, body, okCb) {
   document.getElementById('conf-title').textContent = title;

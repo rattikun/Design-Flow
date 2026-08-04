@@ -2859,6 +2859,20 @@
     </div>
   </div>
 
+  <!-- MODAL: Document Preview -->
+  <div class="modal-overlay" id="modal-doc-preview" style="z-index: 3000;">
+    <div class="modal" style="max-width:700px;">
+      <button class="modal-close" onclick="closeModal('modal-doc-preview')">✕</button>
+      <div class="modal-scroll-area">
+        <div class="modal-title">📄 เอกสารแนบ</div>
+        <div id="doc-preview-body" style="text-align:center;"></div>
+        <div style="margin-top:12px;text-align:right;">
+          <a id="doc-preview-open-link" href="#" target="_blank" style="font-size:14px;color:var(--accent);text-decoration:underline;">เปิดในแท็บใหม่ ↗</a>
+        </div>
+      </div><!-- end modal-scroll-area -->
+    </div>
+  </div>
+
   <!-- MODAL: Exercise Detail -->
   <div class="modal-overlay" id="modal-ex-detail">
     <div class="modal exd-modal">
