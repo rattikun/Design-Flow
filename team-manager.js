@@ -1405,7 +1405,8 @@ function renderTeamHist() {
 
   const needDocTab = document.getElementById('team-hist-tab-need-doc');
   if (needDocTab) {
-    const hasTeamNeedDoc = allLeaves.some(r => activeUserEmails.has(r.email) && leaveNeedsDoc(r) && !r.docName);
+    const needDocScope = isLead ? myTeamEmails : activeUserEmails;
+    const hasTeamNeedDoc = allLeaves.some(r => activeUserEmails.has(r.email) && needDocScope.has(r.email) && leaveNeedsDoc(r) && !r.docName);
     needDocTab.style.display = hasTeamNeedDoc ? '' : 'none';
   }
 
