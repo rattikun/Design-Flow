@@ -1245,17 +1245,18 @@ function renderHist(f) {
     if (selYear) data = data.filter(r => r.start?.startsWith(selYear));
   }
 
-  // show/hide รอเอกสาร tab
+  // show/hide รอเอกสาร tab — เฉพาะใบที่ "อนุมัติแล้ว" แต่ยังไม่มีเอกสารเท่านั้น (ไม่ใช่ใบที่ยังรอหัวหน้า/PM ตัดสินใจครั้งแรก)
   const needDocTab = document.getElementById('tab-need-doc');
-  const hasNeedDoc = getLeaves().some(r => r.email === cu.email && r.type === 'dental' && !r.docName);
+  const hasNeedDoc = getLeaves().some(r => r.email === cu.email && r.status === 'approved' && leaveNeedsDoc(r) && !r.docName);
   if (needDocTab) needDocTab.style.display = hasNeedDoc ? '' : 'none';
 
   if (f === 'pending') data = data.filter(r => r.status.startsWith('pending'));
-  else if (f === 'need_doc') data = data.filter(r => r.type === 'dental' && !r.docName);
+  else if (f === 'need_doc') data = data.filter(r => r.status === 'approved' && leaveNeedsDoc(r) && !r.docName);
   else if (f !== 'all') data = data.filter(r => r.status === f);
   const tb = document.getElementById('hist-tbody');
   if (!data.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">ไม่มีรายการ</td></tr>'; return; }
-  const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
+  const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
+  const approvedChip = r => (leaveNeedsDoc(r) && !r.docName) ? '<span class="chip" style="background:rgba(245,200,66,.15);color:var(--yellow);">⚠️ รอเอกสาร</span>' : '<span class="chip chip-approved">อนุมัติ</span>';
   tb.innerHTML = data.map(r => {
     const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
     const isOwner = r.email === cu.email;
@@ -1267,12 +1268,12 @@ function renderHist(f) {
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
     const attachBtn = r.type === 'dental' && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.status === 'approved' && leaveNeedsDoc(r) ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
       <td>
-        ${ch[r.status] || ''}
+        ${r.status === 'approved' ? approvedChip(r) : (ch[r.status] || '')}
         ${r.status === 'rejected' ? `<div style="margin-top:6px;display:flex;align-items:flex-start;gap:6px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.2);border-radius:8px;padding:6px 10px;max-width:220px;">
           <i class="fa-solid fa-circle-xmark" style="color:var(--red);font-size:12px;margin-top:2px;flex-shrink:0;"></i>
           <div>
@@ -1425,14 +1426,14 @@ function renderTeamHist() {
   const needDocTab = document.getElementById('team-hist-tab-need-doc');
   if (needDocTab) {
     const needDocScope = isLead ? myTeamEmails : activeUserEmails;
-    const hasTeamNeedDoc = allLeaves.some(r => activeUserEmails.has(r.email) && needDocScope.has(r.email) && leaveNeedsDoc(r) && !r.docName);
+    const hasTeamNeedDoc = allLeaves.some(r => activeUserEmails.has(r.email) && needDocScope.has(r.email) && r.status === 'approved' && leaveNeedsDoc(r) && !r.docName);
     needDocTab.style.display = hasTeamNeedDoc ? '' : 'none';
   }
 
   let data = allLeaves.filter(r => {
     if (!r.start?.startsWith(selYear) || !activeUserEmails.has(r.email)) return false;
     if (_teamHistStatus === 'pending') return r.status.startsWith('pending');
-    if (_teamHistStatus === 'need_doc') return leaveNeedsDoc(r) && !r.docName;
+    if (_teamHistStatus === 'need_doc') return r.status === 'approved' && leaveNeedsDoc(r) && !r.docName;
     return r.status === _teamHistStatus;
   });
   if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
@@ -1477,7 +1478,8 @@ function renderTeamHist() {
   });
   const tb = document.getElementById('team-hist-tbody');
   if (!data.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">ไม่มีรายการ</td></tr>'; return; }
-  const ch = { approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>', pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>' };
+  const ch = { rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>', pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>' };
+  const approvedChip = r => (leaveNeedsDoc(r) && !r.docName) ? '<span class="chip" style="background:rgba(245,200,66,.15);color:var(--yellow);">⚠️ รอเอกสาร</span>' : '<span class="chip chip-approved">อนุมัติ</span>';
   tb.innerHTML = data.map(r => {
     const u = users.find(x => x.email === r.email);
     const dept = u?.dept || r.dept || '—';
@@ -1488,13 +1490,13 @@ function renderTeamHist() {
       <td><span style="font-size:14px;color:var(--text2);">${dept}</span></td>
       <td>
         ${LT[r.type] || r.type}
-        ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (leaveNeedsDoc(r) ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
+        ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.status === 'approved' && leaveNeedsDoc(r) ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
         ${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:11px;color:var(--red);max-width:180px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
       </td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span></td>
       <td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:180px;">${r.reason || '—'}</td>
-      <td>${ch[r.status] || ''}</td>
+      <td>${r.status === 'approved' ? approvedChip(r) : (ch[r.status] || '')}</td>
       <td>${isPM ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i></button>` : ''}</td>
     </tr>`;
   }).join('');
@@ -1957,6 +1959,7 @@ function attachDentalDoc(id) {
     r.hasDoc = true;
     r.status = 'pending_pm'; // PM must approve again!
     r.pendingDocReview = true; // ระบุว่ารอบนี้ PM กำลังตรวจ "เอกสาร" ไม่ใช่ทั้งใบลา
+    r.pmAction = null; // เคลียร์ผลตัดสินใจ PM รอบก่อน ไม่งั้น FLOW จะโชว์ว่า PM ตัดสินแล้วทั้งที่ยังไม่ได้ตัดสินรอบนี้
 
     saveLeaves(ls);
     _markLeaveModified(r);
