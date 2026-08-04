@@ -502,9 +502,9 @@ function mapLeaveFromAPI(l) {
     isHalf: Number(l.days) === 0.5,
     reason: l.reason || '',
     status: l.status || 'pending_lead',
-    hasDoc: !!l.doc_url,
-    docName: l.doc_url || null,
-    submittedAt: l.requested_at || l.submitted_at || new Date().toISOString(),
+    hasDoc: l.hasDoc !== undefined ? !!l.hasDoc : !!l.doc_url,
+    docName: l.docName || l.doc_url || null,
+    submittedAt: l.submittedAt || l.requested_at || l.submitted_at || new Date().toISOString(),
     leadAction: l.leadAction || null,
     pmAction: l.pmAction || null,
     leadNote: l.leadNote || '',
@@ -515,8 +515,10 @@ function mapLeaveFromAPI(l) {
     dept: l.dept,
     reviewedBy: l.reviewedBy || '',
     reviewedAt: l.reviewedAt || '',
-    rejectReason: l.reject_reason || l.rejectReason || '',
-    rejectedBy: l.rejected_by || l.rejectedBy || ''
+    rejectReason: l.rejectReason || l.reject_reason || '',
+    rejectedBy: l.rejectedBy || l.rejected_by || '',
+    docRejectReason: l.docRejectReason || '',
+    pendingDocReview: !!l.pendingDocReview
   };
 }
 
@@ -584,7 +586,9 @@ function notifyLeave(leave, event, notifyRole) {
     new_leave_member: '📥 ใบลาใหม่ — รอหัวหน้าอนุมัติ',
     new_leave_lead: '📥 ใบลาหัวหน้า — รอ PM อนุมัติ',
     lead_approved_leave: '✅ หัวหน้าอนุมัติแล้ว — รอ PM อนุมัติ',
-    pm_approved_leave: '✅ PM อนุมัติใบลาแล้ว'
+    pm_approved_leave: '✅ PM อนุมัติใบลาแล้ว',
+    pm_rejected_leave: '❌ PM ไม่อนุมัติใบลา',
+    pm_rejected_doc: '📎 เอกสารไม่ผ่าน — กรุณาแนบใหม่'
   };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const displayName = (u && u.nickname) ? u.nickname : leave.name.split(' ')[0];
@@ -609,6 +613,8 @@ function notifyLeave(leave, event, notifyRole) {
       isHalf: leave.isHalf || false,
       reason: leave.reason || '',
       docLink: leave.docName || '',
+      rejectReason: leave.rejectReason || leave.docRejectReason || '',
+      rejectedBy: leave.rejectedBy || '',
       submittedAt: leave.submittedAt
     })
   }).catch(() => {});

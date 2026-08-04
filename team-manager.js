@@ -1145,19 +1145,20 @@ function pAct(id, action, rejectReason) {
   const r = ls[idx];
   r.pmNote = document.getElementById('pn-' + id)?.value || '';
   r.pmAction = action;
+  const isDocReview = !!r.pendingDocReview; // pending_pm รอบนี้มาจากการแนบเอกสารใหม่ ไม่ใช่ยื่นใบลาใหม่
   if (action === 'reject' && rejectReason === undefined) {
     // เปิด modal ขอเหตุผลก่อน
-    document.getElementById('conf-title').textContent = 'ระบุเหตุผลไม่อนุมัติใบลา';
+    document.getElementById('conf-title').textContent = isDocReview ? 'ระบุเหตุผลที่เอกสารไม่ผ่าน' : 'ระบุเหตุผลไม่อนุมัติใบลา';
     document.getElementById('conf-body').innerHTML = `
       <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
         ใบลาของ <strong style="color:var(--text);">${r.name}</strong> — ${LT[r.type] || r.type}
       </div>
-      <textarea id="reject-reason-input" placeholder="กรอกเหตุผลที่ไม่อนุมัติ..." rows="3"
+      <textarea id="reject-reason-input" placeholder="${isDocReview ? 'กรอกเหตุผลที่เอกสารไม่ผ่าน...' : 'กรอกเหตุผลที่ไม่อนุมัติ...'}" rows="3"
         style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;resize:vertical;outline:none;"></textarea>
       <div id="reject-reason-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาระบุเหตุผล</div>
     `;
     const okBtn = document.getElementById('conf-ok');
-    okBtn.textContent = 'ยืนยันไม่อนุมัติ';
+    okBtn.textContent = isDocReview ? 'ยืนยันไม่ผ่านเอกสาร' : 'ยืนยันไม่อนุมัติ';
     okBtn.className = 'btn btn-red';
     okBtn.onclick = () => {
       const reason = (document.getElementById('reject-reason-input')?.value || '').trim();
@@ -1168,13 +1169,25 @@ function pAct(id, action, rejectReason) {
     openModal('modal-confirm');
     return;
   }
-  r.status = action === 'approve' ? 'approved' : 'rejected';
-  if (action === 'reject') { r.rejectReason = rejectReason; r.rejectedBy = cu.name; }
+  if (action === 'reject' && isDocReview) {
+    // ปฏิเสธเฉพาะ "เอกสาร" — ใบลายังอนุมัติอยู่ แค่ต้องแนบเอกสารใหม่
+    r.status = 'approved';
+    r.docName = null;
+    r.hasDoc = false;
+    r.docRejectReason = rejectReason;
+    r.rejectedBy = cu.name;
+  } else {
+    r.status = action === 'approve' ? 'approved' : 'rejected';
+    if (action === 'reject') { r.rejectReason = rejectReason; r.rejectedBy = cu.name; }
+    if (action === 'approve') r.docRejectReason = null;
+  }
+  r.pendingDocReview = false;
   saveLeaves(ls);
   _markLeaveModified(r);
   apiSync('updateLeave', r);
   if (action === 'approve') { notifyLeave(r, 'pm_approved_leave', 'member'); syncLeaveApprovedToSheets(r, cu.name); }
-  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : '✕ PM ไม่อนุมัติ ' + r.name);
+  else if (action === 'reject') { notifyLeave(r, isDocReview ? 'pm_rejected_doc' : 'pm_rejected_leave', 'member'); }
+  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : (isDocReview ? '📎 เอกสารไม่ผ่าน — แจ้ง ' + r.name + ' แนบใหม่แล้ว' : '✕ PM ไม่อนุมัติ ' + r.name));
   updateBadges(); updateDashboard(); renderLP();
 }
 
@@ -1225,7 +1238,7 @@ function renderHist(f) {
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
     const attachBtn = r.type === 'dental' && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
     return `<tr>
-      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
+      <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span><br><span style="font-size:15px;color:var(--yellow);font-family:var(--mono);">${dLabel}</span></td>
       <td style="color:var(--text2);font-size:14px;max-width:200px;">${r.reason || '—'}</td>
@@ -1434,6 +1447,7 @@ function renderTeamHist() {
       <td>
         ${LT[r.type] || r.type}
         ${r.hasDoc ? (r.docName?.startsWith('http') ? ` <a href="${r.docName}" target="_blank" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : ' <span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.type === 'dental' ? ' <span style="background:var(--red-bg);color:var(--red);font-size:12px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}
+        ${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:11px;color:var(--red);max-width:180px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
       </td>
       <td><span class="meta">${r.start}${r.start !== r.end ? ' → ' + r.end : ''}</span></td>
       <td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">${dLabel}</span></td>
@@ -1863,6 +1877,7 @@ function attachDentalDoc(id) {
   
   document.getElementById('conf-title').textContent = 'แนบเอกสารใบเสร็จ/ใบรับรองแพทย์';
   document.getElementById('conf-body').innerHTML = `
+    ${r.docRejectReason ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.25);border-radius:8px;color:var(--red);font-size:15px;">❌ เอกสารครั้งก่อนไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
     <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
       ยื่นเอกสารย้อนหลังสำหรับใบลาทำฟัน วันที่ <strong style="color:var(--text);">${r.start}</strong>
     </div>
@@ -1887,7 +1902,8 @@ function attachDentalDoc(id) {
     r.docName = link;
     r.hasDoc = true;
     r.status = 'pending_pm'; // PM must approve again!
-    
+    r.pendingDocReview = true; // ระบุว่ารอบนี้ PM กำลังตรวจ "เอกสาร" ไม่ใช่ทั้งใบลา
+
     saveLeaves(ls);
     _markLeaveModified(r);
     apiSync('updateLeave', r);
