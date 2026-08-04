@@ -8,8 +8,8 @@
 const DB_PATH_KEY = 'design_flow_v1';
 
 const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.app/';
-// [IMPORTANT] ใส่ URL ของ Google Apps Script ที่ Deploy แล้วที่นี่
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4YL8lc0RLI0HKaEyt3YglB7maTOKJxRu2vSncx-taXGqu2If13rlQbhKWdMJ7uZOfnQ/exec';
+// Firebase Storage bucket สำหรับอัปโหลดเอกสารแนบ (ใบลา ฯลฯ)
+const FIREBASE_STORAGE_BUCKET = 'design-cz.firebasestorage.app';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
 const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
 // n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
@@ -78,6 +78,29 @@ function n8nUrl(url) {
 }
 
 function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
+
+/**
+ * อัปโหลดไฟล์ (รูป/PDF) ขึ้น Firebase Storage โดยตรง แล้วคืนลิงก์ดาวน์โหลดสาธารณะกลับมา
+ */
+async function uploadFileToStorage(file) {
+  try {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `leave-docs/${Date.now()}_${safeName}`;
+    const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o?name=${encodeURIComponent(path)}`;
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const url = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(data.name)}?alt=media&token=${data.downloadTokens}`;
+    return { ok: true, url, fileName: file.name };
+  } catch (err) {
+    console.error('[uploadFileToStorage] Error:', err);
+    return { ok: false, error: err.message };
+  }
+}
 
 /**
  * Helper to fetch from Firebase and parse error responses cleanly
@@ -206,20 +229,6 @@ async function api(action, payload = {}) {
         return { ok: res2.ok };
       }
       return { ok: true };
-    }
-
-    // 4. FILE UPLOAD (Google Drive via Apps Script)
-    if (action === 'uploadFile') {
-      if (!APPS_SCRIPT_URL) {
-        throw new Error('กรุณากำหนด APPS_SCRIPT_URL ใน api.js เพื่อใช้งานระบบอัปโหลดไฟล์');
-      }
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('การอัปโหลดไฟล์ล้มเหลว (Apps Script Error)');
-      return await res.json();
     }
 
     // 4. EXERCISES

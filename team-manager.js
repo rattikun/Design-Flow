@@ -889,41 +889,32 @@ async function uploadDocFile(input, ids) {
     }
   }, 300);
 
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const res = await api('uploadFile', {
-        action: 'uploadFile',
-        fileName: f.name,
-        mimeType: f.type,
-        base64: e.target.result
-      });
-      if (res.ok && res.url) {
-        clearInterval(interval);
-        if (progBar) progBar.style.width = '100%';
-        if (progText) progText.textContent = '100%';
-
-        label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
-        label.style.color = 'var(--green)';
-        box.style.borderColor = 'var(--green)';
-        icon.textContent = '📄';
-        input.dataset.url = res.url;
-        if (linkInput) linkInput.value = res.url;
-        toast('✅ อัปโหลดไฟล์ไปที่ Google Drive เรียบร้อย');
-      } else {
-        throw new Error(res.error || 'Upload failed');
-      }
-    } catch (err) {
+  try {
+    const res = await uploadFileToStorage(f);
+    if (res.ok && res.url) {
       clearInterval(interval);
-      label.textContent = '❌ อัปโหลดล้มเหลว';
-      label.style.color = 'var(--red)';
-      box.style.borderColor = 'var(--red)';
-      toast('❌ ไม่สามารถอัปโหลดได้: ' + err.message);
-    } finally {
-      if (progContainer) setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
+      if (progBar) progBar.style.width = '100%';
+      if (progText) progText.textContent = '100%';
+
+      label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
+      label.style.color = 'var(--green)';
+      box.style.borderColor = 'var(--green)';
+      icon.textContent = '📄';
+      input.dataset.url = res.url;
+      if (linkInput) linkInput.value = res.url;
+      toast('✅ อัปโหลดไฟล์เรียบร้อย');
+    } else {
+      throw new Error(res.error || 'Upload failed');
     }
-  };
-  reader.readAsDataURL(f);
+  } catch (err) {
+    clearInterval(interval);
+    label.textContent = '❌ อัปโหลดล้มเหลว';
+    label.style.color = 'var(--red)';
+    box.style.borderColor = 'var(--red)';
+    toast('❌ ไม่สามารถอัปโหลดได้: ' + err.message);
+  } finally {
+    if (progContainer) setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
+  }
 }
 function handleDoc(input) {
   uploadDocFile(input, {
