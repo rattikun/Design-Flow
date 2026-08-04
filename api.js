@@ -615,6 +615,69 @@ function notifyLeave(leave, event, notifyRole) {
 }
 
 /**
+ * เช็คใบลาทำฟันที่ยังไม่แนบหลักฐาน เกิน 2 วันจากวันที่ยื่น → ยิงแจ้งเตือน n8n รวมเป็นก้อนเดียว
+ * ส่งได้สูงสุดวันละ 1 ครั้ง (กันซ้ำด้วย flag lastDentalReminderDate ใน Firebase)
+ */
+async function checkDentalDocReminders() {
+  if (!N8N_WEBHOOK_URL) return;
+  try {
+    let baseUrl = DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL;
+    if (typeof DB_PATH_KEY !== 'undefined' && DB_PATH_KEY) baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
+    const flagUrl = `${baseUrl}/system/lastDentalReminderDate.json`;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const flagRes = await fetchFirebase(flagUrl);
+    const lastSent = await flagRes.json();
+    if (lastSent === today) return;
+
+    const leaves = (typeof getLeaves === 'function') ? getLeaves() : [];
+    const users = (typeof getUsers === 'function') ? getUsers() : [];
+    const todayMs = new Date(today + 'T00:00:00').getTime();
+
+    const overdue = leaves.reduce((acc, r) => {
+      if (r.type !== 'dental' || r.docName || r.status === 'rejected') return acc;
+      const ref = (r.submittedAt || r.start || '').slice(0, 10);
+      if (!ref) return acc;
+      const daysWaiting = Math.floor((todayMs - new Date(ref + 'T00:00:00').getTime()) / 864e5);
+      if (daysWaiting < 2) return acc;
+      const u = users.find(x => x.email === r.email);
+      acc.push({
+        id: r.id,
+        refNo: r.refNo || '',
+        name: (u && u.name) || r.name || '',
+        nickname: (u && u.nickname) || (r.name || '').split(' ')[0],
+        email: r.email,
+        discordId: (u && u.discordId) || '',
+        dept: (u && u.dept) || r.dept || '',
+        start: r.start,
+        end: r.end,
+        submittedAt: r.submittedAt || '',
+        daysWaiting
+      });
+      return acc;
+    }, []);
+
+    if (!overdue.length) return;
+
+    await fetch(n8nUrl(N8N_WEBHOOK_URL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'dental_doc_reminder',
+        eventLabel: '⚠️ แจ้งเตือน — รอแนบหลักฐานลาทำฟัน',
+        date: today,
+        count: overdue.length,
+        reminders: overdue
+      })
+    });
+
+    await fetchFirebase(flagUrl, { method: 'PUT', body: JSON.stringify(today) });
+  } catch (e) {
+    console.error('[checkDentalDocReminders]', e);
+  }
+}
+
+/**
  * Sync ข้อมูลใบลาที่ PM อนุมัติแล้วไปยัง Google Sheets ผ่าน n8n
  */
 function syncLeaveApprovedToSheets(leave, approvedByName) {

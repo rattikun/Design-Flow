@@ -210,6 +210,7 @@ function _bgSync() {
       const pageId = active.id.replace('page-', '');
       if (typeof showPage === 'function') showPage(pageId);
     }
+    if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
   });
 }
 
@@ -333,6 +334,7 @@ function initApp() {
   setupExForm();
   initDatePickers();
   updateDashboard(); updateBadges(); updateQuota();
+  if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
 }
 
 function openLeaveModal() {
