@@ -1154,7 +1154,7 @@ function renderLP() {
           ${r.leadNote ? `<div style="font-size:16px;color:var(--orange);margin-top:4px;">💬 หัวหน้า: ${r.leadNote}</div>` : ''}
           ${r.hasDoc ? `<div style="margin-top:6px;">${r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;text-decoration:none;">📄 ดูเอกสาร</a>` : `<span style="background:var(--green-bg);color:var(--green);font-size:15px;padding:2px 8px;border-radius:20px;">📄 ${r.docName}</span>`}</div>` : (leaveNeedsDoc(r) ? `<div style="margin-top:6px;"><span style="background:var(--red-bg);color:var(--red);font-size:15px;padding:2px 8px;border-radius:20px;font-weight:600;">⚠️ ยังไม่แนบเอกสาร${r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์'}</span></div>` : '')}
         </div>
-        <span class="chip ${r.autoEscalated ? 'chip-pm' : 'chip-escalated'}">${r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า'}</span>
+        <span class="chip ${r.pendingDocReview ? 'chip-pm' : (r.autoEscalated ? 'chip-pm' : 'chip-escalated')}">${r.pendingDocReview ? '📎 ยื่นเอกสารเพิ่มเติม' : (r.autoEscalated ? '⚡ Auto→PM' : 'ส่งจากหัวหน้า')}</span>
       </div>
       <div class="flow-steps" style="margin-top:10px;">
         <span class="flow-step done">✓ ยื่น</span><span class="flow-arrow">→</span>
