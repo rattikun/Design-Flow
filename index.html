@@ -2609,12 +2609,23 @@
               style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:15px;font-weight:600;color:var(--red);">
               📄 ต้องแนบใบรับรองแพทย์
             </div>
-            <label style="font-size:15px;color:var(--text2);margin-bottom:6px;display:block;">ลิงก์หลักฐาน / เอกสาร
+            <label style="font-size:15px;color:var(--text2);margin-bottom:6px;display:block;">แนบรูปภาพ / ไฟล์เอกสาร
               <span style="color:var(--red);">*จำเป็น</span></label>
-            <input type="text" id="leave-link" placeholder="วางลิงก์ Google Drive หรือไฟล์เอกสาร..."
-              style="width:100%;box-sizing:border-box;" />
-            <div style="font-size:15px;color:var(--text3);margin-top:6px;">* อัปโหลดไฟล์ขึ้น Google Drive
-              แล้วนำลิงก์มาวาง</div>
+            <div id="doc-box" onclick="document.getElementById('doc-file').click()"
+              style="cursor:pointer;border:2px dashed var(--border2);border-radius:10px;padding:18px;text-align:center;transition:border-color .2s;">
+              <input type="file" id="doc-file" accept="image/png,image/jpeg,application/pdf" style="display:none" onchange="handleDoc(this)" />
+              <div id="doc-icon" style="font-size:26px;">📎</div>
+              <div id="doc-text" style="margin-top:6px;color:var(--text2);font-size:15px;">แตะเพื่อเลือกรูปภาพ/ไฟล์ (อัปโหลดอัตโนมัติ)</div>
+              <div style="margin-top:4px;color:var(--text3);font-size:12px;">รองรับ PNG, JPG, PDF ขนาดไม่เกิน 10MB</div>
+            </div>
+            <div id="leave-upload-progress-container" style="display:none;margin-top:8px;">
+              <div style="background:var(--surface2);border-radius:6px;height:6px;overflow:hidden;">
+                <div id="leave-upload-progress-bar" style="background:var(--accent);height:100%;width:0%;transition:width .3s;"></div>
+              </div>
+              <div id="leave-upload-progress-text" style="font-size:12px;color:var(--text3);margin-top:4px;text-align:right;">0%</div>
+            </div>
+            <input type="text" id="leave-link" placeholder="หรือวางลิงก์เอกสารที่นี่..."
+              style="width:100%;box-sizing:border-box;margin-top:10px;" />
           </div>
         </div>
         <div id="leave-hints" style="margin-top:12px;"></div>

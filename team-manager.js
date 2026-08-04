@@ -850,27 +850,42 @@ function onLeaveChange() {
     hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
   } catch (e) { console.error('[onLeaveChange error]', e); }
 }
-async function handleDoc(input) {
+const DOC_UPLOAD_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
+const DOC_UPLOAD_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+async function uploadDocFile(input, ids) {
   const f = input.files[0]; if (!f) return;
-  const label = document.getElementById('doc-text'), box = document.getElementById('doc-box'), icon = document.getElementById('doc-icon');
+  const label = document.getElementById(ids.text), box = document.getElementById(ids.box), icon = document.getElementById(ids.icon);
+  const linkInput = document.getElementById(ids.link);
+
+  if (!DOC_UPLOAD_ALLOWED_TYPES.includes(f.type)) {
+    toast('❌ รองรับเฉพาะไฟล์ PNG, JPG หรือ PDF เท่านั้น');
+    input.value = '';
+    return;
+  }
+  if (f.size > DOC_UPLOAD_MAX_SIZE) {
+    toast('❌ ไฟล์ใหญ่เกินไป (' + (f.size / 1024 / 1024).toFixed(1) + 'MB) — จำกัดไม่เกิน 10MB');
+    input.value = '';
+    return;
+  }
 
   label.textContent = '⏳ กำลังอัปโหลด...';
   label.style.color = 'var(--accent)';
   box.style.borderColor = 'var(--accent)';
 
   // แสดง Progress Bar แบบจำลอง
-  const progContainer = document.getElementById('leave-upload-progress-container');
-  const progBar = document.getElementById('leave-upload-progress-bar');
-  const progText = document.getElementById('leave-upload-progress-text');
-  progContainer.style.display = 'block';
+  const progContainer = document.getElementById(ids.progContainer);
+  const progBar = document.getElementById(ids.progBar);
+  const progText = document.getElementById(ids.progText);
+  if (progContainer) progContainer.style.display = 'block';
 
   let progress = 0;
   const interval = setInterval(() => {
     if (progress < 90) {
       progress += Math.random() * 10;
       if (progress > 90) progress = 90;
-      progBar.style.width = progress + '%';
-      progText.textContent = Math.round(progress) + '%';
+      if (progBar) progBar.style.width = progress + '%';
+      if (progText) progText.textContent = Math.round(progress) + '%';
     }
   }, 300);
 
@@ -885,14 +900,15 @@ async function handleDoc(input) {
       });
       if (res.ok && res.url) {
         clearInterval(interval);
-        progBar.style.width = '100%';
-        progText.textContent = '100%';
+        if (progBar) progBar.style.width = '100%';
+        if (progText) progText.textContent = '100%';
 
         label.textContent = '✅ อัปโหลดแล้ว: ' + f.name;
         label.style.color = 'var(--green)';
         box.style.borderColor = 'var(--green)';
         icon.textContent = '📄';
         input.dataset.url = res.url;
+        if (linkInput) linkInput.value = res.url;
         toast('✅ อัปโหลดไฟล์ไปที่ Google Drive เรียบร้อย');
       } else {
         throw new Error(res.error || 'Upload failed');
@@ -904,10 +920,22 @@ async function handleDoc(input) {
       box.style.borderColor = 'var(--red)';
       toast('❌ ไม่สามารถอัปโหลดได้: ' + err.message);
     } finally {
-      setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
+      if (progContainer) setTimeout(() => { progContainer.style.display = 'none'; }, 1500);
     }
   };
   reader.readAsDataURL(f);
+}
+function handleDoc(input) {
+  uploadDocFile(input, {
+    text: 'doc-text', box: 'doc-box', icon: 'doc-icon', link: 'leave-link',
+    progContainer: 'leave-upload-progress-container', progBar: 'leave-upload-progress-bar', progText: 'leave-upload-progress-text'
+  });
+}
+function handleDentalDocFile(input) {
+  uploadDocFile(input, {
+    text: 'dental-doc-text', box: 'dental-doc-box', icon: 'dental-doc-icon', link: 'dental-doc-link-input',
+    progContainer: 'dental-upload-progress-container', progBar: 'dental-upload-progress-bar', progText: 'dental-upload-progress-text'
+  });
 }
 function leaveConflict(targetEmail, newStart, newEnd, newIsHalf, newPeriod, excludeId) {
   return getLeaves().find(r =>
@@ -1904,9 +1932,21 @@ function attachDentalDoc(id) {
     <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
       ยื่นเอกสารย้อนหลังสำหรับใบลาทำฟัน วันที่ <strong style="color:var(--text);">${r.start}</strong>
     </div>
-    <div style="margin-bottom:8px;font-size:15px;color:var(--text3);">* อัปโหลดไฟล์ขึ้น Google Drive แล้วนำลิงก์มาวาง</div>
-    <input type="text" id="dental-doc-link-input" placeholder="วางลิงก์เอกสารที่นี่..."
-      style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;outline:none;box-sizing:border-box;" />
+    <div id="dental-doc-box" onclick="document.getElementById('dental-doc-file').click()"
+      style="cursor:pointer;border:2px dashed var(--border2);border-radius:10px;padding:18px;text-align:center;transition:border-color .2s;">
+      <input type="file" id="dental-doc-file" accept="image/png,image/jpeg,application/pdf" style="display:none" onchange="handleDentalDocFile(this)" />
+      <div id="dental-doc-icon" style="font-size:26px;">📎</div>
+      <div id="dental-doc-text" style="margin-top:6px;color:var(--text2);font-size:15px;">แตะเพื่อเลือกรูปภาพ/ไฟล์ (อัปโหลดอัตโนมัติ)</div>
+      <div style="margin-top:4px;color:var(--text3);font-size:12px;">รองรับ PNG, JPG, PDF ขนาดไม่เกิน 10MB</div>
+    </div>
+    <div id="dental-upload-progress-container" style="display:none;margin-top:8px;">
+      <div style="background:var(--surface2);border-radius:6px;height:6px;overflow:hidden;">
+        <div id="dental-upload-progress-bar" style="background:var(--accent);height:100%;width:0%;transition:width .3s;"></div>
+      </div>
+      <div id="dental-upload-progress-text" style="font-size:12px;color:var(--text3);margin-top:4px;text-align:right;">0%</div>
+    </div>
+    <input type="text" id="dental-doc-link-input" placeholder="หรือวางลิงก์เอกสารที่นี่..."
+      style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:16px;font-family:inherit;outline:none;box-sizing:border-box;margin-top:10px;" />
     <div id="dental-doc-err" style="color:var(--red);font-size:14px;margin-top:6px;display:none;">⚠️ กรุณาใส่ลิงก์เอกสารที่ถูกต้อง</div>
   `;
   
