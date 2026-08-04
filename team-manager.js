@@ -1163,8 +1163,8 @@ function renderLP() {
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ PM</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="pn-${r.id}" style="margin-top:6px;" /></div>
       <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn btn-green btn-sm" onclick="pAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
-        <button class="btn btn-red btn-sm" onclick="pAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
+        <button class="btn btn-green btn-sm" onclick="pAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> ${r.pendingDocReview ? 'อนุมัติเอกสาร' : 'อนุมัติการลา'}</button>
+        <button class="btn btn-red btn-sm" onclick="pAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ${r.pendingDocReview ? 'ไม่อนุมัติเอกสาร' : 'ไม่อนุมัติการลา'}</button>
       </div>
     </div>`;
   }).join('');
