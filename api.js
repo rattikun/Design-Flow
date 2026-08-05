@@ -362,12 +362,38 @@ async function api(action, payload = {}) {
       }
     }
 
+    // 7. NOTIFICATIONS (in-app)
+    if (action === 'addNotification') {
+      const res = await fetch(`${baseUrl}/notifications.json`, {
+        method: 'POST',
+        body: JSON.stringify({
+          toEmail: payload.toEmail,
+          title: payload.title,
+          message: payload.message || '',
+          link: payload.link || '',
+          read: false,
+          createdAt: new Date().toISOString()
+        })
+      });
+      return { ok: res.ok };
+    }
+
+    if (action === 'markNotificationRead') {
+      if (!payload._fbKey) return { ok: false, error: 'missing _fbKey' };
+      const res = await fetch(`${baseUrl}/notifications/${payload._fbKey}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ read: true })
+      });
+      return { ok: res.ok };
+    }
+
     // 3. READ DATA (Bootstrap & Others)
     const pathMap = {
       getUsers: 'users',
       getLeaves: 'leaves',
       getExs: 'exercises',
-      getQuotas: 'quotas'
+      getQuotas: 'quotas',
+      getNotifications: 'notifications'
     };
 
     const path = pathMap[action] || action;
@@ -376,9 +402,9 @@ async function api(action, payload = {}) {
     const data = await response.json();
 
     // Firebase returns objects if keys are strings, but we need arrays
-    // For exercises, attach _fbKey so we can delete directly without scanning
+    // For exercises/notifications, attach _fbKey so we can update/delete directly without scanning
     let arrayData;
-    if (!Array.isArray(data) && path === 'exercises') {
+    if (!Array.isArray(data) && (path === 'exercises' || path === 'notifications')) {
       arrayData = Object.entries(data || {})
         .map(([fbKey, val]) => val ? { ...val, _fbKey: fbKey } : null)
         .filter(Boolean);
@@ -581,6 +607,14 @@ function normalizeDate(d) {
   if (!d) return '';
   if (typeof d === 'string' && d.includes('T')) return d.split('T')[0];
   return d;
+}
+
+/**
+ * สร้างการแจ้งเตือนภายในระบบให้ user คนใดคนหนึ่ง (แสดงที่กระดิ่งแจ้งเตือนมุมขวาบน)
+ */
+function notifyUser(toEmail, title, message, link) {
+  if (typeof api !== 'function' || !toEmail) return;
+  api('addNotification', { toEmail, title, message, link }).catch(() => {});
 }
 
 /**

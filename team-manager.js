@@ -221,6 +221,7 @@ function _bgSync() {
       if (typeof showPage === 'function') showPage(pageId);
     }
     if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
+    refreshNotifications();
   });
 }
 
@@ -345,6 +346,7 @@ function initApp() {
   initDatePickers();
   updateDashboard(); updateBadges(); updateQuota();
   if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
+  refreshNotifications();
 }
 
 function openLeaveModal() {
@@ -1022,8 +1024,13 @@ function submitLeave() {
   apiSync('addLeave', newLeave).then(res => { if (res.ok) _pendingNewLeaves.delete(newLeave.id); });
 
   if (!isPM) {
-    if (isLead) notifyLeave(newLeave, 'new_leave_lead', 'pm');
-    else notifyLeave(newLeave, 'new_leave_member', 'lead');
+    if (isLead) {
+      notifyLeave(newLeave, 'new_leave_lead', 'pm');
+      notifyPMs('📥 ใบลาใหม่จากหัวหน้า', `${newLeave.nickname || newLeave.name} ยื่น${LT[newLeave.type]} ${newLeave.start}`, 'leave-pm');
+    } else {
+      notifyLeave(newLeave, 'new_leave_member', 'lead');
+      notifyDeptLead(newLeave.dept, '📥 มีใบลารอพิจารณา', `${newLeave.nickname || newLeave.name} ยื่น${LT[newLeave.type]} ${newLeave.start}`, 'leave-review');
+    }
   } else if (!forMemberEmail) {
     // PM's own leave is auto-approved — sync to Sheets
     if (typeof syncLeaveApprovedToSheets === 'function') syncLeaveApprovedToSheets(newLeave, cu.name);
@@ -1094,6 +1101,7 @@ function lAct(id, action, rejectReason) {
     r.status = 'pending_pm';
     toast('✅ ส่งต่อใบลาของ ' + r.name + ' ให้ PM พิจารณาแล้ว');
     notifyLeave(r, 'lead_approved_leave', 'pm');
+    notifyPMs('✅ หัวหน้าอนุมัติแล้ว รอ PM', `${r.nickname || r.name} — ${LT[r.type]} ${r.start}`, 'leave-pm');
   } else {
     if (rejectReason === undefined) {
       // เปิด modal ขอเหตุผลก่อน
@@ -1122,6 +1130,7 @@ function lAct(id, action, rejectReason) {
     r.rejectReason = rejectReason;
     r.rejectedBy = cu.name;
     toast('✕ ไม่อนุมัติ ' + r.name);
+    notifyUser(r.email, '❌ หัวหน้าไม่อนุมัติใบลา', rejectReason || '', 'leave-history');
   }
   saveLeaves(ls);
   _markLeaveModified(r);
@@ -1214,8 +1223,14 @@ function pAct(id, action, rejectReason) {
   saveLeaves(ls);
   _markLeaveModified(r);
   apiSync('updateLeave', r);
-  if (action === 'approve') { notifyLeave(r, 'pm_approved_leave', 'member'); syncLeaveApprovedToSheets(r, cu.name); }
-  else if (action === 'reject') { notifyLeave(r, isDocReview ? 'pm_rejected_doc' : 'pm_rejected_leave', 'member'); }
+  if (action === 'approve') {
+    notifyLeave(r, 'pm_approved_leave', 'member');
+    syncLeaveApprovedToSheets(r, cu.name);
+    notifyUser(r.email, '✅ PM อนุมัติใบลาแล้ว', `${LT[r.type]} ${r.start} ได้รับการอนุมัติแล้ว`, 'leave-history');
+  } else if (action === 'reject') {
+    notifyLeave(r, isDocReview ? 'pm_rejected_doc' : 'pm_rejected_leave', 'member');
+    notifyUser(r.email, isDocReview ? '📎 เอกสารไม่ผ่าน' : '❌ PM ไม่อนุมัติใบลา', rejectReason || '', 'leave-history');
+  }
   toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : (isDocReview ? '📎 เอกสารไม่ผ่าน — แจ้ง ' + r.name + ' แนบใหม่แล้ว' : '✕ PM ไม่อนุมัติ ' + r.name));
   updateBadges(); updateDashboard(); renderLP();
 }
@@ -1346,6 +1361,14 @@ function bFlow(r) {
 function deptHasLead(dept) {
   if (!dept) return false;
   return getUsers().some(u => u.role === 'lead' && u.dept && u.dept.trim().toLowerCase() === dept.trim().toLowerCase());
+}
+function notifyPMs(title, message, link) {
+  getUsers().filter(u => u.role === 'pm' && u.active !== false).forEach(u => notifyUser(u.email, title, message, link));
+}
+function notifyDeptLead(dept, title, message, link) {
+  if (!dept) return;
+  getUsers().filter(u => u.role === 'lead' && u.active !== false && u.dept && u.dept.trim().toLowerCase() === dept.trim().toLowerCase())
+    .forEach(u => notifyUser(u.email, title, message, link));
 }
 
 function getMyTeamMembers(includeInactive = false) {
@@ -2612,6 +2635,7 @@ async function doSubmitEx(data) {
   // SYNC TO API
   await apiSync('addEx', newEx);
   notifyNewExercise(newEx);
+  notifyPMs('📥 คำขอเบิกออกกำลังกายใหม่', `${newEx.nickname || newEx.name} ยื่น${EX_LABEL[newEx.exType] || newEx.exType} — ${newEx.activity}`, 'exercise-review');
   syncExerciseToSheets(newEx, 'exercise_submitted');
 
   // Close modals FIRST to ensure popup always closes
@@ -3160,6 +3184,7 @@ function apprEx(id) {
   saveExs(es);
   apiSync('updateEx', es[i]);
   syncExerciseToSheets(es[i], 'exercise_approved');
+  notifyUser(es[i].email, '✅ PM อนุมัติการออกกำลังกายแล้ว', `${EX_LABEL[es[i].exType] || es[i].exType} — ${es[i].activity || ''}`, 'exercise-log');
   toast('✅ อนุมัติแล้ว'); updateDashboard(); updateLB(); updateQuota(); renderExR();
 }
 function rejEx(id) {
@@ -3187,6 +3212,7 @@ function rejEx(id) {
     es[i].rejectedBy = cu.name;
     saveExs(es);
     apiSync('updateEx', es[i]);
+    notifyUser(es[i].email, '❌ PM ไม่อนุมัติการออกกำลังกาย', reason, 'exercise-log');
     closeModal('modal-confirm');
     toast('✕ ไม่อนุมัติ'); renderExR();
   };
@@ -3843,6 +3869,89 @@ function viewDocPopup(url) {
   document.getElementById('doc-preview-open-link').href = url;
   openModal('modal-doc-preview');
 }
+
+// ══ NOTIFICATIONS (in-app) ═══════════════
+let _notifications = [];
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (diffSec < 60) return 'เมื่อสักครู่';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return diffMin + ' นาทีที่แล้ว';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr + ' ชม.ที่แล้ว';
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return diffDay + ' วันที่แล้ว';
+  return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+}
+
+async function refreshNotifications() {
+  if (!cu || typeof api !== 'function') return;
+  try {
+    const res = await api('getNotifications');
+    if (!res.ok) return;
+    _notifications = (res.notifications || [])
+      .filter(n => n.toEmail === cu.email)
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    renderNotifications();
+  } catch (e) { console.error('[refreshNotifications]', e); }
+}
+
+function renderNotifications() {
+  const countEl = document.getElementById('notif-bell-count');
+  const unread = _notifications.filter(n => !n.read).length;
+  if (countEl) { countEl.textContent = unread > 99 ? '99+' : unread; countEl.style.display = unread > 0 ? 'flex' : 'none'; }
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  if (!_notifications.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:14px;">ยังไม่มีการแจ้งเตือน</div>';
+    return;
+  }
+  list.innerHTML = _notifications.slice(0, 40).map(n => `
+    <div onclick="openNotification('${n._fbKey}')" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;${n.read ? '' : 'background:var(--accent-bg);'}">
+      <div style="font-size:14px;font-weight:600;color:var(--text);">${n.title || ''}</div>
+      ${n.message ? `<div style="font-size:13px;color:var(--text2);margin-top:2px;">${n.message}</div>` : ''}
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;">${timeAgo(n.createdAt)}</div>
+    </div>
+  `).join('');
+}
+
+function toggleNotifPanel(force) {
+  const panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  const show = force !== undefined ? force : panel.style.display !== 'block';
+  panel.style.display = show ? 'block' : 'none';
+}
+
+function openNotification(fbKey) {
+  const n = _notifications.find(x => x._fbKey === fbKey);
+  if (!n) return;
+  if (!n.read) {
+    n.read = true;
+    renderNotifications();
+    if (typeof api === 'function') api('markNotificationRead', { _fbKey: fbKey });
+  }
+  toggleNotifPanel(false);
+  if (n.link && typeof showPage === 'function' && VALID_PAGES.has(n.link)) showPage(n.link);
+}
+
+function markAllNotificationsRead() {
+  _notifications.forEach(n => {
+    if (!n.read) {
+      n.read = true;
+      if (typeof api === 'function') api('markNotificationRead', { _fbKey: n._fbKey });
+    }
+  });
+  renderNotifications();
+}
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  const bell = document.getElementById('notif-bell');
+  if (!panel || panel.style.display !== 'block') return;
+  if (!panel.contains(e.target) && !bell.contains(e.target)) toggleNotifPanel(false);
+});
 
 function openConfirm(title, body, okCb) {
   document.getElementById('conf-title').textContent = title;

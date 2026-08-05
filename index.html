@@ -2018,6 +2018,23 @@
   </div>
 
   <div class="app" id="main-app" style="display:none;">
+    <!-- NOTIFICATIONS -->
+    <div id="notif-bell" onclick="toggleNotifPanel()"
+      style="position:fixed;top:20px;right:28px;z-index:950;width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <i class="fa-solid fa-bell" style="color:var(--text2);font-size:17px;"></i>
+      <span id="notif-bell-count"
+        style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:11px;font-weight:700;font-family:var(--mono);border-radius:20px;padding:1px 5px;min-width:16px;text-align:center;">0</span>
+    </div>
+    <div id="notif-panel"
+      style="display:none;position:fixed;top:68px;right:28px;z-index:949;width:340px;max-width:calc(100vw - 40px);max-height:70vh;overflow-y:auto;background:var(--surface1);border:1px solid var(--border2);border-radius:var(--radius-sm);box-shadow:0 8px 30px rgba(0,0,0,.4);">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--surface1);">
+        <div style="font-size:15px;font-weight:700;color:var(--text);">🔔 การแจ้งเตือน</div>
+        <a href="javascript:void(0)" onclick="markAllNotificationsRead()"
+          style="font-size:12px;color:var(--accent);text-decoration:underline;">อ่านทั้งหมด</a>
+      </div>
+      <div id="notif-list"></div>
+    </div>
+
     <aside class="sidebar">
       <div class="logo">
         <div class="logo-title">&#x2B21; Design Flow</div>
