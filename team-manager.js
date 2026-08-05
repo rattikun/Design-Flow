@@ -1281,7 +1281,7 @@ function renderHist(f) {
     const cancelBtn = canDelete ? `<button class="btn btn-red btn-sm" onclick="cancelLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>` : '';
     const editBtn = canEdit ? `<button class="btn btn-ghost btn-sm" onclick="editLeave(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);"><i class="fa-solid fa-pen"></i> แก้ไข</button>` : '';
     const pmDelBtn = cu.role === 'pm' && !canDelete ? `<button class="btn btn-red btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:8px;padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ลบ (PM)</button>` : '';
-    const attachBtn = r.type === 'dental' && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
+    const attachBtn = r.status === 'approved' && leaveNeedsDoc(r) && !r.docName ? `<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(${r.id})" style="margin-left:4px;padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>` : '';
     return `<tr>
       <td><div class="name">${uName(r.email, r.name)}</div>${r.refNo ? `<span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;">${r.refNo}</span> ` : ''}${r.hasDoc ? (r.docName?.startsWith('http') ? `<a href="javascript:void(0)" onclick="viewDocPopup('${r.docName}')" style="text-decoration:none;font-size:14px;background:var(--green-bg);color:var(--green);padding:1px 6px;border-radius:20px;">📄</a>` : '<span style="background:var(--green-bg);color:var(--green);font-size:14px;padding:1px 6px;border-radius:20px;">📄</span>') : (r.status === 'approved' && leaveNeedsDoc(r) ? '<span style="background:var(--red-bg);color:var(--red);font-size:13px;padding:2px 6px;border-radius:20px;font-weight:600;">⚠️ รอเอกสาร</span>' : '')}${!r.hasDoc && r.docRejectReason ? `<div style="margin-top:4px;font-size:12px;color:var(--red);max-width:200px;">❌ เอกสารไม่ผ่าน: ${r.docRejectReason}</div>` : ''}${r.addedBy ? '<span style="color:var(--purple);font-size:14px;"> ✎' + r.addedBy + '</span>' : ''}</td>
       <td>${LT[r.type]}</td>
@@ -1931,7 +1931,7 @@ function renderMyBal() {
       actionButtons += '<button class="btn btn-ghost btn-sm" onclick="editLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--yellow);border-color:rgba(245,200,66,.3);margin-right:4px;"><i class="fa-solid fa-pen"></i> แก้ไข</button>';
       actionButtons += '<button class="btn btn-red btn-sm" onclick="cancelLeave(' + r.id + ')" style="padding:3px 10px;font-size:13px;"><i class="fa-solid fa-trash"></i> ยกเลิก</button>';
     }
-    if (r.type === 'dental' && !r.docName) {
+    if (r.status === 'approved' && leaveNeedsDoc(r) && !r.docName) {
       actionButtons += '<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);margin-left:4px;"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>';
     }
     return '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + actionButtons + '</td></tr>';
@@ -1942,11 +1942,12 @@ function attachDentalDoc(id) {
   const ls = getLeaves(), idx = ls.findIndex(x => x.id === id); if (idx < 0) return;
   const r = ls[idx];
   
-  document.getElementById('conf-title').textContent = 'แนบเอกสารใบเสร็จ/ใบรับรองแพทย์';
+  const docLabel = r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์';
+  document.getElementById('conf-title').textContent = 'แนบเอกสาร' + docLabel;
   document.getElementById('conf-body').innerHTML = `
     ${r.docRejectReason ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.25);border-radius:8px;color:var(--red);font-size:15px;">❌ เอกสารครั้งก่อนไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
     <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
-      ยื่นเอกสารย้อนหลังสำหรับใบลาทำฟัน วันที่ <strong style="color:var(--text);">${r.start}</strong>
+      ยื่นเอกสารย้อนหลังสำหรับ${LT[r.type] || r.type} วันที่ <strong style="color:var(--text);">${r.start}</strong>
     </div>
     <div id="dental-doc-box" onclick="document.getElementById('dental-doc-file').click()"
       style="cursor:pointer;border:2px dashed var(--border2);border-radius:10px;padding:18px;text-align:center;transition:border-color .2s;">
