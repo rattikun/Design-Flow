@@ -33,12 +33,19 @@ const _HOLIDAY_TTL = 86400000; // cache 24 ชั่วโมง
 // NOTE: holiday_type=both ทำให้ iApp API คืน 500 จึงใช้ค่า default (public) แทน
 const _HOLIDAY_CACHE_KEY = 'tf_holidays_upcoming';
 
+// ข้อมูลจาก provider อาจรวม observance สากล เช่น Christmas ซึ่งไม่ใช่
+// วันหยุดสถาบันการเงินของไทย จึงไม่นำมาคำนวณวันลา
+function isThaiBankHolidayEntry(holiday) {
+  const name = String(holiday?.name || '').toLowerCase();
+  return !name.includes('christmas') && !name.includes('คริสต์มาส');
+}
+
 async function fetchThaiHolidays() {
   try {
     const raw = localStorage.getItem(_HOLIDAY_CACHE_KEY);
     if (raw) {
       const c = JSON.parse(raw);
-      if (Date.now() - c.t < _HOLIDAY_TTL) return c.d;
+      if (Date.now() - c.t < _HOLIDAY_TTL) return (c.d || []).filter(isThaiBankHolidayEntry);
     }
   } catch {}
   if (!IAPP_APIKEY) return [];
@@ -49,7 +56,9 @@ async function fetchThaiHolidays() {
     );
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    const d = (j.holidays || []).map(h => ({ date: h.date, name: h.name, type: h.type }));
+    const d = (j.holidays || [])
+      .map(h => ({ date: h.date, name: h.name, type: h.type }))
+      .filter(isThaiBankHolidayEntry);
     localStorage.setItem(_HOLIDAY_CACHE_KEY, JSON.stringify({ d, t: Date.now() }));
     console.log('[holidays] โหลดแล้ว →', d.length, 'วัน');
     return d;
@@ -64,7 +73,7 @@ function getHolidaySet() {
   const s = new Set();
   try {
     const raw = localStorage.getItem(_HOLIDAY_CACHE_KEY);
-    if (raw) JSON.parse(raw).d.forEach(h => s.add(h.date));
+    if (raw) (JSON.parse(raw).d || []).filter(isThaiBankHolidayEntry).forEach(h => s.add(h.date));
   } catch {}
   return s;
 }

@@ -6,11 +6,11 @@ const RDOC = ['sick'], ESC = ['sick', 'personal'];
 function leaveNeedsDoc(r) {
   if (r.type === 'dental') return true;
   if (r.type !== 'sick') return false;
-  if (Number(r.days) >= 2) return true;
+  if (effectiveLeaveDays(r) >= 2) return true;
   if (!r.start) return false;
   const prevDate = new Date(r.start + 'T00:00:00');
   prevDate.setDate(prevDate.getDate() - 1);
-  const prevDay = prevDate.toISOString().slice(0, 10);
+  const prevDay = toLocalDateString(prevDate);
   return getLeaves().some(x => x.email === r.email && x.id !== r.id && x.status !== 'rejected' && x.start <= prevDay && x.end >= prevDay);
 }
 const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project Manager' };
@@ -233,7 +233,7 @@ function launchApp() {
   if (VALID_PAGES.has(hashId) && document.getElementById('page-' + hashId)) showPage(hashId, { updateHash: false });
 
   // โหลดวันหยุดธนาคารไทยไว้ใน cache ตอน launch
-  fetchThaiHolidays();
+  fetchThaiHolidays().then(() => renderLeaveCalendar());
 
   // sync ทุก 60 วินาที
   setInterval(_bgSync, 60000);
@@ -335,15 +335,18 @@ function initApp() {
   const t = toLocalDateString(new Date());
   ['leave-start', 'leave-end', 'ex-date'].forEach(id => setVal(id, t));
   document.getElementById('leave-name').value = cu.name;
-  document.getElementById('ex-name').value = cu.name;
   document.getElementById('bal-year').textContent = new Date().getFullYear();
   document.getElementById('week-label').textContent = '// ' + getWkLabel();
   const ls = getLeaves(), es = getExs();
   lid = ls.length ? Math.max(...ls.map(l => l.id)) + 1 : 1;
   eid = es.length ? Math.max(...es.map(e => e.id)) + 1 : 1;
   setupLeaveFormForRole();
+  setupExerciseStepLayout();
   setupExForm();
+  setupLeaveStepLayout();
   initDatePickers();
+  syncLeaveRangePicker();
+  syncExerciseCalendar();
   updateDashboard(); updateBadges(); updateQuota();
   if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
   refreshNotifications();
@@ -360,6 +363,9 @@ function openLeaveModal() {
   const t = new Date().toISOString().split('T')[0];
   setVal('leave-start', t);
   setVal('leave-end', t);
+  setLeaveMode('full');
+  syncLeaveRangePicker();
+  setLeaveFormStep(1);
   openModal('modal-leave');
 }
 function editLeave(id) {
@@ -377,7 +383,9 @@ function editLeave(id) {
   setVal('leave-period', r.isHalf ? r.period : 'full');
   document.getElementById('leave-reason').value = r.reason || '';
   document.getElementById('leave-link').value = r.docName || '';
+  syncLeaveRangePicker();
   onLeaveChange();
+  setLeaveFormStep(1);
   openModal('modal-leave');
 }
 
@@ -407,7 +415,7 @@ function setupLeaveFormForRole() {
 
     if (!restricted && LQ[t]?.q != null) {
       const effQ = qs[targetEmail]?.[t] ?? LQ[t].q;
-      const used = ls.filter(r => r.email === targetEmail && r.type === t && r.status === 'approved').reduce((s, r) => s + r.days, 0);
+      const used = ls.filter(r => r.email === targetEmail && r.type === t && r.status === 'approved').reduce((s, r) => s + effectiveLeaveDays(r), 0);
       const rem = effQ - used;
       if (rem <= 0) {
         opt.disabled = true;
@@ -702,11 +710,18 @@ function countWorkingDays(startStr, endStr) {
   const end = new Date(endStr + 'T00:00:00');
   while (d <= end) {
     const day = d.getDay();
-    const ds = d.toISOString().slice(0, 10);
+    const ds = toLocalDateString(d);
     if (day !== 0 && day !== 6 && !holidays.has(ds)) count++;
     d.setDate(d.getDate() + 1);
   }
   return count;
+}
+
+function effectiveLeaveDays(leave) {
+  if (!leave) return 0;
+  if (leave.isHalf) return 0.5;
+  if (leave.start && leave.end) return countWorkingDays(leave.start, leave.end);
+  return Number(leave.days) || 0;
 }
 
 function calcEndDateByDays(startStr, numDays) {
@@ -716,7 +731,7 @@ function calcEndDateByDays(startStr, numDays) {
   let count = 0;
   while (count < numDays) {
     const day = d.getDay();
-    const ds = d.toISOString().slice(0, 10);
+    const ds = toLocalDateString(d);
     if (day !== 0 && day !== 6 && !holidays.has(ds)) {
       count++;
       if (count === numDays) break;
@@ -727,6 +742,174 @@ function calcEndDateByDays(startStr, numDays) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
+}
+
+// ── Calendar range picker for leave requests ────────────────────────────────
+let _leaveCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let _leaveRangeSelectingEnd = false;
+
+function _leaveDateString(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function _leaveThaiDate(dateStr, includeYear = true) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  return `${d.getDate()} ${months[d.getMonth()]}${includeYear ? ' ' + (d.getFullYear() + 543) : ''}`;
+}
+
+function setupLeaveStepLayout() {
+  const target = document.getElementById('leave-step2-fields');
+  const reason = document.getElementById('leave-reason')?.closest('.form-group');
+  const doc = document.getElementById('doc-group');
+  if (!target) return;
+  if (reason && reason.parentElement !== target) target.appendChild(reason);
+  if (doc && doc.parentElement !== target) target.appendChild(doc);
+}
+
+function setLeaveFormStep(step) {
+  const modal = document.getElementById('modal-leave');
+  if (!modal) return;
+  modal.dataset.step = String(step === 2 ? 2 : 1);
+  const scrollArea = modal.querySelector('.modal-scroll-area');
+  if (scrollArea) scrollArea.scrollTop = 0;
+  if (step === 2) setTimeout(() => document.getElementById('leave-reason')?.focus(), 0);
+}
+
+function goToLeaveStep2() {
+  const type = document.getElementById('leave-type')?.value;
+  const start = document.getElementById('leave-start')?.value;
+  const end = document.getElementById('leave-end')?.value;
+  const period = document.getElementById('leave-period')?.value || 'full';
+  if (!type) { toast('⚠️ กรุณาเลือกประเภทการลา'); return; }
+  if (!start || !end) { toast('⚠️ กรุณาเลือกวันที่ลา'); return; }
+  if (period === 'full' && start > end) { toast('⚠️ ช่วงวันที่ลาไม่ถูกต้อง'); return; }
+  if (period === 'full' && countWorkingDays(start, end) < 1) { toast('⚠️ ช่วงที่เลือกไม่มีวันทำการ'); return; }
+  onLeaveChange();
+  setLeaveFormStep(2);
+}
+
+function setLeaveMode(mode) {
+  const period = document.getElementById('leave-period');
+  if (!period) return;
+  period.value = mode;
+  document.querySelectorAll('[data-leave-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.leaveMode === mode));
+  const start = document.getElementById('leave-start').value;
+  if (mode !== 'full' && start) setVal('leave-end', start);
+  _leaveRangeSelectingEnd = false;
+  renderLeaveCalendar();
+  onLeaveChange();
+}
+
+function changeLeaveCalendarMonth(offset) {
+  _leaveCalendarMonth = new Date(_leaveCalendarMonth.getFullYear(), _leaveCalendarMonth.getMonth() + offset, 1);
+  renderLeaveCalendar();
+}
+
+function goToLeaveCalendarToday() {
+  const today = new Date();
+  _leaveCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  selectLeaveCalendarDate(_leaveDateString(today));
+}
+
+function selectLeaveCalendarDate(dateStr) {
+  const mode = document.getElementById('leave-period').value;
+  const startEl = document.getElementById('leave-start');
+  const endEl = document.getElementById('leave-end');
+  if (mode !== 'full') {
+    setVal('leave-start', dateStr);
+    setVal('leave-end', dateStr);
+    _leaveRangeSelectingEnd = false;
+  } else if (!_leaveRangeSelectingEnd) {
+    setVal('leave-start', dateStr);
+    setVal('leave-end', dateStr);
+    _leaveRangeSelectingEnd = true;
+  } else {
+    const first = startEl.value;
+    setVal('leave-start', dateStr < first ? dateStr : first);
+    setVal('leave-end', dateStr < first ? first : dateStr);
+    _leaveRangeSelectingEnd = false;
+  }
+  renderLeaveCalendar();
+  onLeaveChange();
+}
+
+function syncLeaveRangePicker() {
+  const start = document.getElementById('leave-start')?.value;
+  const period = document.getElementById('leave-period')?.value || 'full';
+  if (start) {
+    const d = new Date(start + 'T00:00:00');
+    _leaveCalendarMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+  document.querySelectorAll('[data-leave-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.leaveMode === period));
+  _leaveRangeSelectingEnd = false;
+  renderLeaveCalendar();
+}
+
+function renderLeaveCalendar() {
+  const grid = document.getElementById('leave-calendar-days');
+  const monthLabel = document.getElementById('leave-calendar-month');
+  const summary = document.getElementById('leave-range-summary');
+  const instruction = document.getElementById('leave-range-instruction');
+  if (!grid || !monthLabel || !summary || !instruction) return;
+
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const year = _leaveCalendarMonth.getFullYear(), month = _leaveCalendarMonth.getMonth();
+  monthLabel.textContent = `${months[month]} ${year + 543}`;
+  const first = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - first.getDay());
+  const start = document.getElementById('leave-start')?.value || '';
+  const end = document.getElementById('leave-end')?.value || start;
+  const mode = document.getElementById('leave-period')?.value || 'full';
+  const holidays = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
+  const holidayNames = new Map();
+  try {
+    const cached = JSON.parse(localStorage.getItem('tf_holidays_upcoming') || '{}');
+    (cached.d || []).filter(h => typeof isThaiBankHolidayEntry !== 'function' || isThaiBankHolidayEntry(h)).forEach(h => holidayNames.set(h.date, h.name || 'วันหยุดธนาคาร'));
+  } catch {}
+  const buttons = [];
+
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    const ds = _leaveDateString(date);
+    const outside = date.getMonth() !== month;
+    const weekend = date.getDay() === 0 || date.getDay() === 6;
+    const bankHoliday = holidays.has(ds);
+    const excluded = weekend || bankHoliday;
+    const inRange = mode === 'full' && start && end && ds > start && ds < end;
+    const isStart = ds === start;
+    const isEnd = mode === 'full' && ds === end && end !== start;
+    const classes = ['leave-calendar-day'];
+    if (outside) classes.push('other-month');
+    if (weekend) classes.push('weekend');
+    if (bankHoliday) classes.push('bank-holiday');
+    if (inRange) classes.push('in-range');
+    if ((inRange || isStart || isEnd) && excluded) classes.push('excluded');
+    if (isStart) classes.push('range-start');
+    if (isEnd) classes.push('range-end');
+    const holidayName = bankHoliday ? holidayNames.get(ds) || 'วันหยุดธนาคาร' : '';
+    const safeHolidayName = String(holidayName).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const holidayLabel = excluded ? ` ${safeHolidayName || 'วันหยุดสุดสัปดาห์'} ไม่นับเป็นวันลา` : '';
+    buttons.push(`<button type="button" class="${classes.join(' ')}" onclick="selectLeaveCalendarDate('${ds}')" aria-label="${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}${holidayLabel}"${bankHoliday ? ` title="${safeHolidayName} — ไม่นับเป็นวันลา"` : ''}>${date.getDate()}</button>`);
+  }
+  grid.innerHTML = buttons.join('');
+
+  if (!start) {
+    instruction.textContent = mode === 'full' ? 'เลือกวันเริ่มต้น แล้วเลือกวันสิ้นสุด' : 'เลือกวันที่ต้องการลา';
+    summary.textContent = 'ยังไม่ได้เลือกวัน';
+  } else if (mode !== 'full') {
+    instruction.textContent = mode === 'morning' ? 'ครึ่งวันเช้า' : 'ครึ่งวันบ่าย';
+    summary.textContent = `${_leaveThaiDate(start)} · 0.5 วัน`;
+  } else {
+    const workDays = countWorkingDays(start, end || start);
+    instruction.textContent = _leaveRangeSelectingEnd ? 'เลือกวันสิ้นสุด' : 'คลิกวันใหม่เพื่อเลือกช่วงอีกครั้ง';
+    const rangeText = end && end !== start ? `${_leaveThaiDate(start, false)} – ${_leaveThaiDate(end)}` : _leaveThaiDate(start);
+    summary.textContent = `${rangeText} · ${workDays} วันทำการ`;
+  }
 }
 
 function onLeaveDaysChange() {
@@ -778,9 +961,9 @@ function onLeaveChange() {
     const endEl = document.getElementById('leave-end');
     if (isHalf) { setVal('leave-end', start); endEl.disabled = true; } else { endEl.disabled = false; }
     const rawDays = countWorkingDays(start, isHalf ? start : (endCurrent || start));
-    // Use the dropdown-selected days as the authoritative count (user explicitly chose this many days)
-    // Fall back to calculated working days only when no dropdown value is selected
-    const diff = isHalf ? 0.5 : (selectedNumDays !== null ? selectedNumDays : rawDays);
+    // นับจากวันที่จริง (start–end) เสมอ ไม่ใช้ค่าจาก dropdown "จำนวนวัน" ตรงๆ
+    // เพราะ dropdown เป็นแค่ตัวช่วยตั้งวันที่สิ้นสุดเบื้องต้น ถ้า user แก้วันที่เองทีหลัง ค่า dropdown ที่ค้างไว้จะไม่ตรงกับวันที่จริงอีกต่อไป
+    const diff = isHalf ? 0.5 : rawDays;
     const forMember = (document.getElementById('for-member-select')?.value || '') !== '';
     const forMemberEmail = document.getElementById('for-member-select')?.value || '';
     const checkEmail = forMemberEmail ? forMemberEmail : cu.email;
@@ -792,7 +975,6 @@ function onLeaveChange() {
       r.start <= _prevDay && r.end >= _prevDay
     ) : false;
     const needDoc = (type === 'sick' && (diff >= 2 || prevDayHasLeave)) || type === 'dental';
-    const willEsc = ESC.includes(type) && diff > 3;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const da = Math.ceil((new Date(start) - today) / 864e5);
     const isMgr = cu.role === 'pm' || cu.role === 'lead';
@@ -817,37 +999,10 @@ function onLeaveChange() {
       }
     }
     let hs = [];
-    if (isHalf) hs.push('<span style="color:var(--accent);">🌓 ลาครึ่งวัน' + (period === 'morning' ? ' (เช้า)' : ' (บ่าย)') + ' = 0.5 วัน</span>');
-    if (isMgr && da < 0) hs.push('<span style="color:var(--yellow);">🕐 ลาย้อนหลัง ' + Math.abs(da) + ' วัน</span>');
     if (needAdv && !advOk) hs.push('<span style="color:var(--red);">⏰ ต้องลาล่วงหน้า 7 วัน — ขาดอีก ' + Math.max(0, 7 - da) + ' วัน</span>');
-    else if (needAdv && advOk && !isHalf && da >= 0) hs.push('<span style="color:var(--green);">✓ ลาล่วงหน้า ' + da + ' วัน — ผ่านเกณฑ์</span>');
     if (type === 'sick') {
       const retroOk = isMgr || forMember || da >= -7;
-      const retroLabel = !retroOk ? ' &nbsp;|&nbsp; <span style="color:var(--red);">เกินกำหนด ' + Math.abs(da) + ' วัน</span>' : (da < 0 ? ' &nbsp;|&nbsp; <span style="color:var(--yellow);">ย้อนหลัง ' + Math.abs(da) + ' วัน</span>' : '');
-      hs.push('<span style="color:' + (!retroOk ? 'var(--red)' : 'var(--accent)') + ';">💊 ลาป่วย — ย้อนหลังได้ไม่เกิน 7 วัน' + retroLabel + '</span>');
-    }
-    if (type === 'dental') hs.push('<span style="color:var(--yellow);">📄 ลาทำฟัน — แนบหลักฐานย้อนหลังได้ (หลังจากแนบ PM จะพิจารณาอนุมัติอีกครั้ง)</span>');
-    if (isMgr && !forMember) hs.push('<span style="color:var(--purple);">🔓 PM/หัวหน้า — ลาย้อนหลังได้ทุกกรณี</span>');
-    else if (forMember) hs.push('<span style="color:var(--purple);">✎ ยื่นแทนสมาชิก — ข้ามกฎลาล่วงหน้า</span>');
-    if (willEsc) hs.push('<span style="color:var(--orange);">⚡ ลา ' + diff + ' วัน → จะส่งตรงถึง PM อัตโนมัติ</span>');
-    if (type === 'birthday') hs.push('<span style="color:var(--purple);">🎂 หัวหน้าพิจารณาเสมอ</span>');
-    // แสดงวันหยุดธนาคารที่ถูกข้ามในช่วงที่เลือก
-    if (!isHalf && start && endCurrent && start <= endCurrent) {
-      const hols = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
-      const skipped = [];
-      const _d = new Date(start + 'T00:00:00'), _e = new Date(endCurrent + 'T00:00:00');
-      while (_d <= _e) {
-        const _ds = _d.toISOString().slice(0, 10), _dw = _d.getDay();
-        if (_dw !== 0 && _dw !== 6 && hols.has(_ds)) skipped.push(_ds);
-        _d.setDate(_d.getDate() + 1);
-      }
-      if (skipped.length) {
-        const names = skipped.map(_ds => {
-          const _hd = new Date(_ds + 'T00:00:00');
-          return _hd.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-        }).join(', ');
-        hs.push('<span style="color:var(--yellow);">🏦 ข้ามวันหยุดธนาคาร ' + skipped.length + ' วัน (' + names + ')</span>');
-      }
+      if (!retroOk) hs.push('<span style="color:var(--red);">💊 ลาป่วยย้อนหลังได้ไม่เกิน 7 วัน — เกินกำหนด ' + Math.max(0, Math.abs(da) - 7) + ' วัน</span>');
     }
     hints.innerHTML = hs.map(h => '<div style="padding:8px 12px;background:var(--surface3);border-radius:6px;font-size:17px;margin-bottom:6px;">' + h + '</div>').join('');
   } catch (e) { console.error('[onLeaveChange error]', e); }
@@ -953,10 +1108,9 @@ function submitLeave() {
   if (!reason) { toast('⚠️ กรุณาระบุหมายเหตุ / เหตุผล'); return; }
   if (!isHalf && start > end) { toast('⚠️ วันที่ไม่ถูกต้อง'); return; }
   const rawDays = countWorkingDays(start, end);
-  // Use dropdown-selected days as the authoritative count (matches what onLeaveChange uses)
-  const _submitLeaveVal = document.getElementById('leave-days')?.value;
-  const _submitSelectedDays = (_submitLeaveVal && _submitLeaveVal !== 'morning' && _submitLeaveVal !== 'afternoon') ? parseInt(_submitLeaveVal) : null;
-  const diff = isHalf ? 0.5 : (_submitSelectedDays !== null ? _submitSelectedDays : rawDays);
+  // นับจากวันที่จริง (start–end) เสมอ ไม่ใช้ค่าจาก dropdown "จำนวนวัน" ตรงๆ — กันไม่ให้ dropdown ค้างค่าเก่า
+  // (เช่นตอนแก้ไขใบลา หรือเพิ่มวันลาให้สมาชิก) แล้วส่งจำนวนวันไม่ตรงกับช่วงวันที่จริงที่เลือกไว้
+  const diff = isHalf ? 0.5 : rawDays;
 
   // --- EDIT MODE ---
   if (_editingLeaveId !== null) {
@@ -1054,6 +1208,8 @@ function clearLeaveForm() {
   if (document.getElementById('for-member-select')) document.getElementById('for-member-select').value = '';
   document.getElementById('doc-group').style.display = 'none';
   document.getElementById('leave-hints').innerHTML = '';
+  _leaveRangeSelectingEnd = false;
+  renderLeaveCalendar();
 }
 
 // ══ LEAVE REVIEW ═════════════════════════
@@ -1063,7 +1219,7 @@ function renderLR() {
   const el = document.getElementById('leave-review-list');
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการรอรีวิว 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
-    const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : r.days + ' วัน';
+    const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : effectiveLeaveDays(r) + ' วัน';
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
@@ -1147,7 +1303,7 @@ function renderLP() {
   const el = document.getElementById('leave-pm-list');
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการ 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
-    const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : r.days + ' วัน';
+    const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : effectiveLeaveDays(r) + ' วัน';
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
@@ -1273,7 +1429,7 @@ function renderHist(f) {
   const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
   const approvedChip = r => (leaveNeedsDoc(r) && !r.docName) ? '<span class="chip" style="background:rgba(245,200,66,.15);color:var(--yellow);">⚠️ รอเอกสาร</span>' : '<span class="chip chip-approved">อนุมัติ</span>';
   tb.innerHTML = data.map(r => {
-    const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
+    const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : effectiveLeaveDays(r) + 'd';
     const isOwner = r.email === cu.email;
     const isLeadOfMember = cu.role === 'lead' && r.status.startsWith('pending') && getMyTeamMembers().some(u => u.email === r.email);
     const canEdit = isOwner && r.status.startsWith('pending');
@@ -1489,7 +1645,7 @@ function renderTeamHist() {
     else if (_sc === 'name') { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
     else if (_sc === 'dept') { va = (a.dept || '').toLowerCase(); vb = (b.dept || '').toLowerCase(); }
     else if (_sc === 'type') { va = a.type || ''; vb = b.type || ''; }
-    else if (_sc === 'days') { va = a.days || 0; vb = b.days || 0; }
+    else if (_sc === 'days') { va = effectiveLeaveDays(a); vb = effectiveLeaveDays(b); }
     else if (_sc === 'refNo') { va = a.refNo || ''; vb = b.refNo || ''; }
     else { va = ''; vb = ''; }
     return _sd === 'asc' ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
@@ -1506,7 +1662,7 @@ function renderTeamHist() {
   tb.innerHTML = data.map(r => {
     const u = users.find(x => x.email === r.email);
     const dept = u?.dept || r.dept || '—';
-    const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd';
+    const dLabel = r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : effectiveLeaveDays(r) + 'd';
     return `<tr>
       <td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">${r.refNo || '—'}</span></td>
       <td><div class="name">${uName(r.email, r.name)}</div><div class="meta">${r.email}</div></td>
@@ -1624,7 +1780,7 @@ function renderBalOverview(members, isPM, selYear) {
     const cols = {};
     allTypes.forEach(type => {
       const def = LQ[type], cq = qs[u.email]?.[type] ?? null;
-      const used = ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
+      const used = ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').reduce((s, r) => s + effectiveLeaveDays(r), 0);
       if (def.q === null && cq === null) { cols[type] = { display: (ls.filter(r => r.email === u.email && r.type === type && r.status === 'approved').length || 0), isCount: true }; }
       else { const effQ = cq !== null ? cq : def.q; cols[type] = { rem: Math.max(0, effQ - used), effQ, used }; }
     });
@@ -1679,7 +1835,7 @@ function openQuotaModal(email) {
     </div>
     ${allTypes.map(type => {
     const def = LQ[type], cq = qs[email]?.[type] ?? null, effQ = cq !== null ? cq : (def.q ?? 0);
-    const used = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
+    const used = ls.filter(r => r.email === email && r.type === type && r.status === 'approved').reduce((s, r) => s + effectiveLeaveDays(r), 0);
     const rem = Math.max(0, effQ - used);
 
     if (type === 'accumulated') {
@@ -1908,7 +2064,7 @@ function renderMyBal() {
   const visibleTypes = Object.keys(LQ).filter(t => isMgr || !hiddenForMember.includes(t));
   const rows = visibleTypes.map(type => {
     const def = LQ[type], cq = qs[cu.email]?.[type] ?? null, effQ = cq !== null ? cq : def.q;
-    const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + r.days, 0);
+    const used = mine.filter(r => r.type === type && r.status === 'approved').reduce((s, r) => s + effectiveLeaveDays(r), 0);
     const pend = mine.filter(r => r.type === type && r.status.startsWith('pending')).length;
     const pb = pend ? '<span style="font-size:14px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:20px;margin-left:4px;">+' + pend + ' รอ</span>' : '';
     if (def.q !== null || cq !== null) {
@@ -1934,7 +2090,7 @@ function renderMyBal() {
     if (r.status === 'approved' && leaveNeedsDoc(r) && !r.docName) {
       actionButtons += '<button class="btn btn-ghost btn-sm" onclick="attachDentalDoc(' + r.id + ')" style="padding:3px 10px;font-size:13px;color:var(--green);border-color:rgba(61,214,140,.3);margin-left:4px;"><i class="fa-solid fa-paperclip"></i> แนบเอกสาร</button>';
     }
-    return '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : r.days + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + actionButtons + '</td></tr>';
+    return '<tr><td><span style="font-size:13px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;white-space:nowrap;">' + (r.refNo || '—') + '</span></td><td>' + LT[r.type] + '</td><td><span class="meta">' + r.start + (r.start !== r.end ? ' → ' + r.end : '') + '</span></td><td><span style="font-family:var(--mono);font-weight:700;color:var(--yellow);">' + (r.isHalf ? (r.period === 'morning' ? '½เช้า' : '½บ่าย') : effectiveLeaveDays(r) + 'd') + '</span></td><td>' + (sc[r.status] || '') + '</td><td style="white-space:nowrap;">' + actionButtons + '</td></tr>';
   }).join('') + '</tbody></table></div>';
 }
 
@@ -2008,6 +2164,145 @@ let exMembers = [];
 let _editingExId = null;
 let _exSubmitting = false;
 let _editingLeaveId = null;
+let _exerciseCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function _exerciseCalendarCycle(dateStr) {
+  const mk = monthKey(dateStr);
+  const [year, month] = mk.split('-').map(Number);
+  return {
+    key: mk,
+    year,
+    month: month - 1,
+    start: new Date(year, month - 1, 19),
+    end: new Date(year, month, 18)
+  };
+}
+
+function setupExerciseStepLayout() {
+  const target = document.getElementById('exercise-step2-fields');
+  const members = document.getElementById('ex-group-members');
+  if (target && members && members.parentElement !== target) target.appendChild(members);
+}
+
+function setExerciseFormStep(step) {
+  const modal = document.getElementById('modal-ex-form');
+  if (!modal) return;
+  modal.dataset.exStep = String(step === 2 ? 2 : 1);
+  const scrollArea = modal.querySelector('.modal-scroll-area');
+  if (scrollArea) scrollArea.scrollTop = 0;
+}
+
+function goToExerciseStep2() {
+  const exType = document.getElementById('ex-type')?.value || 'solo';
+  if (!isGroupEx(exType)) { submitEx(); return; }
+  const act = document.getElementById('ex-act')?.value.trim();
+  const date = document.getElementById('ex-date')?.value;
+  const link = document.getElementById('ex-link')?.value.trim();
+  clearExErr();
+  const missing = [];
+  if (!act) missing.push('กิจกรรม');
+  if (!date) missing.push('วันที่');
+  if (!link) missing.push('หลักฐาน (ลิงก์)');
+  if (missing.length) { showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• ')); return; }
+  const today = toLocalDateString(new Date());
+  if (date > today) { showExErr('⚠️ ไม่สามารถยื่นออกกำลังกายล่วงหน้าได้'); return; }
+  const duplicate = getExs().some(e => String(e.id) !== String(_editingExId) && e.status !== 'rejected' && e.date === date && isUserInvolved(e, cu.email));
+  if (duplicate) { showExErr('⚠️ วันที่นี้มีรายการยื่นแล้ว กรุณาเลือกวันอื่น'); return; }
+  setExerciseFormStep(2);
+}
+
+function syncExerciseCalendar(dateStr) {
+  const selected = dateStr || document.getElementById('ex-date')?.value || toLocalDateString(new Date());
+  if (selected) {
+    const cycle = _exerciseCalendarCycle(selected);
+    _exerciseCalendarMonth = new Date(cycle.year, cycle.month, 1);
+  }
+  renderExerciseCalendar();
+}
+
+function changeExerciseCalendarMonth(offset) {
+  const target = new Date(_exerciseCalendarMonth.getFullYear(), _exerciseCalendarMonth.getMonth() + offset, 1);
+  const targetCycleStart = new Date(target.getFullYear(), target.getMonth(), 19);
+  if (targetCycleStart > new Date()) return;
+  _exerciseCalendarMonth = target;
+  renderExerciseCalendar();
+}
+
+function goToExerciseCalendarToday() {
+  selectExerciseCalendarDate(toLocalDateString(new Date()));
+}
+
+function selectExerciseCalendarDate(dateStr) {
+  const today = toLocalDateString(new Date());
+  if (!dateStr || dateStr > today || monthKey(dateStr) !== monthKey(today)) return;
+  const duplicate = getExs().some(e => String(e.id) !== String(_editingExId) && e.status !== 'rejected' && e.date === dateStr && isUserInvolved(e, cu.email));
+  if (duplicate) { showExErr('⚠️ วันที่นี้มีรายการยื่นแล้ว กรุณาเลือกวันอื่น'); return; }
+  setVal('ex-date', dateStr);
+  const cycle = _exerciseCalendarCycle(dateStr);
+  _exerciseCalendarMonth = new Date(cycle.year, cycle.month, 1);
+  renderExerciseCalendar();
+  clearExErr();
+  updateQuota();
+}
+
+function renderExerciseCalendar() {
+  const grid = document.getElementById('exercise-calendar-days');
+  const monthLabel = document.getElementById('exercise-calendar-month');
+  const nextButton = document.getElementById('exercise-calendar-next');
+  if (!grid || !monthLabel) return;
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const year = _exerciseCalendarMonth.getFullYear(), month = _exerciseCalendarMonth.getMonth();
+  const today = toLocalDateString(new Date());
+  const selected = document.getElementById('ex-date')?.value || '';
+  const cycleStart = new Date(year, month, 19);
+  const cycleEnd = new Date(year, month + 1, 18);
+  const displayedCycleKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const isCurrentCycle = displayedCycleKey === monthKey(today);
+  const formatShort = d => d.toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+  monthLabel.textContent = `${months[month]} ${year + 543} · ${formatShort(cycleStart)} – ${formatShort(cycleEnd)}`;
+  const nextCycleStart = new Date(year, month + 1, 19);
+  if (nextButton) nextButton.disabled = nextCycleStart > new Date();
+  const gridStart = new Date(cycleStart); gridStart.setDate(cycleStart.getDate() - cycleStart.getDay());
+  const submittedByDate = new Map();
+  getExs().filter(e => e.status !== 'rejected' && isUserInvolved(e, cu.email) && e.date >= toLocalDateString(cycleStart) && e.date <= toLocalDateString(cycleEnd)).forEach(e => {
+    if (!submittedByDate.has(e.date)) submittedByDate.set(e.date, []);
+    submittedByDate.get(e.date).push(e);
+  });
+  const buttons = [];
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    const ds = toLocalDateString(date);
+    if (date < cycleStart || date > cycleEnd) {
+      buttons.push('<span class="exercise-calendar-empty" aria-hidden="true"></span>');
+      continue;
+    }
+    const classes = ['leave-calendar-day'];
+    if (ds === today) classes.push('today');
+    if (ds === selected) classes.push('range-start');
+    if (!isCurrentCycle) classes.push('exercise-locked');
+    const submitted = submittedByDate.get(ds) || [];
+    const blockingSubmission = submitted.some(e => String(e.id) !== String(_editingExId));
+    const isFuture = ds > today;
+    if (submitted.length) classes.push('exercise-submitted');
+    if (blockingSubmission) classes.push('exercise-submitted-locked');
+    if (isFuture) classes.push('exercise-unavailable');
+    const submittedLabel = submitted.length ? ` มีรายการยื่นแล้ว ${submitted.length} รายการ` : '';
+    const safeTitle = submitted.map(e => e.activity || EX_LABEL[getExType(e)] || 'กิจกรรมออกกำลังกาย').join(', ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const selectable = isCurrentCycle && !blockingSubmission && !isFuture;
+    const interaction = selectable ? ` onclick="selectExerciseCalendarDate('${ds}')"` : ' aria-disabled="true"';
+    const lockedLabel = isCurrentCycle ? '' : ' รอบเดือนก่อนหน้า ดูได้อย่างเดียว';
+    const duplicateLabel = blockingSubmission ? ' เลือกซ้ำไม่ได้' : '';
+    const futureLabel = isFuture ? ' ยังไม่สามารถยื่นล่วงหน้าได้' : '';
+    const unavailableReasons = [];
+    if (!isCurrentCycle) unavailableReasons.push('เป็นรอบเดือนก่อนหน้า');
+    if (isFuture) unavailableReasons.push('ยังไม่สามารถยื่นล่วงหน้าได้');
+    if (blockingSubmission) unavailableReasons.push(`มีรายการยื่นแล้ว${safeTitle ? ': ' + safeTitle : ''}`);
+    const hoverText = unavailableReasons.length ? `เลือกไม่ได้ — ${unavailableReasons.join(' · ')}` : (submitted.length ? `ยื่นแล้ว: ${safeTitle}` : '');
+    buttons.push(`<button type="button" class="${classes.join(' ')}"${interaction} aria-label="${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}${submittedLabel}${duplicateLabel}${lockedLabel}${futureLabel}"${hoverText ? ` title="${hoverText}"` : ''}>${date.getDate()}</button>`);
+  }
+  grid.innerHTML = buttons.join('');
+}
+
 function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
   if (!sel) return;
@@ -2053,8 +2348,9 @@ function updateExSysMemberSelect() {
 }
 
 function setupExForm() {
-  updateExSysMemberSelect();
   exMembers = [];
+  updateExType();
+  updateExSysMemberSelect();
   renderExMembers();
 }
 function addExSysMember() {
@@ -2170,6 +2466,9 @@ function isUserInvolved(e, email) {
 function updateExType() {
   const exType = document.getElementById('ex-type').value;
   const isGrp = isGroupEx(exType);
+  const modal = document.getElementById('modal-ex-form');
+  if (modal) modal.dataset.exGroup = String(isGrp);
+  setExerciseFormStep(1);
   const egm = document.getElementById('ex-group-members'); if (egm) egm.style.display = isGrp ? 'block' : 'none';
   clearExErr();
   updateQuota();
@@ -2476,13 +2775,6 @@ function updateQuota() {
     else { warn.style.display = 'none'; if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   }
 
-  // Update top page label to show what's being viewed
-  const wLabel = document.getElementById('week-label');
-  if (wLabel) {
-    const ws = new Date(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
-    wLabel.innerHTML = `<span style="color:var(--accent);font-weight:700;">📂 กำลังดู:</span> ${moName} — สัปดาห์ที่ ${weekOpts.indexOf(wk) + 1} <span style="opacity:0.7;font-size:16px;">(${fmt(ws)} - ${fmt(we)})</span>`;
-  }
-
   // Re-enable button if monthly is not full
   if (exType === 'solo' && moSolo < moLimit) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   if (exType !== 'solo' && moGrp < 4) { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
@@ -2517,6 +2809,12 @@ function submitEx() {
     const today = toLocalDateString(new Date());
     if (date > today) {
       showExErr('⚠️ ไม่สามารถยื่นออกกำลังกายล่วงหน้าได้');
+      return;
+    }
+
+    const duplicateDate = getExs().some(e => String(e.id) !== String(_editingExId) && e.status !== 'rejected' && e.date === date && isUserInvolved(e, cu.email));
+    if (duplicateDate) {
+      showExErr('⚠️ วันที่นี้มีรายการยื่นแล้ว กรุณาเลือกวันอื่น');
       return;
     }
 
@@ -3741,76 +4039,124 @@ function updateLB() {
 
 
 // ══ DASHBOARD ════════════════════════════
+let _dashboardCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function changeDashboardCalendarMonth(offset) {
+  _dashboardCalendarMonth = new Date(_dashboardCalendarMonth.getFullYear(), _dashboardCalendarMonth.getMonth() + offset, 1);
+  renderDashboardCalendar();
+}
+
+function getCachedDashboardHolidays() {
+  try {
+    const cached = JSON.parse(localStorage.getItem('tf_holidays_upcoming') || '{}');
+    return (cached.d || []).filter(h => typeof isThaiBankHolidayEntry !== 'function' || isThaiBankHolidayEntry(h));
+  } catch { return []; }
+}
+
+function renderDashboardCalendar() {
+  const grid = document.getElementById('dashboard-calendar-days');
+  const label = document.getElementById('dashboard-calendar-month');
+  if (!grid || !label || !cu) return;
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const year = _dashboardCalendarMonth.getFullYear(), month = _dashboardCalendarMonth.getMonth();
+  const today = toLocalDateString(new Date());
+  label.textContent = `${months[month]} ${year + 543}`;
+  const holidays = new Map(getCachedDashboardHolidays().map(h => [h.date, h]));
+  const myLeaves = getLeaves().filter(r => r.email === cu.email && r.status !== 'rejected');
+  const first = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - first.getDay());
+  const statusName = { pending_lead:'รอหัวหน้าอนุมัติ', pending_pm:'รอ PM อนุมัติ', approved:'อนุมัติแล้ว' };
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    const ds = toLocalDateString(date);
+    const holiday = holidays.get(ds);
+    const leaves = myLeaves.filter(r => r.start <= ds && r.end >= ds);
+    const pending = leaves.some(r => r.status.startsWith('pending'));
+    const classes = ['dashboard-calendar-day'];
+    if (date.getMonth() !== month) classes.push('other');
+    if (ds === today) classes.push('today');
+    if (holiday) classes.push('holiday');
+    if (leaves.length) classes.push('on-leave');
+    if (pending) classes.push('leave-pending');
+    const marks = `${holiday ? '<i class="dashboard-calendar-mark holiday"></i>' : ''}${leaves.length ? '<i class="dashboard-calendar-mark leave"></i>' : ''}`;
+    const details = [];
+    if (holiday) details.push(holiday.name || 'วันหยุดธนาคาร');
+    leaves.forEach(r => details.push(`${LT[r.type] || r.type} — ${statusName[r.status] || r.status}`));
+    const safeDetails = escapeNotificationText(details.join(' · '));
+    cells.push(`<div class="${classes.join(' ')}"${safeDetails ? ` title="${safeDetails}"` : ''}>${date.getDate()}${marks ? `<span class="dashboard-calendar-marks">${marks}</span>` : ''}</div>`);
+  }
+  grid.innerHTML = cells.join('');
+}
+
 function updateDashboard() {
-  const ve = getVisibleEmails();
-  const ls = getLeaves().filter(r => ve === null || ve.has(r.email));
-  const es = getExs().filter(e => isUserInvolved(e, cu.email));
-  const wk = wkKey(new Date().toISOString().split('T')[0]);
-  document.getElementById('d-pending').textContent = ls.filter(r => r.status.startsWith('pending')).length;
-  document.getElementById('d-approved').textContent = ls.filter(r => r.status === 'approved').length;
-  document.getElementById('d-exweek').textContent = es.filter(e => wkKey(e.date) === wk && e.status !== 'rejected').length;
-  const memberCount = ve ? ve.size : getUsers().length;
-  document.getElementById('d-members').textContent = memberCount;
-  const ch = { pending_lead: '<span class="chip chip-pending">รอหัวหน้า</span>', pending_pm: '<span class="chip chip-escalated">รอ PM</span>', approved: '<span class="chip chip-approved">อนุมัติ</span>', rejected: '<span class="chip chip-rejected">ปฏิเสธ</span>' };
-  document.getElementById('d-leaves').innerHTML = ls.slice(0, 4).map(r => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><div style="font-weight:500;color:var(--text);">' + uName(r.email, r.name) + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + LT[r.type] + ' • ' + r.start + '</div></div>' + (ch[r.status] || '') + '</div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
-  document.getElementById('d-exs').innerHTML = es.slice(0, 4).map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewExDetail(\'' + e.id + '\')"><div><div style="font-weight:500;color:var(--text);">' + uName(e.email, e.name) + ' — ' + e.activity + '</div><div style="font-size:16px;color:var(--text3);font-family:var(--mono);">' + (e.type === 'solo' ? '🏃' : '🏋️') + ' ' + e.date + ' (W' + getWkNum(e.date) + ') • ' + e.duration + 'min</div></div><div style="display:flex;align-items:center;gap:8px;">' + (e.status === 'approved' ? '<span class="chip chip-approved">✓</span>' : e.status === 'rejected' ? '<span class="chip chip-rejected">✕</span>' : '<span class="chip chip-pending">รอ</span>') + '<button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:15px;" onclick="event.stopPropagation();viewExDetail(\'' + e.id + '\')"><i class="fa-solid fa-magnifying-glass"></i> รายละเอียด</button></div></div>').join('') || '<div style="color:var(--text3);font-size:17px;">ยังไม่มีรายการ</div>';
+  if (!cu) return;
+  const today = toLocalDateString(new Date());
+  const myLeaves = getLeaves().filter(r => r.email === cu.email);
+  const myExercises = getExs().filter(e => isUserInvolved(e, cu.email));
+  const attentionLeaves = myLeaves.filter(r => r.status.startsWith('pending') || (r.status === 'approved' && leaveNeedsDoc(r) && !r.docName));
+  const cycleKey = monthKey(today);
+  const cycle = _exerciseCalendarCycle(today);
+  const cycleExercises = myExercises.filter(e => e.status !== 'rejected' && monthKey(e.date) === cycleKey);
+  const greeting = document.getElementById('dashboard-greeting');
+  if (greeting) greeting.textContent = `สวัสดี ${cu.nickname || cu.name?.split(' ')[0] || ''}`;
+  const weekLabel = document.getElementById('week-label');
+  if (weekLabel) weekLabel.textContent = `${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · รอบออกกำลังกาย ${cycle.start.toLocaleDateString('th-TH',{day:'numeric',month:'short'})}–${cycle.end.toLocaleDateString('th-TH',{day:'numeric',month:'short'})}`;
+  const pendingEl = document.getElementById('d-pending'); if (pendingEl) pendingEl.textContent = attentionLeaves.length;
+  const exCycleEl = document.getElementById('d-excycle'); if (exCycleEl) exCycleEl.textContent = cycleExercises.length;
+  const exCycleLabel = document.getElementById('d-excycle-label');
+  if (exCycleLabel) exCycleLabel.textContent = `${cycle.start.toLocaleDateString('th-TH',{day:'numeric',month:'short'})} – ${cycle.end.toLocaleDateString('th-TH',{day:'numeric',month:'short'})}`;
+
+  const leaveActions = document.getElementById('d-leave-actions');
+  if (leaveActions) {
+    const leaveStatus = r => r.status === 'pending_lead' ? ['รอหัวหน้า','chip-pending'] : r.status === 'pending_pm' ? ['รอ PM','chip-escalated'] : ['รอเอกสาร','chip-pending'];
+    leaveActions.innerHTML = attentionLeaves.slice().sort((a,b) => (b.submittedAt || '').localeCompare(a.submittedAt || '')).slice(0,4).map(r => {
+      const [status, chip] = leaveStatus(r);
+      const range = r.start === r.end ? fmtDate(r.start) : `${fmtDate(r.start)} – ${fmtDate(r.end)}`;
+      return `<div class="dashboard-list-item" onclick="showPage('leave-history')"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(LT[r.type] || r.type)}</div><div class="dashboard-list-meta">${range} · ${effectiveLeaveDays(r)} วัน</div></div><span class="chip ${chip}">${status}</span></div>`;
+    }).join('') || '<div class="dashboard-empty">✓ ไม่มีใบลาที่ต้องดำเนินการ</div>';
+  }
+
+  const exMetrics = document.getElementById('d-exercise-metrics');
+  if (exMetrics) {
+    const approved = cycleExercises.filter(e => e.status === 'approved').length;
+    const pending = cycleExercises.filter(e => e.status === 'pending').length;
+    exMetrics.innerHTML = `<div class="dashboard-ex-metric"><strong>${cycleExercises.length}</strong><span>ทั้งหมด</span></div><div class="dashboard-ex-metric"><strong>${pending}</strong><span>รออนุมัติ</span></div><div class="dashboard-ex-metric"><strong>${approved}</strong><span>อนุมัติแล้ว</span></div>`;
+  }
+  const exRecent = document.getElementById('d-exercise-recent');
+  if (exRecent) {
+    const status = { pending:['รอ','chip-pending'], approved:['อนุมัติ','chip-approved'], rejected:['ไม่อนุมัติ','chip-rejected'] };
+    exRecent.innerHTML = myExercises.slice().sort((a,b) => (b.date || '').localeCompare(a.date || '')).slice(0,3).map(e => {
+      const [text, cls] = status[e.status] || ['—',''];
+      const id = encodeURIComponent(String(e.id || ''));
+      return `<div class="dashboard-list-item" onclick="viewExDetail(decodeURIComponent('${id}'))"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(e.activity || EX_LABEL[getExType(e)] || 'กิจกรรมออกกำลังกาย')}</div><div class="dashboard-list-meta">${fmtDate(e.date)} · ${EX_LABEL[getExType(e)] || ''}</div></div><span class="chip ${cls}">${text}</span></div>`;
+    }).join('') || '<div class="dashboard-empty">ยังไม่มีรายการออกกำลังกาย</div>';
+  }
+  renderDashboardCalendar();
   renderHolidayWidget();
 }
 
 async function renderHolidayWidget() {
-  const el = document.getElementById('d-holidays');
-  if (!el) return;
-
-  if (!IAPP_APIKEY) {
-    el.innerHTML = `<div style="text-align:center;padding:16px 0;color:var(--text3);font-size:15px;line-height:1.7;">
-      ⚙️ ยังไม่ได้ตั้งค่า <code style="background:var(--surface2);padding:2px 6px;border-radius:6px;color:var(--accent);">IAPP_APIKEY</code> ใน <code style="background:var(--surface2);padding:2px 6px;border-radius:6px;color:var(--accent);">api.js</code><br>
-      <span style="font-size:13px;">ลงทะเบียนได้ที่ <a href="https://iapp.co.th/dashboard" target="_blank" style="color:var(--accent);">iapp.co.th/dashboard</a></span>
-    </div>`;
-    return;
+  const dateEl = document.getElementById('d-next-holiday');
+  const nameEl = document.getElementById('d-next-holiday-name');
+  try {
+    const today = toLocalDateString(new Date());
+    const all = typeof fetchThaiHolidays === 'function' ? await fetchThaiHolidays() : getCachedDashboardHolidays();
+    const next = (all || []).filter(h => h.date >= today).sort((a,b) => a.date.localeCompare(b.date))[0];
+    if (next) {
+      const hDate = new Date(next.date + 'T00:00:00');
+      const diff = Math.round((hDate - new Date(today + 'T00:00:00')) / 86400000);
+      if (dateEl) dateEl.textContent = hDate.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
+      if (nameEl) nameEl.textContent = `${next.name || 'วันหยุดธนาคาร'}${diff === 0 ? ' · วันนี้' : ` · อีก ${diff} วัน`}`;
+    } else {
+      if (dateEl) dateEl.textContent = '—';
+      if (nameEl) nameEl.textContent = 'ยังไม่มีข้อมูลวันหยุด';
+    }
+    renderDashboardCalendar();
+  } catch (e) {
+    if (nameEl) nameEl.textContent = 'โหลดวันหยุดไม่สำเร็จ';
+    console.error('[dashboard holidays]', e);
   }
-
-  el.innerHTML = '<div style="color:var(--text3);font-size:15px;padding:10px 0;">🔄 กำลังโหลด...</div>';
-
-  const today = new Date().toISOString().slice(0, 10);
-  const all = await fetchThaiHolidays();
-  const upcoming = all
-    .filter(h => h.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 8);
-
-  if (!upcoming.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:15px;">ไม่พบข้อมูลวันหยุด</div>';
-    return;
-  }
-
-  const todayMs = new Date(today + 'T00:00:00').getTime();
-  const typeLabel = { financial: 'ธนาคาร', public: 'ราชการ' };
-  const typeColor = { financial: 'rgba(108,138,255,.15);color:var(--accent)', public: 'rgba(100,200,120,.12);color:var(--green)' };
-
-  el.innerHTML = upcoming.map(h => {
-    const hDate = new Date(h.date + 'T00:00:00');
-    const diff = Math.round((hDate.getTime() - todayMs) / 86400000);
-    const dateStr = hDate.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
-    const diffChip = diff === 0
-      ? `<span style="background:var(--red-bg);color:var(--red);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">วันนี้!</span>`
-      : diff <= 7
-        ? `<span style="background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;">อีก ${diff} วัน</span>`
-        : diff <= 30
-          ? `<span style="background:rgba(245,200,66,.12);color:var(--yellow);padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;">อีก ${diff} วัน</span>`
-          : `<span style="color:var(--text3);font-size:13px;font-family:var(--mono);">อีก ${diff} วัน</span>`;
-    const tc = typeColor[h.type] || typeColor.public;
-    const tl = typeLabel[h.type] || h.type;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:500;color:var(--text);font-size:16px;display:flex;align-items:center;gap:7px;">
-          ${h.name}
-          <span style="background:${tc};padding:1px 7px;border-radius:10px;font-size:12px;white-space:nowrap;flex-shrink:0;">${tl}</span>
-        </div>
-        <div style="font-size:15px;color:var(--text3);margin-top:2px;">${dateStr}</div>
-      </div>
-      <div style="flex-shrink:0;margin-left:10px;">${diffChip}</div>
-    </div>`;
-  }).join('') + `<div style="text-align:right;margin-top:10px;font-size:15px;color:var(--text3);">วันหยุดที่กำลังจะมาถึง ${upcoming.length} วัน • <a href="https://iapp.co.th" target="_blank" style="color:var(--accent);text-decoration:none;">ข้อมูลจาก iApp</a></div>`;
 }
 function updateBadges() {
   const ve = getVisibleEmails();
@@ -3874,6 +4220,10 @@ function viewDocPopup(url) {
 // ══ NOTIFICATIONS (in-app) ═══════════════
 let _notifications = [];
 
+function escapeNotificationText(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function timeAgo(iso) {
   if (!iso) return '';
   const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -3910,10 +4260,10 @@ function renderNotifications() {
     return;
   }
   list.innerHTML = _notifications.slice(0, 40).map(n => `
-    <div onclick="openNotification('${n._fbKey}')" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;${n.read ? '' : 'background:var(--accent-bg);'}">
-      <div style="font-size:14px;font-weight:600;color:var(--text);">${n.title || ''}</div>
-      ${n.message ? `<div style="font-size:13px;color:var(--text2);margin-top:2px;">${n.message}</div>` : ''}
-      <div style="font-size:11px;color:var(--text3);margin-top:4px;">${timeAgo(n.createdAt)}</div>
+    <div class="notif-item${n.read ? '' : ' unread'}" onclick="openNotification(decodeURIComponent('${encodeURIComponent(String(n._fbKey || ''))}'))">
+      <div class="notif-item-title">${escapeNotificationText(n.title)}</div>
+      ${n.message ? `<div class="notif-item-message">${escapeNotificationText(n.message)}</div>` : ''}
+      <div class="notif-item-time">${escapeNotificationText(timeAgo(n.createdAt))}</div>
     </div>
   `).join('');
 }
@@ -4350,10 +4700,10 @@ function editEx(id) {
   _editingExId = id;
 
   // Pre-fill form fields — keep original submitter name when PM edits
-  document.getElementById('ex-name').value = e.name || cu.name;
   document.getElementById('ex-type').value = e.exType || 'solo';
   document.getElementById('ex-act').value = e.activity || '';
   setVal('ex-date', e.date || '');
+  syncExerciseCalendar(e.date || '');
   document.getElementById('ex-note').value = e.note || '';
   document.getElementById('ex-link').value = e.proofLink || e.proofDoc || '';
 
@@ -4377,6 +4727,7 @@ function editEx(id) {
   document.querySelector('#modal-ex-form .modal-title').innerHTML = '<i class="fa-solid fa-pen" style="margin-right:8px;color:var(--accent);"></i>แก้ไขใบเบิก';
   const btn = document.getElementById('btn-submit-ex');
   if (btn) btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> บันทึกการแก้ไข';
+  setExerciseFormStep(1);
 
   closeModal('modal-ex-detail');
   openModal('modal-ex-form');
@@ -4603,9 +4954,10 @@ function openExModal() {
   _editingExId = null;
   resetExFormUI();
   openModal('modal-ex-form');
-  setupExForm();
-  document.getElementById('ex-name').value = cu.name;
   const today = toLocalDateString(new Date());
   setVal('ex-date', today);
+  syncExerciseCalendar(today);
+  setupExForm();
+  setExerciseFormStep(1);
   updateQuota();
 }
