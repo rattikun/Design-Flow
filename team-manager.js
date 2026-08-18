@@ -233,7 +233,10 @@ function launchApp() {
   if (VALID_PAGES.has(hashId) && document.getElementById('page-' + hashId)) showPage(hashId, { updateHash: false });
 
   // โหลดวันหยุดธนาคารไทยไว้ใน cache ตอน launch
-  fetchThaiHolidays().then(() => renderLeaveCalendar());
+  fetchThaiHolidays().then(() => {
+    renderLeaveCalendar();
+    renderTeamCalendar();
+  });
 
   // sync ทุก 60 วินาที
   setInterval(_bgSync, 60000);
@@ -868,7 +871,7 @@ function renderLeaveCalendar() {
   const holidays = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
   const holidayNames = new Map();
   try {
-    const cached = JSON.parse(localStorage.getItem('tf_holidays_upcoming') || '{}');
+    const cached = JSON.parse(localStorage.getItem(_HOLIDAY_CACHE_KEY) || '{}');
     (cached.d || []).filter(h => typeof isThaiBankHolidayEntry !== 'function' || isThaiBankHolidayEntry(h)).forEach(h => holidayNames.set(h.date, h.name || 'วันหยุดธนาคาร'));
   } catch {}
   const buttons = [];
@@ -1680,17 +1683,88 @@ function renderTeamHist() {
     </tr>`;
   }).join('');
 }
+// ══ TEAM LEAVE CALENDAR (leave-balance page) ════════════════════════════
+let _teamCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function changeTeamCalMonth(offset) {
+  _teamCalMonth = new Date(_teamCalMonth.getFullYear(), _teamCalMonth.getMonth() + offset, 1);
+  renderTeamCalendar();
+}
+
+function renderTeamCalendar() {
+  const grid = document.getElementById('teamcal-days');
+  const label = document.getElementById('teamcal-month');
+  const legendMembers = document.getElementById('teamcal-legend-members');
+  if (!grid || !label || !cu) return;
+  const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const year = _teamCalMonth.getFullYear(), month = _teamCalMonth.getMonth();
+  const today = toLocalDateString(new Date());
+  label.textContent = `${months[month]} ${year + 543}`;
+
+  const members = [cu, ...getMyTeamMembers()];
+  const uniqMembers = [...new Map(members.map(m => [m.email, m])).values()];
+  const memberByEmail = new Map(uniqMembers.map(m => [m.email, m]));
+
+  const holidays = new Map(getCachedDashboardHolidays().map(h => [h.date, h]));
+  const teamLeaves = getLeaves().filter(r => memberByEmail.has(r.email) && r.status !== 'rejected');
+  const statusName = { pending_lead: 'รอหัวหน้าอนุมัติ', pending_pm: 'รอ PM อนุมัติ', approved: 'อนุมัติแล้ว' };
+
+  const first = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - first.getDay());
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    const ds = toLocalDateString(date);
+    const holiday = holidays.get(ds);
+    const dayLeaves = teamLeaves
+      .filter(r => r.start <= ds && r.end >= ds)
+      .sort((a, b) => {
+        const aUser = memberByEmail.get(a.email);
+        const bUser = memberByEmail.get(b.email);
+        const aName = aUser?.nickname || aUser?.name || a.name || a.email || '';
+        const bName = bUser?.nickname || bUser?.name || b.name || b.email || '';
+        return aName.localeCompare(bName, 'th');
+      });
+    const classes = ['team-cal-day'];
+    if (date.getMonth() !== month) classes.push('other');
+    if (ds === today) classes.push('today');
+    if (holiday) classes.push('holiday');
+
+    const leaveItemsHtml = dayLeaves.map(r => {
+      const u = memberByEmail.get(r.email);
+      const fullName = uName(r.email, u?.name || r.name);
+      const displayName = u?.nickname || fullName;
+      const leaveType = LT[r.type] || r.type;
+      const pending = String(r.status || '').startsWith('pending');
+      const title = `${fullName} — ${leaveType} (${statusName[r.status] || r.status})`;
+      return `<div class="team-cal-leave${pending ? ' pending' : ''}" title="${escapeNotificationText(title)}"><i class="team-cal-leave-dot" style="background:${_exdAvatarColor(r.email)};"></i><span class="team-cal-leave-name">${escapeNotificationText(displayName)}</span><span aria-hidden="true">·</span><span class="team-cal-leave-type">${escapeNotificationText(leaveType)}</span></div>`;
+    }).join('');
+    const holidayTitle = holiday ? escapeNotificationText(holiday.name || 'วันหยุดธนาคาร') : '';
+    const holidayHtml = holiday ? `<span class="team-cal-holiday-name" title="${holidayTitle}">${holidayTitle}</span>` : '';
+
+    cells.push(`<div class="${classes.join(' ')}"><span class="team-cal-daynum">${date.getDate()}</span>${holidayHtml}${dayLeaves.length ? `<div class="team-cal-leaves">${leaveItemsHtml}</div>` : ''}</div>`);
+  }
+  grid.innerHTML = cells.join('');
+
+  if (legendMembers) {
+    legendMembers.innerHTML = uniqMembers.map(m => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text3);"><i class="dashboard-legend-dot" style="background:${_exdAvatarColor(m.email)};"></i>${escapeNotificationText(m.nickname || m.name || m.email)}</span>`).join('');
+  }
+}
+
 function renderBal() {
   const isPM = cu.role === 'pm';
   document.getElementById('pm-reset-wrap').style.display = isPM ? 'flex' : 'none';
   const members = getMyTeamMembers();
   const nd = document.getElementById('bal-nodata');
   const tabs = document.getElementById('bal-tabs');
+  const calCard = document.getElementById('teamcal-card');
   if (!members.length) {
     nd.style.display = 'block'; nd.innerHTML = '<div style="color:var(--text3);text-align:center;padding:32px;"><div style="font-size:36px;">👥</div><div style="font-size:18px;color:var(--text2);margin-top:8px;">ยังไม่มีสมาชิกในทีม</div></div>';
-    if (tabs) tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; return;
+    if (tabs) tabs.innerHTML = ''; const ov = document.getElementById('bal-overview'); if (ov) ov.innerHTML = ''; if (calCard) calCard.style.display = 'none'; return;
   }
   nd.style.display = 'none';
+  if (calCard) calCard.style.display = 'block';
+  renderTeamCalendar();
 
   // populate year dropdown
   const yrSel = document.getElementById('bal-year-sel');
@@ -2178,6 +2252,16 @@ function _exerciseCalendarCycle(dateStr) {
   };
 }
 
+function _isExerciseCycleOpenForSubmission(cycleKey, todayStr = toLocalDateString(new Date())) {
+  if (cycleKey === monthKey(todayStr)) return true;
+  if (!todayStr || Number(todayStr.slice(8, 10)) !== 19) return false;
+
+  const [year, month, day] = todayStr.split('-').map(Number);
+  const previousDay = new Date(year, month - 1, day);
+  previousDay.setDate(previousDay.getDate() - 1);
+  return cycleKey === monthKey(previousDay);
+}
+
 function setupExerciseStepLayout() {
   const target = document.getElementById('exercise-step2-fields');
   const members = document.getElementById('ex-group-members');
@@ -2206,6 +2290,10 @@ function goToExerciseStep2() {
   if (missing.length) { showExErr('⚠️ กรุณากรอกข้อมูลให้ครบ:<br>• ' + missing.join('<br>• ')); return; }
   const today = toLocalDateString(new Date());
   if (date > today) { showExErr('⚠️ ไม่สามารถยื่นออกกำลังกายล่วงหน้าได้'); return; }
+  if (_editingExId === null && !_isExerciseCycleOpenForSubmission(monthKey(date), today)) {
+    showExErr('⚠️ รอบการยื่นนี้ปิดแล้ว สามารถยื่นย้อนหลังได้ถึงวันที่ 19 ของเดือน');
+    return;
+  }
   const duplicate = getExs().some(e => String(e.id) !== String(_editingExId) && e.status !== 'rejected' && e.date === date && isUserInvolved(e, cu.email));
   if (duplicate) { showExErr('⚠️ วันที่นี้มีรายการยื่นแล้ว กรุณาเลือกวันอื่น'); return; }
   setExerciseFormStep(2);
@@ -2234,7 +2322,7 @@ function goToExerciseCalendarToday() {
 
 function selectExerciseCalendarDate(dateStr) {
   const today = toLocalDateString(new Date());
-  if (!dateStr || dateStr > today || monthKey(dateStr) !== monthKey(today)) return;
+  if (!dateStr || dateStr > today || !_isExerciseCycleOpenForSubmission(monthKey(dateStr), today)) return;
   const duplicate = getExs().some(e => String(e.id) !== String(_editingExId) && e.status !== 'rejected' && e.date === dateStr && isUserInvolved(e, cu.email));
   if (duplicate) { showExErr('⚠️ วันที่นี้มีรายการยื่นแล้ว กรุณาเลือกวันอื่น'); return; }
   setVal('ex-date', dateStr);
@@ -2257,7 +2345,7 @@ function renderExerciseCalendar() {
   const cycleStart = new Date(year, month, 19);
   const cycleEnd = new Date(year, month + 1, 18);
   const displayedCycleKey = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const isCurrentCycle = displayedCycleKey === monthKey(today);
+  const isSubmissionCycleOpen = _isExerciseCycleOpenForSubmission(displayedCycleKey, today);
   const formatShort = d => d.toLocaleDateString('th-TH', { day:'numeric', month:'short' });
   monthLabel.textContent = `${months[month]} ${year + 543} · ${formatShort(cycleStart)} – ${formatShort(cycleEnd)}`;
   const nextCycleStart = new Date(year, month + 1, 19);
@@ -2279,7 +2367,7 @@ function renderExerciseCalendar() {
     const classes = ['leave-calendar-day'];
     if (ds === today) classes.push('today');
     if (ds === selected) classes.push('range-start');
-    if (!isCurrentCycle) classes.push('exercise-locked');
+    if (!isSubmissionCycleOpen) classes.push('exercise-locked');
     const submitted = submittedByDate.get(ds) || [];
     const blockingSubmission = submitted.some(e => String(e.id) !== String(_editingExId));
     const isFuture = ds > today;
@@ -2288,13 +2376,13 @@ function renderExerciseCalendar() {
     if (isFuture) classes.push('exercise-unavailable');
     const submittedLabel = submitted.length ? ` มีรายการยื่นแล้ว ${submitted.length} รายการ` : '';
     const safeTitle = submitted.map(e => e.activity || EX_LABEL[getExType(e)] || 'กิจกรรมออกกำลังกาย').join(', ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const selectable = isCurrentCycle && !blockingSubmission && !isFuture;
+    const selectable = isSubmissionCycleOpen && !blockingSubmission && !isFuture;
     const interaction = selectable ? ` onclick="selectExerciseCalendarDate('${ds}')"` : ' aria-disabled="true"';
-    const lockedLabel = isCurrentCycle ? '' : ' รอบเดือนก่อนหน้า ดูได้อย่างเดียว';
+    const lockedLabel = isSubmissionCycleOpen ? '' : ' รอบเดือนก่อนหน้า ดูได้อย่างเดียว';
     const duplicateLabel = blockingSubmission ? ' เลือกซ้ำไม่ได้' : '';
     const futureLabel = isFuture ? ' ยังไม่สามารถยื่นล่วงหน้าได้' : '';
     const unavailableReasons = [];
-    if (!isCurrentCycle) unavailableReasons.push('เป็นรอบเดือนก่อนหน้า');
+    if (!isSubmissionCycleOpen) unavailableReasons.push('เป็นรอบเดือนก่อนหน้า');
     if (isFuture) unavailableReasons.push('ยังไม่สามารถยื่นล่วงหน้าได้');
     if (blockingSubmission) unavailableReasons.push(`มีรายการยื่นแล้ว${safeTitle ? ': ' + safeTitle : ''}`);
     const hoverText = unavailableReasons.length ? `เลือกไม่ได้ — ${unavailableReasons.join(' · ')}` : (submitted.length ? `ยื่นแล้ว: ${safeTitle}` : '');
@@ -2809,6 +2897,10 @@ function submitEx() {
     const today = toLocalDateString(new Date());
     if (date > today) {
       showExErr('⚠️ ไม่สามารถยื่นออกกำลังกายล่วงหน้าได้');
+      return;
+    }
+    if (_editingExId === null && !_isExerciseCycleOpenForSubmission(monthKey(date), today)) {
+      showExErr('⚠️ รอบการยื่นนี้ปิดแล้ว สามารถยื่นย้อนหลังได้ถึงวันที่ 19 ของเดือน');
       return;
     }
 
@@ -4048,7 +4140,7 @@ function changeDashboardCalendarMonth(offset) {
 
 function getCachedDashboardHolidays() {
   try {
-    const cached = JSON.parse(localStorage.getItem('tf_holidays_upcoming') || '{}');
+    const cached = JSON.parse(localStorage.getItem(_HOLIDAY_CACHE_KEY) || '{}');
     return (cached.d || []).filter(h => typeof isThaiBankHolidayEntry !== 'function' || isThaiBankHolidayEntry(h));
   } catch { return []; }
 }

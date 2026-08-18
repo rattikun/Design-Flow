@@ -459,6 +459,24 @@
     .dashboard-calendar-legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; color:var(--text3); font-size:13px; }
     .dashboard-calendar-legend span { display:inline-flex; align-items:center; gap:6px; }
     .dashboard-legend-dot { width:8px; height:8px; border-radius:50%; }
+    .team-cal-scroll { overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
+    .team-cal-grid { min-width:840px; }
+    .team-cal-day { position:relative; min-height:112px; padding:8px; border-radius:8px; color:var(--text2); font-size:14px; display:flex; flex-direction:column; align-items:stretch; gap:5px; text-align:left; border:1px solid transparent; }
+    .team-cal-day.other { opacity:.28; }
+    .team-cal-day.today { box-shadow:inset 0 0 0 1px var(--accent); color:var(--text); font-weight:700; }
+    .team-cal-day.holiday { background:rgba(245,200,66,.18); border-color:rgba(245,200,66,.28); }
+    .team-cal-day.holiday .team-cal-daynum { color:var(--yellow); }
+    .team-cal-daynum { font-family:var(--mono); font-weight:700; line-height:1; }
+    .team-cal-holiday-name { display:flex; align-items:flex-start; gap:4px; color:var(--yellow); font-size:10px; font-weight:600; line-height:1.25; }
+    .team-cal-holiday-name::before { content:""; width:5px; height:5px; margin-top:3px; flex:0 0 auto; border-radius:50%; background:var(--yellow); }
+    .team-cal-leaves { display:flex; flex-direction:column; gap:3px; }
+    .team-cal-leave { min-width:0; display:flex; align-items:center; gap:5px; padding:4px 6px; border-radius:5px; background:rgba(179,127,255,.13); color:var(--text2); font-size:12px; font-weight:500; line-height:1.25; }
+    .team-cal-leave.pending { box-shadow:inset 0 0 0 1px var(--yellow); }
+    .team-cal-leave-dot { width:7px; height:7px; flex:0 0 auto; border-radius:50%; }
+    .team-cal-leave-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--text); }
+    .team-cal-leave-type { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--purple); }
+    .team-cal-legend-members { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
+    @media (max-width:600px) { .team-cal-day { min-height:104px; } }
     .dashboard-list { display:grid; gap:8px; }
     .dashboard-list-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; cursor:pointer; }
     .dashboard-list-item:hover { border-color:var(--border2); }
@@ -2504,6 +2522,18 @@
         </div>
         <div id="bal-tabs" style="margin-bottom:24px;"></div>
         <div id="bal-nodata" class="card" style="display:none;"></div>
+        <div class="card" id="teamcal-card" style="margin-bottom:16px;">
+          <div class="card-title">&#x1F4C5; ปฏิทินวันลาของทีม</div>
+          <div class="dashboard-calendar-head"><button class="dashboard-calendar-nav" onclick="changeTeamCalMonth(-1)" aria-label="เดือนก่อนหน้า">‹</button><strong id="teamcal-month"></strong><button class="dashboard-calendar-nav" onclick="changeTeamCalMonth(1)" aria-label="เดือนถัดไป">›</button></div>
+          <div class="team-cal-scroll">
+            <div class="team-cal-grid">
+              <div class="dashboard-calendar-weekdays"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
+              <div class="dashboard-calendar-days" id="teamcal-days"></div>
+            </div>
+          </div>
+          <div class="dashboard-calendar-legend"><span><i class="dashboard-legend-dot" style="background:var(--yellow);"></i>วันหยุดธนาคาร</span><span><i class="dashboard-legend-dot" style="background:var(--accent);"></i>วันนี้</span><span>วงกรอบเหลือง = รออนุมัติ</span></div>
+          <div class="team-cal-legend-members" id="teamcal-legend-members"></div>
+        </div>
         <div id="bal-overview"></div>
         <div id="accu-history-panel" style="display:none;margin-top:28px;"></div>
 
@@ -3156,8 +3186,8 @@
 
   <div id="toast"></div>
 
-  <script src="api.js?v=20260817a"></script>
-  <script src="team-manager.js?v=20260817a"></script>
+  <script src="api.js?v=20260819c"></script>
+  <script src="team-manager.js?v=20260819c"></script>
 </body>
 
 </html>

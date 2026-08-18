@@ -29,9 +29,9 @@ const IAPP_APIKEY = 'iapp_live_9650e0acbcd74d782070808bd3317723282bbf66bb100f817
 
 const _HOLIDAY_TTL = 86400000; // cache 24 ชั่วโมง
 
-// ดึงวันหยุดธนาคารไทย 2 ปีข้างหน้า (days_after=730)
+// ดึงวันหยุดธนาคารไทยย้อนหลังและล่วงหน้าอย่างละ 2 ปี
 // NOTE: holiday_type=both ทำให้ iApp API คืน 500 จึงใช้ค่า default (public) แทน
-const _HOLIDAY_CACHE_KEY = 'tf_holidays_upcoming';
+const _HOLIDAY_CACHE_KEY = 'tf_holidays_rolling_v3';
 
 // ข้อมูลจาก provider อาจรวม observance สากล เช่น Christmas ซึ่งไม่ใช่
 // วันหยุดสถาบันการเงินของไทย จึงไม่นำมาคำนวณวันลา
@@ -48,17 +48,69 @@ async function fetchThaiHolidays() {
       if (Date.now() - c.t < _HOLIDAY_TTL) return (c.d || []).filter(isThaiBankHolidayEntry);
     }
   } catch {}
-  if (!IAPP_APIKEY) return [];
   try {
-    const r = await fetch(
-      'https://api.iapp.co.th/v3/store/data/thai-holiday?days_after=730',
-      { headers: { apikey: IAPP_APIKEY } }
-    );
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    const d = (j.holidays || [])
+    let holidays = [];
+    const baseUrl = 'https://api.iapp.co.th/v3/store/data/thai-holiday';
+    const requestBatch = async query => {
+      if (!IAPP_APIKEY) throw new Error('Missing iApp API key');
+      const response = await fetch(`${baseUrl}?${query}`, { headers: { apikey: IAPP_APIKEY } });
+      if (!response.ok) throw new Error(`HTTP ${response.status} (${query})`);
+      const json = await response.json();
+      return json.holidays || [];
+    };
+
+    try {
+      holidays = await requestBatch('days_before=730&days_after=730');
+    } catch (combinedError) {
+      console.warn('[holidays] combined range failed, retrying separately', combinedError);
+      const batches = await Promise.allSettled([
+        requestBatch('days_before=730'),
+        requestBatch('days_after=730')
+      ]);
+      holidays = batches.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+      if (!holidays.length) console.warn('[holidays] iApp unavailable', combinedError);
+    }
+
+    // iApp มักไม่คืนวันหยุดที่ผ่านไปแล้ว จึงรวมข้อมูลรายปีเพื่อให้ปฏิทินย้อนหลังครบ
+    try {
+      const currentYear = new Date().getFullYear();
+      const yearResults = await Promise.allSettled(
+        [currentYear - 1, currentYear, currentYear + 1].map(async year => {
+          const response = await fetch(`https://thailandformats.com/api/v1/holidays/${year}?lang=th`);
+          if (!response.ok) throw new Error(`HTTP ${response.status} (year ${year})`);
+          const json = await response.json();
+          return json.holidays || [];
+        })
+      );
+      const annualHolidays = yearResults.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+      annualHolidays.forEach(holiday => {
+        if (!holiday.start_date) return;
+        const [startYear, startMonth, startDay] = holiday.start_date.split('-').map(Number);
+        const [endYear, endMonth, endDay] = (holiday.end_date || holiday.start_date).split('-').map(Number);
+        const current = new Date(startYear, startMonth - 1, startDay);
+        const end = new Date(endYear, endMonth - 1, endDay);
+        while (current <= end) {
+          const date = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+          holidays.push({ date, name: holiday.title, type: holiday.type || 'holiday' });
+          current.setDate(current.getDate() + 1);
+        }
+      });
+    } catch (fallbackError) {
+      console.warn('[holidays] annual fallback unavailable', fallbackError);
+    }
+
+    const seen = new Set();
+    const d = holidays
       .map(h => ({ date: h.date, name: h.name, type: h.type }))
-      .filter(isThaiBankHolidayEntry);
+      .filter(isThaiBankHolidayEntry)
+      .filter(h => {
+        const key = `${h.date}|${h.name}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!d.length) throw new Error('No holiday data returned');
     localStorage.setItem(_HOLIDAY_CACHE_KEY, JSON.stringify({ d, t: Date.now() }));
     console.log('[holidays] โหลดแล้ว →', d.length, 'วัน');
     return d;
