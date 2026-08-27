@@ -694,7 +694,7 @@
     .leave-mode-switch { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
     .leave-mode-btn { background:var(--surface2); color:var(--text2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:10px 8px; font:inherit; font-size:16px; cursor:pointer; }
     .leave-mode-btn.active { color:var(--text); border-color:var(--accent); background:rgba(108,138,255,.14); box-shadow:inset 0 0 0 1px var(--accent); }
-    .leave-calendar { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:12px; }
+    .leave-calendar { width:100%; background:#1d2029; border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:14px; box-shadow:0 16px 38px rgba(0,0,0,.22); }
     .leave-calendar-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
     .leave-calendar-head strong { font-size:17px; font-weight:600; }
     .leave-calendar-head-center { display:flex; align-items:center; gap:10px; }
@@ -704,11 +704,12 @@
     .leave-calendar-nav:hover { background:var(--surface3); color:var(--text); }
     .leave-calendar-weekdays,.leave-calendar-days { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; }
     .leave-calendar-weekdays span { padding:5px 0; color:var(--text3); font-size:13px; }
-    .leave-calendar-day { position:relative; min-width:0; aspect-ratio:1.3; border:0; border-radius:0; background:transparent; color:var(--text); cursor:pointer; font:inherit; font-size:14px; }
+    .leave-calendar-day { position:relative; min-width:0; min-height:46px; aspect-ratio:1.3; border:0; border-radius:8px; background:transparent; color:var(--text); cursor:pointer; font:inherit; font-size:14px; }
     .leave-calendar-day:hover { background:var(--surface3); border-radius:8px; }
     .leave-calendar-day.other-month { color:var(--text3); opacity:.45; }
     .leave-calendar-day.weekend { color:var(--text3); }
-    .leave-calendar-day.today:not(.range-start):not(.range-end) { box-shadow:inset 0 0 0 1px var(--accent); border-radius:8px; }
+    .leave-calendar-day.today:not(.range-start):not(.range-end) { color:#50e5a1; background:rgba(61,214,140,.12); box-shadow:inset 0 0 0 1px rgba(61,214,140,.45); border-radius:8px; }
+    .leave-calendar-day.today:not(.range-start):not(.range-end)::after { content:""; position:absolute; left:50%; bottom:4px; width:5px; height:5px; border-radius:50%; background:#50e5a1; transform:translateX(-50%); }
     .leave-calendar-day.bank-holiday { color:var(--yellow); background:var(--yellow-bg); border-radius:8px; box-shadow:inset 0 0 0 1px rgba(245,200,66,.42); }
     .leave-calendar-day.bank-holiday::after { content:""; position:absolute; left:50%; bottom:3px; width:4px; height:4px; border-radius:50%; background:var(--yellow); transform:translateX(-50%); }
     .leave-calendar-day.in-range { background:rgba(108,138,255,.24); }
@@ -719,6 +720,13 @@
     .leave-calendar-day:disabled:hover { background:transparent; }
     .leave-calendar-legend { display:flex; align-items:center; gap:7px; margin-top:9px; color:var(--text3); font-size:13px; }
     .leave-calendar-legend-dot { width:8px; height:8px; border-radius:50%; background:var(--yellow); box-shadow:0 0 0 3px var(--yellow-bg); }
+    .unified-date-popover { position:fixed; z-index:10020; width:min(430px,calc(100vw - 24px)); background:#1d2029; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:14px; box-shadow:0 22px 60px rgba(0,0,0,.55); }
+    .unified-date-popover[hidden] { display:none; }
+    .unified-date-popover .leave-calendar-day.selected { background:var(--accent2); color:#fff; font-weight:700; }
+    .unified-date-popover .leave-calendar-day.today.selected::after { display:none; }
+    .unified-date-popover .leave-calendar-day:disabled { opacity:.22; }
+    .unified-date-popover .leave-calendar-days { min-height:276px; }
+    input[type="date"].unified-date-input { cursor:pointer; }
     .leave-range-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; padding:11px 13px; background:rgba(108,138,255,.1); border:1px solid rgba(108,138,255,.25); border-radius:var(--radius-sm); }
     .leave-range-summary span { color:var(--text2); font-size:14px; }
     .leave-range-summary strong { color:var(--accent); font-size:16px; text-align:right; }
@@ -1329,6 +1337,37 @@
       transform: translateY(0);
       opacity: 1;
     }
+
+    #birthday-toast {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      width: min(820px, calc(100vw - 32px));
+      z-index: 10010;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px;
+      color: #fff;
+      background: linear-gradient(100deg, #6c58e8 0%, #8f5bd6 48%, #c56ba2 100%);
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 14px;
+      box-shadow: 0 16px 48px rgba(53,35,115,.55), 0 0 0 1px rgba(255,255,255,.05) inset;
+      transform: translate(-50%, -24px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    #birthday-toast.show {
+      transform: translate(-50%, 0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .birthday-toast-icon { flex:0 0 auto; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:rgba(255,255,255,.16); font-size:24px; }
+    .birthday-toast-content { flex:1; min-width:0; font-size:18px; line-height:1.45; }
+    .birthday-toast-content strong { font-size:20px; }
+    .birthday-toast-close { flex:0 0 auto; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); border-radius:10px; background:rgba(0,0,0,.12); color:#fff; cursor:pointer; font-size:18px; }
+    .birthday-toast-close:hover { background:rgba(0,0,0,.25); }
 
     ::-webkit-scrollbar {
       width: 6px;
@@ -2194,6 +2233,38 @@
     </div>
   </div>
 
+  <div id="registration-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;">
+    <div class="login-box" style="width:100%;max-width:720px;">
+      <div class="login-logo">✦ ลงทะเบียน Design Flow</div>
+      <div class="login-sub">// แบบฟอร์มสำหรับผู้ได้รับลิงก์เชิญเท่านั้น</div>
+      <div id="registration-loading" style="color:var(--text3);padding:20px 0;">กำลังตรวจสอบลิงก์...</div>
+      <div id="registration-invalid" class="login-err" style="display:none;"></div>
+      <div id="registration-success" class="info-box" style="display:none;">✅ ส่งข้อมูลเรียบร้อยแล้ว กรุณารอ PM อนุมัติบัญชี</div>
+      <div id="registration-form" style="display:none;">
+        <div class="form-grid">
+          <div class="form-group"><label>ชื่อ-นามสกุล *</label><input id="reg-name" type="text" /></div>
+          <div class="form-group"><label>ชื่อเล่น</label><input id="reg-nickname" type="text" /></div>
+          <div class="form-group"><label>อีเมล *</label><input id="reg-email" type="email" autocomplete="email" /></div>
+          <div class="form-group"><label>โทรศัพท์</label><input id="reg-phone" type="tel" autocomplete="tel" /></div>
+          <div class="form-group"><label>วันเกิด</label>
+            <span class="date-wrap"><span class="date-display">
+              <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric"><span class="date-sep">/</span>
+              <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric"><span class="date-sep">/</span>
+              <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric">
+            </span><input type="date" id="reg-birth" class="date-native"><span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span></span>
+          </div>
+          <div class="form-group"><label>ทีม</label><select id="reg-dept"><option value="">— ไม่ระบุ —</option><option value="UXUI">UXUI</option><option value="Media">Media</option><option value="Art">Art</option><option value="PM">PM</option></select></div>
+          <div class="form-group"><label>พื้นที่</label><select id="reg-loc"><option value="bkk">กรุงเทพ</option><option value="province">ต่างจังหวัด</option></select></div>
+          <div></div>
+          <div class="form-group"><label>รหัสผ่าน *</label><input id="reg-pass" type="password" minlength="6" autocomplete="new-password" /></div>
+          <div class="form-group"><label>ยืนยันรหัสผ่าน *</label><input id="reg-confirm" type="password" minlength="6" autocomplete="new-password" /></div>
+        </div>
+        <div id="registration-error" class="login-err" style="display:none;margin:12px 0;"></div>
+        <button id="registration-submit" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitInviteRegistration()">ส่งข้อมูลให้ PM อนุมัติ</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app" id="main-app" style="display:none;">
     <!-- NOTIFICATIONS -->
     <div id="notif-bell" onclick="toggleNotifPanel()"
@@ -2336,8 +2407,12 @@
             <div class="page-title">สมาชิกทีม</div>
             <div class="page-sub">// จัดการบัญชีผู้ใช้</div>
           </div>
-          <button class="btn btn-primary" onclick="openAddMember()">&#xFF0B; เพิ่มสมาชิก</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="btn-create-invite" onclick="generateRegistrationInvite()"><i class="fa-solid fa-link"></i> สร้างลิงก์ลงทะเบียน</button>
+            <button class="btn btn-primary" onclick="openAddMember()">&#xFF0B; เพิ่มสมาชิก</button>
+          </div>
         </div>
+        <div id="pending-registrations" style="display:none;margin-bottom:16px;"></div>
         <div id="team-filter-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
         <div class="card">
           <div class="card-title">&#x25C9; รายชื่อสมาชิก</div>
@@ -2348,6 +2423,11 @@
                   <th>สมาชิก (ชื่อเล่น)</th>
                   <th>Role</th>
                   <th>ทีม</th>
+                  <th>วันเข้าทำงาน</th>
+                  <th>อายุงาน</th>
+                  <th>โทรศัพท์</th>
+                  <th>วันเกิด</th>
+                  <th>พื้นที่</th>
                   <th>เพิ่มโดย</th>
                   <th>จัดการ</th>
                 </tr>
@@ -2842,6 +2922,19 @@
   </div>
 
   <!-- MODAL: Add Member -->
+  <div class="modal-overlay" id="modal-invite-link">
+    <div class="modal" style="max-width:620px;">
+      <button class="modal-close" onclick="closeModal('modal-invite-link')">✕</button>
+      <div class="modal-scroll-area">
+        <div class="modal-title">🔗 ลิงก์ลงทะเบียนแบบใช้ครั้งเดียว</div>
+        <div class="info-box">ลิงก์นี้จะใช้ไม่ได้ทันทีหลังผู้สมัครส่งข้อมูลสำเร็จ</div>
+        <div class="form-group" style="margin-top:14px;"><label>ลิงก์สำหรับส่งให้ผู้สมัคร</label><textarea id="invite-link-output" readonly style="min-height:92px;"></textarea></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-invite-link')">ปิด</button><button class="btn btn-primary" onclick="copyRegistrationInvite()"><i class="fa-regular fa-copy"></i> คัดลอกลิงก์</button></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Add Member -->
   <div class="modal-overlay" id="modal-add">
     <div class="modal">
       <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
@@ -2867,6 +2960,21 @@
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
 </div>
+          <div class="form-group"><label>วันเข้าทำงาน</label>
+            <span class="date-wrap">
+              <span class="date-display">
+                <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+                <span class="date-sep">/</span>
+                <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+                <span class="date-sep">/</span>
+                <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+              </span>
+              <input type="date" id="new-start-date" class="date-native">
+              <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+            </span>
+          </div>
+          <div class="form-group"><label>โทรศัพท์</label><input type="tel" id="new-phone"
+              placeholder="เช่น 0812345678" autocomplete="tel" /></div>
           <div class="form-group"><label>อีเมล</label><input type="email" id="new-email"
               placeholder="member@company.com" /></div>
           <div class="form-group"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="new-pass"
@@ -2935,6 +3043,21 @@
     <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
   </span>
 </div>
+          <div class="form-group"><label>วันเข้าทำงาน</label>
+            <span class="date-wrap">
+              <span class="date-display">
+                <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+                <span class="date-sep">/</span>
+                <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+                <span class="date-sep">/</span>
+                <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+              </span>
+              <input type="date" id="edit-start-date" class="date-native">
+              <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+            </span>
+          </div>
+          <div class="form-group"><label>โทรศัพท์</label><input type="tel" id="edit-phone"
+              placeholder="เช่น 0812345678" autocomplete="tel" /></div>
           <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="edit-email" readonly
               style="opacity:.6;" /></div>
           <div class="form-group"><label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label><input type="password"
@@ -3184,10 +3307,11 @@
     </div>
   </div>
 
+  <div id="birthday-toast" role="alert" aria-live="polite"></div>
   <div id="toast"></div>
 
-  <script src="api.js?v=20260819c"></script>
-  <script src="team-manager.js?v=20260819c"></script>
+  <script src="api.js?v=20260827f"></script>
+  <script src="team-manager.js?v=20260827f"></script>
 </body>
 
 </html>

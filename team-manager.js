@@ -168,6 +168,7 @@ function doLogout() {
   document.getElementById('login-pass').value = '';
 }
 async function tryRestore() {
+  if (await handlePublicRegistrationRoute()) return;
   ensureDefaultAccounts();
   const e = LS.get('tf_sess'); if (!e) return;
   const u = getUsers().find(x => x.email.toLowerCase() === e.toLowerCase());
@@ -199,6 +200,125 @@ async function tryRestore() {
     });
   }
 }
+
+let _registrationInviteToken = '';
+async function handlePublicRegistrationRoute() {
+  const registrationMatch = location.hash.match(/^#register=([a-f0-9]{48})$/i);
+  if (!registrationMatch) return false;
+  await openInviteRegistration(registrationMatch[1]);
+  return true;
+}
+
+function _inviteEscape(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function openInviteRegistration(token) {
+  // Public route: ต้องเปิดได้โดยไม่มี session และไม่ผ่าน route guard ของหน้าหลัก
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'none';
+  const screen = document.getElementById('registration-screen');
+  screen.style.display = 'flex';
+  document.getElementById('registration-loading').style.display = 'block';
+  document.getElementById('registration-invalid').style.display = 'none';
+  document.getElementById('registration-success').style.display = 'none';
+  document.getElementById('registration-form').style.display = 'none';
+  _registrationInviteToken = token;
+  initUnifiedDatePickers();
+  initNativeDateInput('reg-birth');
+  const result = await api('validateRegistrationInvite', { token });
+  document.getElementById('registration-loading').style.display = 'none';
+  if (!result.ok) {
+    const invalid = document.getElementById('registration-invalid');
+    invalid.textContent = result.error || 'ลิงก์ลงทะเบียนไม่สามารถใช้งานได้';
+    invalid.style.display = 'block';
+    return;
+  }
+  document.getElementById('registration-form').style.display = 'block';
+}
+
+async function submitInviteRegistration() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim().toLowerCase();
+  const pass = document.getElementById('reg-pass').value;
+  const confirmPass = document.getElementById('reg-confirm').value;
+  const error = document.getElementById('registration-error');
+  if (!name || !email || !pass || !confirmPass) { error.textContent = 'กรุณากรอกชื่อ อีเมล และรหัสผ่านให้ครบ'; error.style.display = 'block'; return; }
+  if (pass.length < 6) { error.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; error.style.display = 'block'; return; }
+  if (pass !== confirmPass) { error.textContent = 'ยืนยันรหัสผ่านไม่ตรงกัน'; error.style.display = 'block'; return; }
+  error.style.display = 'none';
+  const button = document.getElementById('registration-submit');
+  button.disabled = true; button.textContent = 'กำลังส่งข้อมูล...';
+  const result = await api('submitRegistration', {
+    token: _registrationInviteToken, name, email, passHash: hp(pass),
+    nickname: document.getElementById('reg-nickname').value.trim(),
+    phone: document.getElementById('reg-phone').value.trim(),
+    birthday: document.getElementById('reg-birth').value,
+    dept: document.getElementById('reg-dept').value,
+    locationType: document.getElementById('reg-loc').value
+  });
+  if (!result.ok) {
+    error.textContent = result.error || 'ส่งข้อมูลไม่สำเร็จ'; error.style.display = 'block';
+    button.disabled = false; button.textContent = 'ส่งข้อมูลให้ PM อนุมัติ';
+    return;
+  }
+  document.getElementById('registration-form').style.display = 'none';
+  document.getElementById('registration-success').style.display = 'block';
+}
+
+async function generateRegistrationInvite() {
+  if (!cu || cu.role !== 'pm') { toast('⛔ เฉพาะ PM เท่านั้น'); return; }
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  const result = await api('createRegistrationInvite', { token, reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  if (!result.ok) { toast('⚠️ ' + (result.error || 'สร้างลิงก์ไม่สำเร็จ')); return; }
+  const base = location.protocol === 'file:' ? 'https://design-cz.com/' : location.href.split('#')[0];
+  document.getElementById('invite-link-output').value = `${base}#register=${token}`;
+  openModal('modal-invite-link');
+}
+
+async function copyRegistrationInvite() {
+  const output = document.getElementById('invite-link-output');
+  try { await navigator.clipboard.writeText(output.value); }
+  catch { output.focus(); output.select(); document.execCommand('copy'); }
+  toast('✅ คัดลอกลิงก์แล้ว');
+}
+
+async function loadPendingRegistrations() {
+  const container = document.getElementById('pending-registrations');
+  if (!container || !cu || cu.role !== 'pm') { if (container) container.style.display = 'none'; return; }
+  const result = await api('listPendingRegistrations', { reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  if (!result.ok) { container.style.display = 'none'; return; }
+  const registrations = result.registrations || [];
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">◉ คำขอลงทะเบียนที่รออนุมัติ <span class="badge" style="display:inline-flex;position:static;">${registrations.length}</span></div>
+      ${registrations.length ? registrations.map(item => `
+        <div style="display:grid;grid-template-columns:minmax(180px,1.5fr) 1fr 150px auto;gap:12px;align-items:center;padding:12px;border-top:1px solid var(--border);">
+          <div><div class="name">${_inviteEscape(item.nickname || item.name)}</div><div class="meta">${_inviteEscape(item.name)} · ${_inviteEscape(item.email)} · ${_inviteEscape(item.phone || '—')}</div></div>
+          <div class="meta">${_inviteEscape(item.dept || 'ไม่ระบุทีม')} · ${item.birthday ? fmtDate(item.birthday) : 'ไม่ระบุวันเกิด'}</div>
+          <select id="registration-role-${item.token}" style="font-size:15px;"><option value="junior">Junior</option><option value="senior">Senior</option><option value="lead">Team Lead</option><option value="pm">Project Manager</option></select>
+          <div style="display:flex;gap:6px;"><button class="btn btn-primary btn-sm" onclick="reviewRegistration('${item.token}','approve')">อนุมัติ</button><button class="btn btn-red btn-sm" onclick="reviewRegistration('${item.token}','reject')">ปฏิเสธ</button></div>
+        </div>`).join('') : '<div class="meta" style="padding:14px 0;">ไม่มีคำขอลงทะเบียนที่รออนุมัติ</div>'}
+    </div>`;
+}
+
+async function reviewRegistration(token, decision) {
+  if (!cu || cu.role !== 'pm') return;
+  const role = document.getElementById(`registration-role-${token}`)?.value || 'junior';
+  const result = await api('reviewRegistration', {
+    token, decision, role, startDate: toLocalDateString(new Date()), userId: decision === 'approve' ? _nextUserId() : '', reviewerEmail: cu.email, reviewerPassHash: cu.pass
+  });
+  if (!result.ok) { toast('⚠️ ' + (result.error || 'ดำเนินการไม่สำเร็จ')); return; }
+  if (decision === 'approve' && result.user) {
+    const users = getUsers();
+    users.push(mapUserFromAPI(result.user));
+    saveUsers(users);
+  }
+  toast(decision === 'approve' ? '✅ อนุมัติและสร้างบัญชีแล้ว' : '✕ ปฏิเสธคำขอแล้ว');
+  renderMembers();
+}
 function initIDs() {
   const es = getExs(); if (es.length) eid = Math.max(...es.map(x => x.id || 0)) + 1;
   const ls = getLeaves(); if (ls.length) lid = Math.max(...ls.map(x => x.id || 0)) + 1;
@@ -222,6 +342,7 @@ function _bgSync() {
     }
     if (typeof checkDentalDocReminders === 'function') checkDentalDocReminders();
     refreshNotifications();
+    checkTomorrowBirthdays();
   });
 }
 
@@ -245,6 +366,9 @@ function launchApp() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) _bgSync();
   });
+
+  // รอให้ Toast แจ้งเตือนอื่นตอนเปิดแอปแสดงจบก่อน
+  setTimeout(checkTomorrowBirthdays, 3600);
 }
 
 // ══ SIDEBAR ══════════════════════════════
@@ -327,8 +451,15 @@ function showPage(id, { updateHash = true } = {}) {
   ({ dashboard: updateDashboard, members: () => { _memberTab = 'active'; const filterBar = document.getElementById('team-filter-bar'); if (filterBar) filterBar.innerHTML = ''; renderMembers(); }, 'leave-review': renderLR, 'leave-pm': renderLP, 'leave-history': () => { renderMyBal(); renderHist(_histFilter); }, 'leave-balance': renderBal, 'my-balance': renderMyBal, 'exercise-review': renderExR, 'exercise-share': renderExShare, leaderboard: updateLB, 'exercise-log': updateQuota, 'team-hist': renderTeamHist })[id]?.();
 }
 
-window.addEventListener('hashchange', () => {
-  if (!cu) return;
+window.addEventListener('hashchange', async () => {
+  if (await handlePublicRegistrationRoute()) return;
+  const registrationScreen = document.getElementById('registration-screen');
+  if (registrationScreen) registrationScreen.style.display = 'none';
+  if (!cu) {
+    document.getElementById('login-screen').style.display = 'flex';
+    return;
+  }
+  document.getElementById('main-app').style.display = 'flex';
   const id = location.hash.slice(1);
   if (VALID_PAGES.has(id) && document.getElementById('page-' + id)) showPage(id, { updateHash: false });
 });
@@ -525,7 +656,126 @@ function initDatePickers() {
   initNativeDateInput('leave-end');
   initNativeDateInput('new-birth');
   initNativeDateInput('edit-birth');
+  initNativeDateInput('new-start-date');
+  initNativeDateInput('edit-start-date');
   initNativeDateInput('ex-date', () => { updateQuota(); clearExErr(); });
+  initUnifiedDatePickers();
+}
+
+let _unifiedDateTarget = null;
+let _unifiedDateMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let _unifiedDatePickerInitialized = false;
+
+function initUnifiedDatePickers() {
+  if (_unifiedDatePickerInitialized) return;
+  _unifiedDatePickerInitialized = true;
+  if (!document.getElementById('unified-date-popover')) {
+    const popover = document.createElement('div');
+    popover.id = 'unified-date-popover';
+    popover.className = 'unified-date-popover';
+    popover.hidden = true;
+    popover.addEventListener('click', event => event.stopPropagation());
+    document.body.appendChild(popover);
+  }
+
+  document.addEventListener('click', event => {
+    const input = event.target.closest?.('input[type="date"]');
+    if (input && !['leave-start', 'leave-end', 'ex-date'].includes(input.id)) {
+      event.preventDefault();
+      input.classList.add('unified-date-input');
+      openUnifiedDatePicker(input);
+      return;
+    }
+    if (!event.target.closest?.('#unified-date-popover')) closeUnifiedDatePicker();
+  });
+  window.addEventListener('resize', closeUnifiedDatePicker);
+  window.addEventListener('scroll', closeUnifiedDatePicker, true);
+}
+
+function openUnifiedDatePicker(input) {
+  _unifiedDateTarget = input;
+  const selected = input.value ? new Date(`${input.value}T00:00:00`) : new Date();
+  _unifiedDateMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  renderUnifiedDatePicker();
+
+  const popover = document.getElementById('unified-date-popover');
+  popover.hidden = false;
+  const anchor = input.closest('.date-wrap') || input;
+  const rect = anchor.getBoundingClientRect();
+  const popRect = popover.getBoundingClientRect();
+  const left = Math.max(12, Math.min(rect.left, window.innerWidth - popRect.width - 12));
+  const below = rect.bottom + 8;
+  const top = below + popRect.height <= window.innerHeight - 12
+    ? below
+    : Math.max(12, rect.top - popRect.height - 8);
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+}
+
+function closeUnifiedDatePicker() {
+  const popover = document.getElementById('unified-date-popover');
+  if (popover) popover.hidden = true;
+  _unifiedDateTarget = null;
+}
+
+function changeUnifiedDateMonth(offset) {
+  _unifiedDateMonth = new Date(_unifiedDateMonth.getFullYear(), _unifiedDateMonth.getMonth() + offset, 1);
+  renderUnifiedDatePicker();
+}
+
+function goToUnifiedDateToday() {
+  if (!_unifiedDateTarget) return;
+  const today = toLocalDateString(new Date());
+  if ((_unifiedDateTarget.min && today < _unifiedDateTarget.min) || (_unifiedDateTarget.max && today > _unifiedDateTarget.max)) {
+    _unifiedDateMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    renderUnifiedDatePicker();
+    return;
+  }
+  selectUnifiedDate(today);
+}
+
+function selectUnifiedDate(dateString) {
+  if (!_unifiedDateTarget) return;
+  _unifiedDateTarget.value = dateString;
+  const wrap = _unifiedDateTarget.closest('.date-wrap');
+  if (wrap) _syncDisplayFromNative(wrap, _unifiedDateTarget);
+  _unifiedDateTarget.dispatchEvent(new Event('input', { bubbles:true }));
+  _unifiedDateTarget.dispatchEvent(new Event('change', { bubbles:true }));
+  closeUnifiedDatePicker();
+}
+
+function renderUnifiedDatePicker() {
+  const popover = document.getElementById('unified-date-popover');
+  if (!popover || !_unifiedDateTarget) return;
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const year = _unifiedDateMonth.getFullYear();
+  const month = _unifiedDateMonth.getMonth();
+  const first = new Date(year, month, 1);
+  const gridStart = new Date(year, month, 1 - first.getDay());
+  const today = toLocalDateString(new Date());
+  const selected = _unifiedDateTarget.value;
+  const min = _unifiedDateTarget.min || '';
+  const max = _unifiedDateTarget.max || '';
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
+    const dateString = toLocalDateString(date);
+    const classes = ['leave-calendar-day'];
+    if (date.getMonth() !== month) classes.push('other-month');
+    if (date.getDay() === 0 || date.getDay() === 6) classes.push('weekend');
+    if (dateString === today) classes.push('today');
+    if (dateString === selected) classes.push('selected');
+    const disabled = (min && dateString < min) || (max && dateString > max);
+    days.push(`<button type="button" class="${classes.join(' ')}" ${disabled ? 'disabled' : `onclick="selectUnifiedDate('${dateString}')"`} aria-label="${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}">${date.getDate()}</button>`);
+  }
+  popover.innerHTML = `
+    <div class="leave-calendar-head">
+      <button type="button" class="leave-calendar-nav" onclick="changeUnifiedDateMonth(-1)" aria-label="เดือนก่อนหน้า">‹</button>
+      <div class="leave-calendar-head-center"><strong>${months[month]} ${year + 543}</strong><button type="button" class="leave-calendar-today" onclick="goToUnifiedDateToday()">วันนี้</button></div>
+      <button type="button" class="leave-calendar-nav" onclick="changeUnifiedDateMonth(1)" aria-label="เดือนถัดไป">›</button>
+    </div>
+    <div class="leave-calendar-weekdays"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
+    <div class="leave-calendar-days">${days.join('')}</div>`;
 }
 
 function setVal(id, val) {
@@ -534,6 +784,35 @@ function setVal(id, val) {
   el.value = val;
   const wrap = el.closest('.date-wrap');
   if (wrap) _syncDisplayFromNative(wrap, el);
+}
+
+function employmentDuration(user) {
+  if (!user.startDate) return '—';
+  if (user.active === false && !user.suspendedAt) return 'ไม่พบวันที่ระงับ';
+
+  const start = new Date(`${user.startDate}T00:00:00`);
+  const endValue = user.active === false ? String(user.suspendedAt).slice(0, 10) : toLocalDateString(new Date());
+  const end = new Date(`${endValue}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return '—';
+
+  const totalDays = Math.floor((end - start) / 86400000);
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+  let days = end.getDate() - start.getDate();
+  if (days < 0) {
+    months -= 1;
+    days += new Date(end.getFullYear(), end.getMonth(), 0).getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const parts = [];
+  if (years) parts.push(`${years} ปี`);
+  if (months) parts.push(`${months} เดือน`);
+  if (days || !parts.length) parts.push(`${days} วัน`);
+  return `${parts.join(' ')} (${totalDays.toLocaleString('th-TH')} วัน)`;
 }
 
 // ══ MEMBER MANAGEMENT ════════════════════
@@ -548,6 +827,9 @@ function setMemberTab(tab, btn) {
 }
 
 function renderMembers() {
+  const inviteButton = document.getElementById('btn-create-invite');
+  if (inviteButton) inviteButton.style.display = cu.role === 'pm' ? 'inline-flex' : 'none';
+  loadPendingRegistrations();
   const filterBar = document.getElementById('team-filter-bar');
   if (filterBar) {
     if (cu.role === 'lead' || cu.role === 'pm') {
@@ -584,6 +866,10 @@ function renderMembers() {
       <td><div class="name">${uName(u.email, u.name)}</div><div class="meta">${u.name} • ${u.email}</div></td>
       <td><span class="chip" style="background:${u.role === 'pm' ? 'var(--orange-bg)' : u.role === 'lead' ? 'var(--yellow-bg)' : 'var(--purple-bg)'};color:${RC[u.role]};">${RL[u.role]}</span></td>
       <td><span style="color:var(--text2);font-size:17px;">${u.dept || '—'}</span></td>
+      <td><span class="meta">${u.startDate ? fmtDate(u.startDate) : '—'}</span></td>
+      <td><span class="meta">${employmentDuration(u)}</span></td>
+      <td><span class="meta">${u.phone || '—'}</span></td>
+      <td><span class="meta">${u.birthday ? fmtDate(u.birthday) : '—'}</span></td>
       <td><span style="font-size:16px;font-weight:500;color:${(u.locationType || 'bkk') === 'bkk' ? 'var(--accent)' : 'var(--orange)'};">${(u.locationType || 'bkk') === 'bkk' ? 'กรุงเทพ' : 'ต่างจังหวัด'}</span></td>
       <td><span class="meta">${u.addedBy || 'system'}</span></td>
       <td>${canE ? `
@@ -592,7 +878,7 @@ function renderMembers() {
     </tr>`).join('');
 }
 function openAddMember() {
-  ['new-name', 'new-nickname', 'new-discord', 'new-birth', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
+  ['new-name', 'new-nickname', 'new-discord', 'new-birth', 'new-start-date', 'new-phone', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
   document.getElementById('new-role').value = 'junior';
   document.getElementById('new-active').value = 'true';
   document.getElementById('add-err').style.display = 'none';
@@ -606,11 +892,13 @@ function addMember() {
   if (pass.length < 6) { err.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; err.style.display = 'block'; return; }
   const users = getUsers();
   const nickname = document.getElementById('new-nickname').value.trim(), birth = document.getElementById('new-birth').value;
+  const startDate = document.getElementById('new-start-date').value;
+  const phone = document.getElementById('new-phone').value.trim();
   const discordId = document.getElementById('new-discord').value.trim();
   const active = document.getElementById('new-active').value === 'true';
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
   const userId = _nextUserId();
-  const newUser = { email, name, nickname, discordId, birthday: birth, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId, active };
+  const newUser = { email, name, nickname, discordId, birthday: birth, startDate, phone, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId, active, suspendedAt: active ? '' : new Date().toISOString() };
   users.push(newUser);
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
@@ -623,6 +911,8 @@ function openEdit(email) {
   document.getElementById('edit-nickname').value = u.nickname || '';
   document.getElementById('edit-discord').value = u.discordId || '';
   setVal('edit-birth', u.birthday || '');
+  setVal('edit-start-date', u.startDate || '');
+  document.getElementById('edit-phone').value = u.phone || '';
   document.getElementById('edit-email').value = u.email;
   document.getElementById('edit-pass').value = '';
   document.getElementById('edit-role').value = u.role;
@@ -647,10 +937,15 @@ function saveMember() {
   if (!name) { toast('⚠️ กรุณากรอกชื่อ'); return; } if (pass && pass.length < 6) { toast('⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัว'); return; }
   const users = getUsers(), idx = users.findIndex(u => u.email === ek); if (idx < 0) { console.warn('[saveMember] not found ek=', ek, 'users=', users.map(u => u.email)); toast('⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่'); return; }
   const nickname = document.getElementById('edit-nickname').value.trim(), birth = document.getElementById('edit-birth').value;
+  const startDate = document.getElementById('edit-start-date').value;
+  const phone = document.getElementById('edit-phone').value.trim();
   const discordId = document.getElementById('edit-discord').value.trim();
   const active = document.getElementById('edit-active').value === 'true';
-  users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
+  const wasActive = users[idx].active !== false;
+  users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].startDate = startDate; users[idx].phone = phone; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
   users[idx].active = active;
+  if (wasActive && !active) users[idx].suspendedAt = new Date().toISOString();
+  if (active) users[idx].suspendedAt = '';
   saveUsers(users);
   if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
   if (ek === cu.email) { cu = users[idx]; if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm'; LS.set('tf_sess', cu.email); setupSidebar(); }
@@ -702,7 +997,7 @@ async function doChangePass() {
 function fmtDate(d) {
   if (!d) return '';
   const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y.slice(2)}`;
+  return `${day}/${m}/${y}`;
 }
 
 function countWorkingDays(startStr, endStr) {
@@ -868,6 +1163,7 @@ function renderLeaveCalendar() {
   const start = document.getElementById('leave-start')?.value || '';
   const end = document.getElementById('leave-end')?.value || start;
   const mode = document.getElementById('leave-period')?.value || 'full';
+  const today = toLocalDateString(new Date());
   const holidays = typeof getHolidaySet === 'function' ? getHolidaySet() : new Set();
   const holidayNames = new Map();
   try {
@@ -889,6 +1185,7 @@ function renderLeaveCalendar() {
     const classes = ['leave-calendar-day'];
     if (outside) classes.push('other-month');
     if (weekend) classes.push('weekend');
+    if (ds === today) classes.push('today');
     if (bankHoliday) classes.push('bank-holiday');
     if (inRange) classes.push('in-range');
     if ((inRange || isStart || isEnd) && excluded) classes.push('excluded');
@@ -1918,7 +2215,7 @@ function openQuotaModal(email) {
       const histRows = history.map((h, i) => `
         <div style="display:grid;grid-template-columns:auto 1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
           <span style="font-size:12px;color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;font-family:var(--mono);white-space:nowrap;">${h.refNo || '—'}</span>
-          <span style="font-size:13px;color:var(--text2);font-family:var(--mono);">${h.date}</span>
+          <span style="font-size:13px;color:var(--text2);font-family:var(--mono);">${fmtDate(h.date)}</span>
           <span style="font-size:13px;color:var(--text2);">${h.scope}</span>
           <span style="font-size:13px;color:var(--yellow);font-family:var(--mono);font-weight:700;text-align:center;">${h.days}d</span>
           <button onclick="removeAccuHistory('${email}',${i})" style="background:rgba(255,80,80,0.15);border:none;border-radius:6px;color:var(--red);cursor:pointer;font-size:14px;width:28px;height:28px;">✕</button>
@@ -1938,7 +2235,17 @@ function openQuotaModal(email) {
             <div style="display:grid;grid-template-columns:1fr 2fr 80px;gap:8px;align-items:end;">
               <div>
                 <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">📅 วันที่เบิกวันหยุด</div>
-                <input type="date" id="quota-accu-date" style="width:100%;height:34px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:#fff;padding:0 8px;font-size:13px;" />
+                <span class="date-wrap quota-date-wrap">
+                  <span class="date-display">
+                    <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric" autocomplete="off">
+                    <span class="date-sep">/</span>
+                    <input class="date-part" data-part="m" maxlength="2" placeholder="ดด" inputmode="numeric" autocomplete="off">
+                    <span class="date-sep">/</span>
+                    <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric" autocomplete="off">
+                  </span>
+                  <input type="date" id="quota-accu-date" class="date-native">
+                  <span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span>
+                </span>
               </div>
               <div>
                 <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">📋 ขอบเขตชิ้นงาน</div>
@@ -1973,6 +2280,7 @@ function openQuotaModal(email) {
   }).join('')}`;
 
 
+  initNativeDateInput('quota-accu-date');
   document.getElementById('btn-save-quota').onclick = () => saveQuotas(email);
   openModal('modal-quota');
 }
@@ -2177,7 +2485,7 @@ function attachDentalDoc(id) {
   document.getElementById('conf-body').innerHTML = `
     ${r.docRejectReason ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--red-bg);border:1px solid rgba(255,107,107,0.25);border-radius:8px;color:var(--red);font-size:15px;">❌ เอกสารครั้งก่อนไม่ผ่าน: ${r.docRejectReason}</div>` : ''}
     <div style="margin-bottom:12px;color:var(--text2);font-size:16px;">
-      ยื่นเอกสารย้อนหลังสำหรับ${LT[r.type] || r.type} วันที่ <strong style="color:var(--text);">${r.start}</strong>
+      ยื่นเอกสารย้อนหลังสำหรับ${LT[r.type] || r.type} วันที่ <strong style="color:var(--text);">${fmtDate(r.start)}</strong>
     </div>
     <div id="dental-doc-box" onclick="document.getElementById('dental-doc-file').click()"
       style="cursor:pointer;border:2px dashed var(--border2);border-radius:10px;padding:18px;text-align:center;transition:border-color .2s;">
@@ -4289,7 +4597,55 @@ function setLBSort(field) {
   updateLB();
 }
 
-function toast(msg) { const el = document.getElementById('toast'); el.innerHTML = msg; el.classList.add('show'); clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 3200); }
+function checkTomorrowBirthdays() {
+  if (!cu) return;
+  const tomorrow = new Date();
+  tomorrow.setHours(12, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const targetMonth = tomorrow.getMonth() + 1;
+  const targetDay = tomorrow.getDate();
+
+  let team = getUsers().filter(user => user.active !== false && user.email !== cu.email && user.birthday);
+  if (cu.role !== 'pm') {
+    const dept = String(cu.dept || '').trim().toLowerCase();
+    team = dept ? team.filter(user => String(user.dept || '').trim().toLowerCase() === dept) : [];
+  }
+
+  const birthdayMembers = team.filter(user => {
+    const parts = String(user.birthday).slice(0, 10).split('-').map(Number);
+    return parts.length === 3 && parts[1] === targetMonth && parts[2] === targetDay;
+  });
+  if (!birthdayMembers.length) return;
+
+  const todayKey = toLocalDateString(new Date());
+  const dismissedKey = `tf_birthday_toast_dismissed_${cu.email}_${todayKey}`;
+  if (localStorage.getItem(dismissedKey)) return;
+
+  const safeNames = birthdayMembers.map(user => {
+    const name = user.nickname || user.name || user.email;
+    return String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  });
+  const names = safeNames.length === 1
+    ? safeNames[0]
+    : `${safeNames.slice(0, -1).join(', ')} และ ${safeNames.at(-1)}`;
+  _birthdayToastDismissKey = dismissedKey;
+  const bar = document.getElementById('birthday-toast');
+  if (!bar) return;
+  bar.innerHTML = `
+    <div class="birthday-toast-icon">🎂</div>
+    <div class="birthday-toast-content"><div>แจ้งเตือนวันเกิดพรุ่งนี้</div><strong>${names}</strong></div>
+    <button type="button" class="birthday-toast-close" onclick="dismissBirthdayToast()" aria-label="ปิดการแจ้งเตือน">✕</button>`;
+  bar.classList.add('show');
+}
+
+let _birthdayToastDismissKey = '';
+function dismissBirthdayToast() {
+  if (_birthdayToastDismissKey) localStorage.setItem(_birthdayToastDismissKey, '1');
+  document.getElementById('birthday-toast')?.classList.remove('show');
+  _birthdayToastDismissKey = '';
+}
+
+function toast(msg, duration = 3200) { const el = document.getElementById('toast'); el.innerHTML = msg; el.classList.add('show'); clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), duration); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 

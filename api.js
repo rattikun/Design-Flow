@@ -193,6 +193,19 @@ async function api(action, payload = {}) {
       baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
     }
 
+    const requirePmAuth = async () => {
+      const reviewerEmail = String(payload.reviewerEmail || '').toLowerCase();
+      const reviewerPassHash = String(payload.reviewerPassHash || '');
+      if (!reviewerEmail || !reviewerPassHash) return false;
+      const authRes = await fetch(`${baseUrl}/users.json`);
+      const authData = await authRes.json();
+      return Object.values(authData || {}).some(user =>
+        String(user.email || '').toLowerCase() === reviewerEmail &&
+        user.role === 'pm' && user.active !== false &&
+        String(user.pass_hash || user.pass || '') === reviewerPassHash
+      );
+    };
+
     // 1. LOGIN
     if (action === 'login') {
       const res = await fetch(`${baseUrl}/users.json`);
@@ -232,7 +245,102 @@ async function api(action, payload = {}) {
       return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
     }
 
-    // 3. USERS (CRUD)
+    // 3. INVITE-ONLY REGISTRATION
+    if (action === 'createRegistrationInvite') {
+      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์สร้างลิงก์ลงทะเบียน' };
+      const token = String(payload.token || '');
+      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'Invalid invite token' };
+      const invite = { token, status: 'open', created_by: payload.reviewerEmail, created_at: new Date().toISOString() };
+      const res = await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PUT', body: JSON.stringify(invite) });
+      return { ok: res.ok };
+    }
+
+    if (action === 'validateRegistrationInvite') {
+      const token = String(payload.token || '');
+      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'ลิงก์ลงทะเบียนไม่ถูกต้อง' };
+      const res = await fetch(`${baseUrl}/registrationInvites/${token}.json`);
+      const invite = await res.json();
+      if (!invite || invite.status !== 'open') return { ok: false, error: 'ลิงก์นี้ถูกใช้งานแล้วหรือไม่สามารถใช้งานได้' };
+      return { ok: true };
+    }
+
+    if (action === 'submitRegistration') {
+      const token = String(payload.token || '');
+      const email = String(payload.email || '').trim().toLowerCase();
+      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'ลิงก์ลงทะเบียนไม่ถูกต้อง' };
+      if (!email || !payload.name || !payload.passHash) return { ok: false, error: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ' };
+      const usersRes = await fetch(`${baseUrl}/users.json`);
+      const usersData = await usersRes.json();
+      if (Object.values(usersData || {}).some(user => String(user.email || '').toLowerCase() === email)) return { ok: false, error: 'อีเมลนี้มีบัญชีในระบบแล้ว' };
+
+      const inviteUrl = `${baseUrl}/registrationInvites/${token}.json`;
+      const inviteRes = await globalThis.fetch(inviteUrl, { headers: { 'X-Firebase-ETag': 'true' } });
+      const invite = inviteRes.ok ? await inviteRes.json() : null;
+      const etag = inviteRes.headers.get('etag');
+      if (!invite || invite.status !== 'open' || !etag) return { ok: false, error: 'ลิงก์นี้ถูกใช้งานแล้วหรือไม่สามารถใช้งานได้' };
+      const submittedInvite = {
+        ...invite,
+        status: 'submitted',
+        submitted_at: new Date().toISOString(),
+        registration: {
+          email, name: String(payload.name).trim(), nickname: String(payload.nickname || '').trim(),
+          phone: String(payload.phone || '').trim(), birthday: payload.birthday || '', dept: payload.dept || '',
+          location_type: payload.locationType || 'bkk', pass_hash: payload.passHash
+        }
+      };
+      const consumeRes = await globalThis.fetch(inviteUrl, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'if-match': etag }, body: JSON.stringify(submittedInvite)
+      });
+      if (consumeRes.status === 412) return { ok: false, error: 'ลิงก์นี้เพิ่งถูกใช้งานไปแล้ว' };
+      if (!consumeRes.ok) return { ok: false, error: 'ส่งคำขอลงทะเบียนไม่สำเร็จ' };
+      const pmUsers = Object.values(usersData || {}).filter(user => user.role === 'pm' && user.active !== false && user.email);
+      await Promise.allSettled(pmUsers.map(pm => globalThis.fetch(`${baseUrl}/notifications.json`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          toEmail: pm.email, title: '👤 คำขอลงทะเบียนใหม่', message: `${submittedInvite.registration.name} (${email}) รอการอนุมัติ`,
+          link: '#members', read: false, createdAt: new Date().toISOString()
+        })
+      })));
+      return { ok: true };
+    }
+
+    if (action === 'listPendingRegistrations') {
+      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์ดูคำขอลงทะเบียน' };
+      const res = await fetch(`${baseUrl}/registrationInvites.json`);
+      const data = await res.json();
+      const registrations = Object.entries(data || {}).filter(([, invite]) => invite.status === 'submitted' && invite.registration).map(([token, invite]) => ({
+        token, email: invite.registration.email, name: invite.registration.name, nickname: invite.registration.nickname || '',
+        phone: invite.registration.phone || '', birthday: invite.registration.birthday || '', dept: invite.registration.dept || '',
+        locationType: invite.registration.location_type || 'bkk', submittedAt: invite.submitted_at || ''
+      }));
+      return { ok: true, registrations };
+    }
+
+    if (action === 'reviewRegistration') {
+      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์อนุมัติคำขอลงทะเบียน' };
+      const token = String(payload.token || '');
+      const inviteRes = await fetch(`${baseUrl}/registrationInvites/${token}.json`);
+      const invite = await inviteRes.json();
+      if (!invite || invite.status !== 'submitted' || !invite.registration) return { ok: false, error: 'ไม่พบคำขอที่รออนุมัติ' };
+      if (payload.decision === 'reject') {
+        await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected', reviewed_by: payload.reviewerEmail, reviewed_at: new Date().toISOString(), registration: null }) });
+        return { ok: true };
+      }
+      const registration = invite.registration;
+      const usersRes = await fetch(`${baseUrl}/users.json`);
+      const usersData = await usersRes.json();
+      if (Object.values(usersData || {}).some(user => String(user.email || '').toLowerCase() === registration.email)) return { ok: false, error: 'อีเมลนี้มีบัญชีในระบบแล้ว' };
+      const newUser = {
+        email: registration.email, name: registration.name, nickname: registration.nickname || '', phone: registration.phone || '',
+        birthday: registration.birthday || '', start_date: payload.startDate || '', discordId: '', role: payload.role || 'junior',
+        dept: registration.dept || '', pass_hash: registration.pass_hash, added_by: payload.reviewerEmail,
+        added_at: new Date().toISOString(), location_type: registration.location_type || 'bkk', user_id: payload.userId || '', active: true
+      };
+      await fetch(`${baseUrl}/users.json`, { method: 'POST', body: JSON.stringify(newUser) });
+      await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PATCH', body: JSON.stringify({ status: 'approved', reviewed_by: payload.reviewerEmail, reviewed_at: new Date().toISOString(), registration: null }) });
+      return { ok: true, user: newUser };
+    }
+
+    // 4. USERS (CRUD)
     if (action === 'addUser') {
       const res = await fetch(`${baseUrl}/users.json`, {
         method: 'POST',
@@ -242,6 +350,8 @@ async function api(action, payload = {}) {
           nickname: payload.nickname || '',
           discordId: payload.discordId || '',
           birthday: payload.birthday || '',
+          start_date: payload.startDate || '',
+          phone: payload.phone || '',
           role: payload.role,
           dept: payload.dept || '',
           pass_hash: payload.pass,
@@ -249,7 +359,8 @@ async function api(action, payload = {}) {
           added_at: payload.addedAt || new Date().toISOString(),
           location_type: payload.locationType || 'bkk',
           user_id: payload.userId || '',
-          active: payload.active !== false
+          active: payload.active !== false,
+          suspended_at: payload.suspendedAt || ''
         })
       });
       return { ok: res.ok };
@@ -265,6 +376,8 @@ async function api(action, payload = {}) {
           nickname: payload.nickname || '',
           discordId: payload.discordId || '',
           birthday: payload.birthday || '',
+          start_date: payload.startDate || '',
+          phone: payload.phone || '',
           role: payload.role,
           dept: payload.dept || '',
           location_type: payload.locationType || 'bkk'
@@ -272,6 +385,7 @@ async function api(action, payload = {}) {
         if (payload.pass) updateData.pass_hash = payload.pass;
         if (payload.userId) updateData.user_id = payload.userId;
         if (payload.active !== undefined) updateData.active = payload.active;
+        if (payload.suspendedAt !== undefined) updateData.suspended_at = payload.suspendedAt || '';
         const res2 = await fetch(`${baseUrl}/users/${key}.json`, {
           method: 'PATCH',
           body: JSON.stringify(updateData)
@@ -573,6 +687,8 @@ function mapUserFromAPI(u) {
     nickname: u.nickname || '',
     discordId: u.discordId || u.discord_id || '',
     birthday: u.birthday || '',
+    startDate: u.startDate || u.start_date || '',
+    phone: u.phone || '',
     role: u.role,
     dept: u.dept,
     pass: u.pass_hash || u.pass || '',
@@ -580,6 +696,7 @@ function mapUserFromAPI(u) {
     addedAt: u.added_at || u.addedAt || new Date().toISOString(),
     locationType: u.location_type || u.locationType || 'bkk',
     active: u.active !== false,
+    suspendedAt: u.suspendedAt || u.suspended_at || '',
     userId: u.user_id || u.userId || ''
   };
 }
