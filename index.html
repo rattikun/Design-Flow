@@ -91,6 +91,52 @@
       margin-bottom: 28px;
     }
 
+    #registration-screen {
+      box-sizing: border-box;
+      padding: 36px 24px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .registration-card {
+      width: 100%;
+      max-width: 720px;
+      padding: 44px 40px 40px;
+    }
+
+    .registration-card .login-sub {
+      margin-bottom: 30px;
+    }
+
+    #registration-form .form-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 16px;
+      row-gap: 18px;
+    }
+
+    #registration-form .form-group {
+      gap: 8px;
+    }
+
+    #registration-error {
+      margin: 18px 0 0;
+    }
+
+    #registration-submit {
+      min-height: 48px;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 600px) {
+      #registration-screen { padding: 16px; align-items: flex-start; }
+      .registration-card { padding: 28px 20px 24px; border-radius: 16px; }
+      .registration-card .login-logo { font-size: 27px; line-height: 1.25; }
+      .registration-card .login-sub { margin-top: 6px; margin-bottom: 24px; }
+      #registration-form .form-grid { grid-template-columns: 1fr; row-gap: 16px; }
+      .registration-spacer { display: none; }
+      #registration-submit { margin-top: 20px; }
+    }
+
     .login-err {
       background: var(--red-bg);
       border: 1px solid rgba(255, 107, 107, 0.3);
@@ -726,6 +772,10 @@
     .unified-date-popover .leave-calendar-day.today.selected::after { display:none; }
     .unified-date-popover .leave-calendar-day:disabled { opacity:.22; }
     .unified-date-popover .leave-calendar-days { min-height:276px; }
+    .unified-date-head-selects { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; }
+    .unified-date-select { width:auto; height:34px; padding:4px 28px 4px 9px; border-radius:7px; background:var(--surface3); border:1px solid var(--border2); color:var(--text); font-size:14px; font-weight:600; }
+    .unified-date-month { min-width:112px; }
+    .unified-date-year { min-width:82px; }
     input[type="date"].unified-date-input { cursor:pointer; }
     .leave-range-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; padding:11px 13px; background:rgba(108,138,255,.1); border:1px solid rgba(108,138,255,.25); border-radius:var(--radius-sm); }
     .leave-range-summary span { color:var(--text2); font-size:14px; }
@@ -766,6 +816,10 @@
       .leave-mode-switch { grid-template-columns:1fr; }
       .leave-calendar { padding:10px 7px; }
       .leave-calendar-day { font-size:14px; }
+      .unified-date-popover { padding:10px 8px; }
+      .unified-date-select { padding-right:22px; font-size:13px; }
+      .unified-date-month { min-width:96px; }
+      .unified-date-year { min-width:74px; }
       .leave-range-summary { align-items:flex-start; flex-direction:column; }
       .leave-range-summary strong { text-align:left; }
     }
@@ -2233,8 +2287,8 @@
     </div>
   </div>
 
-  <div id="registration-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;">
-    <div class="login-box" style="width:100%;max-width:720px;">
+  <div id="registration-screen" style="display:none;min-height:100vh;">
+    <div class="login-box registration-card">
       <div class="login-logo">✦ ลงทะเบียน Design Flow</div>
       <div class="login-sub">// แบบฟอร์มสำหรับผู้ได้รับลิงก์เชิญเท่านั้น</div>
       <div id="registration-loading" style="color:var(--text3);padding:20px 0;">กำลังตรวจสอบลิงก์...</div>
@@ -2253,13 +2307,13 @@
               <input class="date-part" data-part="y" maxlength="4" placeholder="ปปปป" inputmode="numeric">
             </span><input type="date" id="reg-birth" class="date-native"><span class="date-cal-btn"><i class="fa-regular fa-calendar"></i></span></span>
           </div>
-          <div class="form-group"><label>ทีม</label><select id="reg-dept"><option value="">— ไม่ระบุ —</option><option value="UXUI">UXUI</option><option value="Media">Media</option><option value="Art">Art</option><option value="PM">PM</option></select></div>
+          <div class="form-group"><label>ทีม</label><select id="reg-dept"><option value="">— ไม่ระบุ —</option><option value="UXUI">UXUI</option><option value="Media">Media</option><option value="Art">Art</option></select></div>
           <div class="form-group"><label>พื้นที่</label><select id="reg-loc"><option value="bkk">กรุงเทพ</option><option value="province">ต่างจังหวัด</option></select></div>
-          <div></div>
+          <div class="registration-spacer" aria-hidden="true"></div>
           <div class="form-group"><label>รหัสผ่าน *</label><input id="reg-pass" type="password" minlength="6" autocomplete="new-password" /></div>
           <div class="form-group"><label>ยืนยันรหัสผ่าน *</label><input id="reg-confirm" type="password" minlength="6" autocomplete="new-password" /></div>
         </div>
-        <div id="registration-error" class="login-err" style="display:none;margin:12px 0;"></div>
+        <div id="registration-error" class="login-err" style="display:none;"></div>
         <button id="registration-submit" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitInviteRegistration()">ส่งข้อมูลให้ PM อนุมัติ</button>
       </div>
     </div>
@@ -3310,8 +3364,8 @@
   <div id="birthday-toast" role="alert" aria-live="polite"></div>
   <div id="toast"></div>
 
-  <script src="api.js?v=20260827f"></script>
-  <script src="team-manager.js?v=20260827f"></script>
+  <script src="api.js?v=20260828c"></script>
+  <script src="team-manager.js?v=20260828c"></script>
 </body>
 
 </html>

@@ -284,7 +284,9 @@ async function api(action, payload = {}) {
         submitted_at: new Date().toISOString(),
         registration: {
           email, name: String(payload.name).trim(), nickname: String(payload.nickname || '').trim(),
-          phone: String(payload.phone || '').trim(), birthday: payload.birthday || '', dept: payload.dept || '',
+          phone: String(payload.phone || '').trim(),
+          birthday: /^\d{4}-\d{2}-\d{2}$/.test(payload.birthday || '') && payload.birthday <= `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` ? payload.birthday : '',
+          dept: ['UXUI', 'Media', 'Art'].includes(payload.dept) ? payload.dept : '',
           location_type: payload.locationType || 'bkk', pass_hash: payload.passHash
         }
       };

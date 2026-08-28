@@ -246,6 +246,8 @@ async function submitInviteRegistration() {
   if (!name || !email || !pass || !confirmPass) { error.textContent = 'กรุณากรอกชื่อ อีเมล และรหัสผ่านให้ครบ'; error.style.display = 'block'; return; }
   if (pass.length < 6) { error.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; error.style.display = 'block'; return; }
   if (pass !== confirmPass) { error.textContent = 'ยืนยันรหัสผ่านไม่ตรงกัน'; error.style.display = 'block'; return; }
+  const birthday = document.getElementById('reg-birth').value;
+  if (birthday && birthday > toLocalDateString(new Date())) { error.textContent = 'วันเกิดต้องไม่เกินวันที่ปัจจุบัน'; error.style.display = 'block'; return; }
   error.style.display = 'none';
   const button = document.getElementById('registration-submit');
   button.disabled = true; button.textContent = 'กำลังส่งข้อมูล...';
@@ -253,7 +255,7 @@ async function submitInviteRegistration() {
     token: _registrationInviteToken, name, email, passHash: hp(pass),
     nickname: document.getElementById('reg-nickname').value.trim(),
     phone: document.getElementById('reg-phone').value.trim(),
-    birthday: document.getElementById('reg-birth').value,
+    birthday,
     dept: document.getElementById('reg-dept').value,
     locationType: document.getElementById('reg-loc').value
   });
@@ -603,6 +605,7 @@ function _syncNativeFromDisplay(wrap, native, onChange) {
 function initNativeDateInput(id, onChange) {
   const native = document.getElementById(id);
   if (!native) return;
+  if (id.includes('birth')) native.setAttribute('max', toLocalDateString(new Date()));
   if (id === 'ex-date') {
     native.setAttribute('max', toLocalDateString(new Date()));
   }
@@ -723,6 +726,16 @@ function changeUnifiedDateMonth(offset) {
   renderUnifiedDatePicker();
 }
 
+function selectUnifiedDateMonth(month) {
+  _unifiedDateMonth = new Date(_unifiedDateMonth.getFullYear(), Number(month), 1);
+  renderUnifiedDatePicker();
+}
+
+function selectUnifiedDateYear(year) {
+  _unifiedDateMonth = new Date(Number(year), _unifiedDateMonth.getMonth(), 1);
+  renderUnifiedDatePicker();
+}
+
 function goToUnifiedDateToday() {
   if (!_unifiedDateTarget) return;
   const today = toLocalDateString(new Date());
@@ -756,6 +769,15 @@ function renderUnifiedDatePicker() {
   const selected = _unifiedDateTarget.value;
   const min = _unifiedDateTarget.min || '';
   const max = _unifiedDateTarget.max || '';
+  const isBirthday = _unifiedDateTarget.id.includes('birth');
+  const currentYear = new Date().getFullYear();
+  const firstYear = isBirthday ? Math.min(year, currentYear - 100) : Math.min(year, currentYear - 50);
+  const lastYear = isBirthday ? currentYear : Math.max(year, currentYear + 10);
+  const yearOptions = [];
+  for (let optionYear = lastYear; optionYear >= firstYear; optionYear--) {
+    yearOptions.push(`<option value="${optionYear}"${optionYear === year ? ' selected' : ''}>${optionYear + 543}</option>`);
+  }
+  const monthOptions = months.map((monthName, monthIndex) => `<option value="${monthIndex}"${monthIndex === month ? ' selected' : ''}>${monthName}</option>`).join('');
   const days = [];
   for (let i = 0; i < 42; i++) {
     const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
@@ -771,7 +793,13 @@ function renderUnifiedDatePicker() {
   popover.innerHTML = `
     <div class="leave-calendar-head">
       <button type="button" class="leave-calendar-nav" onclick="changeUnifiedDateMonth(-1)" aria-label="เดือนก่อนหน้า">‹</button>
-      <div class="leave-calendar-head-center"><strong>${months[month]} ${year + 543}</strong><button type="button" class="leave-calendar-today" onclick="goToUnifiedDateToday()">วันนี้</button></div>
+      <div class="leave-calendar-head-center">
+        <div class="unified-date-head-selects">
+          <select class="unified-date-select unified-date-month" onchange="selectUnifiedDateMonth(this.value)" aria-label="เลือกเดือน">${monthOptions}</select>
+          <select class="unified-date-select unified-date-year" onchange="selectUnifiedDateYear(this.value)" aria-label="เลือกปี">${yearOptions.join('')}</select>
+        </div>
+        <button type="button" class="leave-calendar-today" onclick="goToUnifiedDateToday()">วันนี้</button>
+      </div>
       <button type="button" class="leave-calendar-nav" onclick="changeUnifiedDateMonth(1)" aria-label="เดือนถัดไป">›</button>
     </div>
     <div class="leave-calendar-weekdays"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
