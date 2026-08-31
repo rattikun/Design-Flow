@@ -11,7 +11,7 @@ const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.
 // Firebase Storage bucket สำหรับอัปโหลดเอกสารแนบ (ใบลา ฯลฯ)
 const FIREBASE_STORAGE_BUCKET = 'design-cz.firebasestorage.app';
 // n8n webhook สำหรับแจ้งเตือน Discord PM
-const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/e1ed9201-1e96-475f-993a-1ab259c2f6b5';
+const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/design-flow-notifications-v2';
 // n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
 const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/f42feab5-a454-4c3d-8532-a6b2e398e09b';
 // n8n webhook สำหรับ sync ข้อมูลการยื่นออกกำลังกายไปยัง Google Sheets
@@ -821,6 +821,124 @@ function normalizeDate(d) {
   return d;
 }
 
+// ── UNIFIED NOTIFICATION ROUTER ────────────────────────────────────────────
+// Design Flow decides who receives each notification and prepares the final
+// message. n8n receives only the minimum delivery payload and sends Discord DM.
+const NOTIFICATION_APP_URL = 'https://design-cz.com/';
+
+function _activeNotificationUsers() {
+  return (typeof getUsers === 'function' ? getUsers() : []).filter(u => u && u.active !== false);
+}
+
+function _discordIds(users) {
+  return [...new Set(users.map(u => String(u.discordId || '').trim()).filter(Boolean))];
+}
+
+function _resolveNotificationRoute(event, context = {}) {
+  const users = _activeNotificationUsers();
+  const pms = () => _discordIds(users.filter(u => u.role === 'pm'));
+  const member = () => _discordIds(users.filter(u => String(u.email || '').toLowerCase() === String(context.email || '').toLowerCase()));
+  const deptLeads = () => _discordIds(users.filter(u =>
+    u.role === 'lead' && u.dept && context.dept &&
+    u.dept.trim().toLowerCase() === String(context.dept).trim().toLowerCase()
+  ));
+
+  if (event === 'new_leave_member') {
+    if (context.status === 'pending_pm') return { recipientDiscordIds: pms(), resolvedAs: 'pm_fallback_no_lead' };
+    const leads = deptLeads();
+    return leads.length
+      ? { recipientDiscordIds: leads, resolvedAs: 'department_lead' }
+      : { recipientDiscordIds: pms(), resolvedAs: 'pm_fallback_no_lead' };
+  }
+  if (['new_leave_lead', 'lead_submitted_for_member', 'lead_approved_leave', 'new_exercise'].includes(event)) {
+    return { recipientDiscordIds: pms(), resolvedAs: 'pm' };
+  }
+  if (['lead_rejected_leave', 'pm_approved_leave', 'pm_rejected_leave', 'pm_rejected_doc', 'dental_doc_reminder', 'accu_history_added', 'exercise_approved', 'exercise_rejected'].includes(event)) {
+    return { recipientDiscordIds: member(), resolvedAs: 'member' };
+  }
+  return { recipientDiscordIds: [], resolvedAs: 'unresolved' };
+}
+
+function _notificationCopy(event, context = {}) {
+  const nickname = context.nickname || 'สมาชิก';
+  const displayDate = value => {
+    const raw = normalizeDate(value);
+    const match = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : raw;
+  };
+  const dateRange = context.start && context.end && context.start !== context.end
+    ? `${displayDate(context.start)} – ${displayDate(context.end)}`
+    : displayDate(context.start || context.date || '');
+  const leaveDays = Number(context.days || 0);
+  const leaveAmount = leaveDays > 0 ? `${leaveDays} วัน` : 'ตามวันที่ระบุ';
+  const leaveDept = context.dept || 'ไม่ระบุแผนก';
+  const leaveReason = context.reason || 'ไม่ระบุเหตุผล';
+  const decisionNote = context.decisionNote || 'ไม่ระบุเหตุผล';
+  const divider = '━━━━━━━━━━━━━━━━━━━━';
+  const copy = {
+    new_leave_member: {
+      title: context.status === 'pending_pm' ? '📋 คำขอลา — รอ PM อนุมัติ' : '📋 คำขอลา — รอหัวหน้าอนุมัติ',
+      body: `${divider}\n\n👤 ${nickname} (${leaveDept}) ต้องการ ${context.typeLabel || 'ลา'} จำนวน ${leaveAmount}\n📅 วันที่: ${dateRange}\n📝 เหตุผล: ${leaveReason}`,
+      page: context.status === 'pending_pm' ? 'leave-pm' : 'leave-review'
+    },
+    new_leave_lead: { title: '📋 คำขอลาหัวหน้า — รอ PM อนุมัติ', body: `${divider}\n\n👤 ${nickname} (${leaveDept}) ต้องการ ${context.typeLabel || 'ลา'} จำนวน ${leaveAmount}\n📅 วันที่: ${dateRange}\n📝 เหตุผล: ${leaveReason}`, page: 'leave-pm' },
+    lead_submitted_for_member: { title: '📋 หัวหน้ายื่นลาแทนสมาชิก — รอ PM อนุมัติ', body: `${divider}\n\n👤 ${context.submittedBy || 'หัวหน้าทีม'} ยื่นแทน ${nickname} (${leaveDept})\n🏷️ ${context.typeLabel || 'ลา'} จำนวน ${leaveAmount}\n📅 วันที่: ${dateRange}\n📝 เหตุผล: ${leaveReason}`, page: 'leave-pm' },
+    lead_approved_leave: { title: '✅ หัวหน้าอนุมัติแล้ว — รอ PM', body: `${divider}\n\n👤 ${nickname} (${leaveDept}) — ${context.typeLabel || 'ใบลา'} จำนวน ${leaveAmount}\n📅 วันที่: ${dateRange}\n📝 เหตุผล: ${leaveReason}`, page: 'leave-pm' },
+    lead_rejected_leave: { title: '❌ คำขอลาของคุณไม่ได้รับการอนุมัติจากหัวหน้า', body: `${divider}\n🏷️ ประเภท: ${context.typeLabel || 'ใบลา'}\n📅 วันที่: ${dateRange}\n🚫 เหตุผลที่ปฏิเสธ: ${decisionNote}`, page: 'leave-history' },
+    pm_approved_leave: { title: 'คำขอลาของคุณได้รับการอนุมัติแล้ว! 🎉', body: `${divider}\n🏷️ ประเภท: ${context.typeLabel || 'ใบลา'}\n📅 วันที่: ${dateRange}\n⏱️ จำนวน: ${leaveAmount}`, page: 'leave-history', includeLink: false },
+    pm_rejected_leave: { title: '❌ คำขอลาของคุณไม่ได้รับการอนุมัติจาก PM', body: `${divider}\n🏷️ ประเภท: ${context.typeLabel || 'ใบลา'}\n📅 วันที่: ${dateRange}\n🚫 เหตุผลที่ปฏิเสธ: ${decisionNote}`, page: 'leave-history' },
+    pm_rejected_doc: { title: '❌ เอกสารแนบไม่ผ่านการตรวจสอบ', body: `${divider}\n🏷️ ประเภท: ${context.typeLabel || 'ใบลา'}\n📅 วันที่: ${dateRange}\n🚫 เหตุผล: ${decisionNote}\n📎 กรุณาแนบเอกสารใหม่`, page: 'leave-history' },
+    dental_doc_reminder: { title: '⚠️ กรุณาแนบหลักฐานลาทำฟัน', body: `${divider}\n🦷 ประเภท: ลาทำฟัน\n📅 วันที่: ${dateRange}\n📎 สถานะ: ยังไม่ได้แนบเอกสาร`, page: 'leave-history' },
+    accu_history_added: { title: '📅 มีการเพิ่มวันลาสะสม', body: `เปิด Design Flow เพื่อตรวจสอบยอดวันลา`, page: 'my-balance' },
+    new_exercise: { title: '📥 คำขอเบิกออกกำลังกายใหม่', body: `${nickname} ยื่น${context.typeLabel || 'กิจกรรม'} ${dateRange}`, page: 'exercise-review' },
+    exercise_approved: { title: '✅ PM อนุมัติกิจกรรมแล้ว', body: `${context.typeLabel || 'กิจกรรม'} ${dateRange} ได้รับการอนุมัติแล้ว`, page: 'exercise-log' },
+    exercise_rejected: { title: '❌ PM ไม่อนุมัติกิจกรรม', body: `${context.typeLabel || 'กิจกรรม'} ${dateRange}\nเปิด Design Flow เพื่อดูรายละเอียด`, page: 'exercise-log' }
+  };
+  const selected = copy[event] || { title: '🔔 การแจ้งเตือนจาก Design Flow', body: 'เปิดระบบเพื่อตรวจสอบรายละเอียด', page: 'dashboard' };
+  const link = `${NOTIFICATION_APP_URL}#${selected.page}`;
+  const description = selected.body.split('\n').filter(line => line !== divider).join('\n').trim();
+  const messageParts = [selected.title, description];
+  if (selected.includeLink !== false) messageParts.push(`🔗 ${link}`);
+  const message = messageParts.join('\n');
+  return { ...selected, description, link, message };
+}
+
+function _notificationColor(event) {
+  if (['pm_approved_leave', 'exercise_approved'].includes(event)) return '#57F287';
+  if (['lead_rejected_leave', 'pm_rejected_leave', 'pm_rejected_doc', 'exercise_rejected'].includes(event)) return '#ED4245';
+  if (['dental_doc_reminder'].includes(event)) return '#FEE75C';
+  return '#5865F2';
+}
+
+function sendN8nNotification(event, context = {}) {
+  if (!N8N_WEBHOOK_URL) return Promise.resolve({ ok: false, error: 'notification webhook is not configured' });
+  const route = _resolveNotificationRoute(event, context);
+  const copy = _notificationCopy(event, context);
+  const entityId = context.id || context.email || 'event';
+  const payload = {
+    schemaVersion: 'design-flow.notification.v1',
+    kind: 'notification',
+    event,
+    eventId: `${event}:${entityId}:${Date.now()}`,
+    occurredAt: new Date().toISOString(),
+    destination: 'discord',
+    deliveryMode: 'direct_message',
+    resolvedAs: route.resolvedAs,
+    recipientDiscordIds: route.recipientDiscordIds,
+    title: copy.title,
+    description: copy.description,
+    color: _notificationColor(event),
+    message: copy.message,
+    link: copy.link
+  };
+  if (!route.recipientDiscordIds.length) console.warn('[notification] no Discord recipient resolved:', event);
+  return fetch(n8nUrl(N8N_WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(res => ({ ok: res.ok, status: res.status })).catch(error => ({ ok: false, error: error.message }));
+}
+
 /**
  * สร้างการแจ้งเตือนภายในระบบให้ user คนใดคนหนึ่ง (แสดงที่กระดิ่งแจ้งเตือนมุมขวาบน)
  */
@@ -834,49 +952,29 @@ function notifyUser(toEmail, title, message, link) {
  * notifyRole: 'lead' = แจ้งหัวหน้า, 'pm' = แจ้ง PM
  */
 function notifyLeave(leave, event, notifyRole) {
-  if (!N8N_WEBHOOK_URL) return;
-  const _url = n8nUrl(N8N_WEBHOOK_URL);
   const LT = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', vacation: '🏖️ ลาพักร้อน', dental: '🦷 ลาทำฟัน', birthday: '🎂 ลาวันเกิด', funeral: '🕯️ ลาฌาปนกิจ', maternity: '🤱 ลาคลอด', training: '📚 ลาฝึกอบรม', sterilize: '⚕️ ลาทำหมัน', ordain: '🙏 ลาบวช', other: '📌 อื่นๆ' };
-  const eventLabel = {
-    new_leave_member: '📥 ใบลาใหม่ — รอหัวหน้าอนุมัติ',
-    new_leave_lead: '📥 ใบลาหัวหน้า — รอ PM อนุมัติ',
-    lead_approved_leave: '✅ หัวหน้าอนุมัติแล้ว — รอ PM อนุมัติ',
-    pm_approved_leave: '✅ PM อนุมัติใบลาแล้ว',
-    pm_rejected_leave: '❌ PM ไม่อนุมัติใบลา',
-    pm_rejected_doc: '📎 เอกสารไม่ผ่าน — กรุณาแนบใหม่'
-  };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const displayName = (u && u.nickname) ? u.nickname : leave.name.split(' ')[0];
-  const discordId = u ? (u.discordId || '') : '';
-  fetch(_url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event,
-      eventLabel: eventLabel[event] || event,
-      notifyRole,
-      id: leave.id,
-      refNo: leave.refNo || '',
-      name: displayName,
-      email: leave.email,
-      discordId,
-      dept: leave.dept || 'ไม่ระบุ',
-      leaveType: LT[leave.type] || leave.type,
-      start: leave.start,
-      end: leave.end,
-      days: leave.days,
-      isHalf: leave.isHalf || false,
-      reason: leave.reason || '',
-      docLink: leave.docName || '',
-      rejectReason: leave.rejectReason || leave.docRejectReason || '',
-      rejectedBy: leave.rejectedBy || '',
-      submittedAt: leave.submittedAt
-    })
-  }).catch(() => {});
+  return sendN8nNotification(event, {
+    id: leave.id,
+    email: leave.email,
+    dept: leave.dept || '',
+    status: leave.status || '',
+    nickname: displayName,
+    typeLabel: LT[leave.type] || leave.type,
+    start: leave.start,
+    end: leave.end,
+    days: leave.days,
+    reason: leave.reason || '',
+    submittedBy: leave.addedBy || '',
+    decisionNote: event === 'lead_rejected_leave'
+      ? (leave.leadNote || '')
+      : (['pm_rejected_leave', 'pm_rejected_doc'].includes(event) ? (leave.pmNote || '') : '')
+  });
 }
 
 /**
- * เช็คใบลาทำฟันที่ยังไม่แนบหลักฐาน เกิน 2 วันจากวันที่ยื่น → ยิงแจ้งเตือน n8n รวมเป็นก้อนเดียว
+ * เช็คใบลาทำฟันที่ยังไม่แนบหลักฐาน เกิน 2 วันจากวันที่ลา → แจ้งเตือนผ่าน n8n
  * ส่งได้สูงสุดวันละ 1 ครั้ง (กันซ้ำด้วย flag lastDentalReminderDate ใน Firebase)
  */
 async function checkDentalDocReminders() {
@@ -886,7 +984,7 @@ async function checkDentalDocReminders() {
     if (typeof DB_PATH_KEY !== 'undefined' && DB_PATH_KEY) baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
     const flagUrl = `${baseUrl}/system/lastDentalReminderDate.json`;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
     const flagRes = await fetchFirebase(flagUrl);
     const lastSent = await flagRes.json();
     if (lastSent === today) return;
@@ -897,7 +995,7 @@ async function checkDentalDocReminders() {
 
     const overdue = leaves.reduce((acc, r) => {
       if (r.type !== 'dental' || r.docName || r.status === 'rejected') return acc;
-      const ref = (r.submittedAt || r.start || '').slice(0, 10);
+      const ref = normalizeDate(r.start || r.submittedAt || '');
       if (!ref) return acc;
       const daysWaiting = Math.floor((todayMs - new Date(ref + 'T00:00:00').getTime()) / 864e5);
       if (daysWaiting < 2) return acc;
@@ -920,17 +1018,13 @@ async function checkDentalDocReminders() {
 
     if (!overdue.length) return;
 
-    await fetch(n8nUrl(N8N_WEBHOOK_URL), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'dental_doc_reminder',
-        eventLabel: '⚠️ แจ้งเตือน — รอแนบหลักฐานลาทำฟัน',
-        date: today,
-        count: overdue.length,
-        reminders: overdue
-      })
-    });
+    const deliveries = await Promise.all(overdue.map(reminder => sendN8nNotification('dental_doc_reminder', {
+      id: reminder.id,
+      email: reminder.email,
+      start: reminder.start,
+      end: reminder.end
+    })));
+    if (!deliveries.some(result => result.ok)) throw new Error('ไม่สามารถส่งการแจ้งเตือนเอกสารลาทำฟันได้');
 
     await fetchFirebase(flagUrl, { method: 'PUT', body: JSON.stringify(today) });
   } catch (e) {
@@ -982,47 +1076,9 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
  * แจ้งเตือน n8n เมื่อ PM เพิ่มวันลาสะสมให้สมาชิก
  */
 function notifyAccuHistory(targetEmail, entry) {
-  const ACCU_URL = n8nUrl(N8N_SHEETS_WEBHOOK_URL);
-  console.log('[notifyAccuHistory] URL:', ACCU_URL);
-  console.log('[notifyAccuHistory] entry:', entry);
-  if (!ACCU_URL) return;
-  const users = (typeof getUsers === 'function') ? getUsers() : [];
-  const target = users.find(u => u.email === targetEmail);
-  const fullName = target?.name || targetEmail;
-  const nickname = target?.nickname || fullName.split(' ')[0];
-  const discordId = target?.discordId || '';
-  const dept = target?.dept || '';
-  fetch(ACCU_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'accu_history_added',
-
-      eventLabel: '📅 เพิ่มวันลาสะสม',
-      refNo: entry.refNo || '',
-      name: fullName,
-      nickname,
-      email: targetEmail,
-      discordId,
-      dept,
-      date: entry.date,
-      scope: entry.scope,
-      days: entry.days,
-      addedBy: entry.addedBy,
-      addedAt: (() => {
-        if (!entry.addedAt) return '';
-        const d = new Date(new Date(entry.addedAt).getTime() + 7 * 60 * 60 * 1000);
-        const date = d.toISOString().slice(0, 10);
-        const h = d.getUTCHours();
-        const m = String(d.getUTCMinutes()).padStart(2, '0');
-        const s = String(d.getUTCSeconds()).padStart(2, '0');
-        return `${date} | ${h}:${m}:${s}`;
-      })()
-    })
-  }).then(res => {
-    console.log('[notifyAccuHistory] response status:', res.status);
-  }).catch(err => {
-    console.error('[notifyAccuHistory] fetch error:', err);
+  return sendN8nNotification('accu_history_added', {
+    id: entry.refNo || entry.addedAt || targetEmail,
+    email: targetEmail
   });
 }
 
@@ -1030,31 +1086,13 @@ function notifyAccuHistory(targetEmail, entry) {
  * แจ้งเตือน n8n → Discord เมื่อมี exercise request ใหม่
  */
 function notifyNewExercise(ex) {
-  if (!N8N_WEBHOOK_URL) return;
   const typeLabel = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
-  const memberNames = (ex.members || [])
-    .filter(m => m.type === 'sys')
-    .map(m => m.name || m.email)
-    .join(', ');
-
-  fetch(n8nUrl(N8N_WEBHOOK_URL), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'new_exercise',
-      id: ex.id,
-      name: ex.nickname || ex.name,
-      email: ex.email,
-      dept: ex.dept || 'ไม่ระบุ',
-      exType: ex.exType,
-      typeLabel: typeLabel[ex.exType] || ex.exType,
-      activity: ex.activity,
-      date: ex.date,
-      members: memberNames || '-',
-      proofLink: ex.proofLink || ex.proofDoc || '',
-      submittedAt: ex.submittedAt
-    })
-  }).catch(() => {});
+  return sendN8nNotification('new_exercise', {
+    id: ex.id,
+    nickname: ex.nickname || (ex.name || '').split(' ')[0],
+    typeLabel: typeLabel[ex.exType] || ex.exType,
+    date: ex.date
+  });
 }
 
 /**

@@ -1620,7 +1620,7 @@ function submitLeave() {
   LS.set('tf_lid_counter', String(_newId));
   const _yr = new Date().getFullYear();
   const _refNo = 'LV' + _yr + '-' + String(_newId).padStart(4, '0');
-  const newLeave = { id: _newId, refNo: _refNo, name: targetName, nickname: targetNickname, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
+  const newLeave = { id: _newId, refNo: _refNo, name: targetName, nickname: targetNickname, email: targetEmail, dept: targetDept, type, start, end, period, reason, days: diff, isHalf, hasDoc: !!link, docName: link || null, status: initialStatus, autoEscalated: false, isLeadLeave: isLead && !forMemberEmail, addedBy: forMemberEmail ? cu.name : null, submittedAt: new Date().toISOString(), leadAction: null, pmAction: null, leadNote: '', pmNote: '' };
   ls.unshift(newLeave);
   saveLeaves(ls);
   _pendingNewLeaves.set(newLeave.id, newLeave);
@@ -1629,8 +1629,9 @@ function submitLeave() {
 
   if (!isPM) {
     if (isLead) {
-      notifyLeave(newLeave, 'new_leave_lead', 'pm');
-      notifyPMs('📥 ใบลาใหม่จากหัวหน้า', `${newLeave.nickname || newLeave.name} ยื่น${LT[newLeave.type]} ${newLeave.start}`, 'leave-pm');
+      const leadEvent = forMemberEmail ? 'lead_submitted_for_member' : 'new_leave_lead';
+      notifyLeave(newLeave, leadEvent, 'pm');
+      notifyPMs(forMemberEmail ? '📥 หัวหน้ายื่นลาแทนสมาชิก' : '📥 ใบลาใหม่จากหัวหน้า', `${newLeave.nickname || newLeave.name} ยื่น${LT[newLeave.type]} ${newLeave.start}`, 'leave-pm');
     } else {
       notifyLeave(newLeave, 'new_leave_member', 'lead');
       notifyDeptLead(newLeave.dept, '📥 มีใบลารอพิจารณา', `${newLeave.nickname || newLeave.name} ยื่น${LT[newLeave.type]} ${newLeave.start}`, 'leave-review');
@@ -1736,6 +1737,7 @@ function lAct(id, action, rejectReason) {
     r.rejectReason = rejectReason;
     r.rejectedBy = cu.name;
     toast('✕ ไม่อนุมัติ ' + r.name);
+    notifyLeave(r, 'lead_rejected_leave', 'member');
     notifyUser(r.email, '❌ หัวหน้าไม่อนุมัติใบลา', rejectReason || '', 'leave-history');
   }
   saveLeaves(ls);
@@ -4034,6 +4036,12 @@ function apprEx(id) {
   saveExs(es);
   apiSync('updateEx', es[i]);
   syncExerciseToSheets(es[i], 'exercise_approved');
+  sendN8nNotification('exercise_approved', {
+    id: es[i].id,
+    email: es[i].email,
+    typeLabel: EX_LABEL[es[i].exType] || es[i].exType,
+    date: es[i].date
+  });
   notifyUser(es[i].email, '✅ PM อนุมัติการออกกำลังกายแล้ว', `${EX_LABEL[es[i].exType] || es[i].exType} — ${es[i].activity || ''}`, 'exercise-log');
   toast('✅ อนุมัติแล้ว'); updateDashboard(); updateLB(); updateQuota(); renderExR();
 }
@@ -4062,6 +4070,12 @@ function rejEx(id) {
     es[i].rejectedBy = cu.name;
     saveExs(es);
     apiSync('updateEx', es[i]);
+    sendN8nNotification('exercise_rejected', {
+      id: es[i].id,
+      email: es[i].email,
+      typeLabel: EX_LABEL[es[i].exType] || es[i].exType,
+      date: es[i].date
+    });
     notifyUser(es[i].email, '❌ PM ไม่อนุมัติการออกกำลังกาย', reason, 'exercise-log');
     closeModal('modal-confirm');
     toast('✕ ไม่อนุมัติ'); renderExR();
