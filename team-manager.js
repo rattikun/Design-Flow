@@ -16,7 +16,57 @@ function leaveNeedsDoc(r) {
 const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project Manager' };
 const RC = { junior: 'var(--accent)', senior: 'var(--purple)', lead: 'var(--yellow)', pm: 'var(--orange)' };
 const EX_LABEL = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
-const EX_REWARD = { solo: 100, group_ex: 500, group_eat: 300 };
+const EX_POLICY_V2_START = '2026-09-01';
+const EX_REWARD_BEFORE_V2 = { solo: 100, group_ex: 500, group_eat: 300 };
+const EX_REWARD_V2 = { solo: 100, group_ex: 300, group_eat: 200 };
+
+function usesExercisePolicyV2(date) {
+  return String(date || '') >= EX_POLICY_V2_START;
+}
+
+function getExerciseReward(exerciseOrType, date) {
+  const type = typeof exerciseOrType === 'string' ? exerciseOrType : getExType(exerciseOrType);
+  const activityDate = date || (typeof exerciseOrType === 'object' ? exerciseOrType?.date : '');
+  const rewards = usesExercisePolicyV2(activityDate) ? EX_REWARD_V2 : EX_REWARD_BEFORE_V2;
+  return rewards[type] || 0;
+}
+
+function getSoloWeeklyLimit(date, locationType = 'bkk') {
+  // ตั้งแต่ 1 ก.ย. 2569 กทม. 1 ครั้ง/สัปดาห์ และ ตจว. 3 ครั้ง/สัปดาห์
+  if (usesExercisePolicyV2(date)) return locationType === 'bkk' ? 1 : 3;
+  return locationType === 'bkk' ? 2 : 3;
+}
+
+function getSoloMonthlyLimit(date, locationType = 'bkk') {
+  if (usesExercisePolicyV2(date)) return locationType === 'bkk' ? 4 : 12;
+  return locationType === 'bkk' ? 8 : 12;
+}
+
+function getColaThreshold(date, isBkk) {
+  if (!isBkk) return 1;
+  return usesExercisePolicyV2(date) ? 4 : 6;
+}
+
+function updateExerciseRewardLabels(date) {
+  const rewardByType = {
+    solo: getExerciseReward('solo', date),
+    group_ex: getExerciseReward('group_ex', date),
+    group_eat: getExerciseReward('group_eat', date)
+  };
+  const headerIds = { solo: 'ex-rate-solo', group_ex: 'ex-rate-group-ex', group_eat: 'ex-rate-group-eat' };
+  Object.entries(headerIds).forEach(([type, id]) => {
+    const target = document.getElementById(id);
+    if (target) target.textContent = `฿${rewardByType[type]}`;
+  });
+  const typeSelect = document.getElementById('ex-type');
+  if (typeSelect) {
+    const labels = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
+    Object.entries(labels).forEach(([type, label]) => {
+      const option = typeSelect.querySelector(`option[value="${type}"]`);
+      if (option) option.textContent = `${label} (฿${rewardByType[type]})`;
+    });
+  }
+}
 
 // ══ STORAGE ══════════════════════════════
 const LS = {
@@ -202,6 +252,71 @@ async function tryRestore() {
 }
 
 let _registrationInviteToken = '';
+const DEFAULT_DEPARTMENTS = ['UXUI', 'Media', 'Art', 'PM'];
+let _departments = [...DEFAULT_DEPARTMENTS];
+
+async function loadDepartments() {
+  let names = [...DEFAULT_DEPARTMENTS, ...getUsers().map(user => user.dept).filter(Boolean)];
+  if (typeof api === 'function') {
+    try {
+      const result = await api('listDepartments');
+      if (result.ok && Array.isArray(result.departments)) names.push(...result.departments);
+    } catch (error) { console.warn('[loadDepartments]', error); }
+  }
+  _departments = [...new Set(names.map(name => String(name).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  return _departments;
+}
+
+function setDepartmentOptions(selectId, { includePM = true, selected } = {}) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const current = selected !== undefined ? selected : select.value;
+  const names = _departments.filter(name => includePM || name.toLocaleLowerCase('th') !== 'pm');
+  if (current && !names.includes(current) && (includePM || current.toLocaleLowerCase('th') !== 'pm')) names.push(current);
+  select.innerHTML = '<option value="">— ไม่ระบุ —</option>' + names.map(name => `<option value="${_inviteEscape(name)}">${_inviteEscape(name)}</option>`).join('');
+  select.value = names.includes(current) ? current : '';
+}
+
+async function refreshDepartmentOptions() {
+  await loadDepartments();
+  setDepartmentOptions('reg-dept', { includePM: false });
+  setDepartmentOptions('new-dept');
+  setDepartmentOptions('edit-dept');
+}
+
+function renderDepartmentList() {
+  const list = document.getElementById('department-list');
+  if (!list) return;
+  list.innerHTML = _departments.map(name => `<span class="chip" style="background:var(--surface3);color:var(--text2);border:1px solid var(--border2);padding:6px 10px;">${_inviteEscape(name)}</span>`).join('');
+}
+
+async function openDepartmentManager() {
+  if (!cu || cu.role !== 'pm') { toast('⛔ เฉพาะ PM เท่านั้น'); return; }
+  document.getElementById('new-department-name').value = '';
+  document.getElementById('department-error').style.display = 'none';
+  await refreshDepartmentOptions();
+  renderDepartmentList();
+  openModal('modal-departments');
+}
+
+async function addDepartment() {
+  if (!cu || cu.role !== 'pm') return;
+  const input = document.getElementById('new-department-name');
+  const error = document.getElementById('department-error');
+  const button = document.getElementById('btn-add-department');
+  const name = input.value.trim().replace(/\s+/g, ' ');
+  if (!name) { error.textContent = 'กรุณากรอกชื่อแผนก'; error.style.display = 'block'; return; }
+  button.disabled = true;
+  const result = await api('addDepartment', { name, reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  button.disabled = false;
+  if (!result.ok) { error.textContent = result.error || 'เพิ่มแผนกไม่สำเร็จ'; error.style.display = 'block'; return; }
+  error.style.display = 'none';
+  input.value = '';
+  await refreshDepartmentOptions();
+  renderDepartmentList();
+  toast(`✅ เพิ่มแผนก ${_inviteEscape(result.name || name)} แล้ว`);
+}
+
 async function handlePublicRegistrationRoute() {
   const registrationMatch = location.hash.match(/^#register=([a-f0-9]{48})$/i);
   if (!registrationMatch) return false;
@@ -234,6 +349,7 @@ async function openInviteRegistration(token) {
     invalid.style.display = 'block';
     return;
   }
+  await refreshDepartmentOptions();
   document.getElementById('registration-form').style.display = 'block';
 }
 
@@ -481,6 +597,7 @@ function initApp() {
   setupExForm();
   setupLeaveStepLayout();
   initDatePickers();
+  refreshDepartmentOptions();
   syncLeaveRangePicker();
   syncExerciseCalendar();
   updateDashboard(); updateBadges(); updateQuota();
@@ -496,7 +613,7 @@ function openLeaveModal() {
   clearLeaveForm();
   document.getElementById('leave-name').value = cu.name;
   document.getElementById('add-for-member-section').style.display = (cu.role === 'lead' || cu.role === 'pm') ? 'block' : 'none';
-  const t = new Date().toISOString().split('T')[0];
+  const t = toLocalDateString(new Date());
   setVal('leave-start', t);
   setVal('leave-end', t);
   setLeaveMode('full');
@@ -857,6 +974,8 @@ function setMemberTab(tab, btn) {
 function renderMembers() {
   const inviteButton = document.getElementById('btn-create-invite');
   if (inviteButton) inviteButton.style.display = cu.role === 'pm' ? 'inline-flex' : 'none';
+  const departmentButton = document.getElementById('btn-manage-departments');
+  if (departmentButton) departmentButton.style.display = cu.role === 'pm' ? 'inline-flex' : 'none';
   loadPendingRegistrations();
   const filterBar = document.getElementById('team-filter-bar');
   if (filterBar) {
@@ -905,7 +1024,8 @@ function renderMembers() {
       `: '—'}</td>
     </tr>`).join('');
 }
-function openAddMember() {
+async function openAddMember() {
+  await refreshDepartmentOptions();
   ['new-name', 'new-nickname', 'new-discord', 'new-birth', 'new-start-date', 'new-phone', 'new-email', 'new-pass', 'new-dept'].forEach(id => setVal(id, ''));
   document.getElementById('new-role').value = 'junior';
   document.getElementById('new-active').value = 'true';
@@ -932,8 +1052,10 @@ function addMember() {
   if (typeof apiSync === 'function') apiSync('addUser', newUser);
   closeModal('modal-add'); renderMembers(); setupLeaveFormForRole(); toast('✅ เพิ่มสมาชิก ' + name + ' เรียบร้อย');
 }
-function openEdit(email) {
+async function openEdit(email) {
   const u = getUsers().find(x => x.email === email); if (!u) return;
+  await loadDepartments();
+  setDepartmentOptions('edit-dept', { selected: u.dept || '' });
   document.getElementById('edit-key').value = email;
   document.getElementById('edit-name').value = u.name;
   document.getElementById('edit-nickname').value = u.nickname || '';
@@ -2731,7 +2853,7 @@ function updateExSysMemberSelect() {
   const sel = document.getElementById('ex-sys-member');
   if (!sel) return;
   const allUsers = getUsers();
-  const dateVal = document.getElementById('ex-date')?.value || new Date().toISOString().split('T')[0];
+  const dateVal = document.getElementById('ex-date')?.value || toLocalDateString(new Date());
   const exType = document.getElementById('ex-type')?.value || 'solo';
   const isGrp = isGroupEx(exType);
   const mk = monthKey(dateVal);
@@ -2759,11 +2881,11 @@ function updateExSysMemberSelect() {
     } else {
       // เดี่ยว: ขึ้นกับ locationType ของสมาชิกนั้น
       const uLoc = u.locationType || 'bkk';
-      const uWkLimit = uLoc === 'bkk' ? 2 : 3;
-      const uMoLimit = uLoc === 'bkk' ? 8 : 12;
+      const uWkLimit = getSoloWeeklyLimit(dateVal, uLoc);
+      const uMoLimit = getSoloMonthlyLimit(dateVal, uLoc);
       const uWkSolo = es.filter(x => isUserInvolved(x, u.email) && getExType(x) === 'solo' && x.status !== 'rejected' && wkKey(x.date) === wk).length;
       const uMoSolo = es.filter(x => isUserInvolved(x, u.email) && getExType(x) === 'solo' && x.status !== 'rejected' && monthKey(x.date) === mk).length;
-      if (uWkSolo >= uWkLimit) { isFull = true; fullReason = `เดี่ยวเต็ม/สป.`; }
+      if (uWkLimit !== null && uWkSolo >= uWkLimit) { isFull = true; fullReason = `เดี่ยวเต็ม/สป.`; }
       else if (uMoSolo >= uMoLimit) { isFull = true; fullReason = `เดี่ยวเต็ม/ด.`; }
     }
 
@@ -2897,7 +3019,7 @@ function updateExType() {
   clearExErr();
   updateQuota();
 }
-let quotaViewDate = new Date().toISOString().split('T')[0];
+let quotaViewDate = toLocalDateString(new Date());
 function setQuotaDate(d) {
   quotaViewDate = d;
   updateQuota();
@@ -2923,6 +3045,7 @@ function updateQuota() {
   const exDateInput = document.getElementById('ex-date');
   const isModalOpen = document.getElementById('modal-ex-form')?.classList.contains('open');
   const vDate = (isModalOpen && exDateInput?.value) ? exDateInput.value : quotaViewDate;
+  updateExerciseRewardLabels(vDate);
   let wk = wkKey(vDate);
   const mk = monthKey(vDate), qk = quarterKey(vDate);
   const [moY, moM] = mk.split('-').map(Number);
@@ -2932,7 +3055,7 @@ function updateQuota() {
   const all = _editingExId !== null
     ? getExs().filter(e => String(e.id) !== String(_editingExId))
     : getExs();
-  const wkLimit = isBkk ? 2 : 3, moLimit = isBkk ? 8 : 12;
+  const wkLimit = getSoloWeeklyLimit(vDate, loc), moLimit = getSoloMonthlyLimit(vDate, loc);
 
   // Stats for the viewed week/month
   const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
@@ -2941,7 +3064,7 @@ function updateQuota() {
   const moGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && monthKey(e.date) === mk).length;
   const qGrp = all.filter(e => isUserInvolved(e, cu.email) && isGroupEx(getExType(e)) && e.status !== 'rejected' && quarterKey(e.date) === qk).length;
 
-  const colaThresh = isBkk ? 6 : 1, colaOk = qGrp >= colaThresh;
+  const colaThresh = getColaThreshold(vDate, isBkk), colaOk = qGrp >= colaThresh;
   const locLabel = isBkk ? 'กทม.' : 'ตจว.';
 
   // Build Month Options (Last 6 to Next 2)
@@ -3005,7 +3128,7 @@ function updateQuota() {
   if (!qd) return;
 
   const allMo = all.filter(e => isUserInvolved(e, cu.email) && e.status !== 'rejected' && monthKey(e.date) === mk);
-  const totalMoMoney = allMo.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+  const totalMoMoney = allMo.reduce((sum, e) => sum + getExerciseReward(e), 0);
 
   // Calculate days until cutoffs
   const today = new Date();
@@ -3021,13 +3144,13 @@ function updateQuota() {
   if (prevM === 0) { prevM = 12; prevY--; }
   const prevMk = `${prevY}-${String(prevM).padStart(2, '0')}`;
   const prevMoAll = all.filter(e => isUserInvolved(e, cu.email) && e.status !== 'rejected' && monthKey(e.date) === prevMk);
-  const prevTotalMoney = prevMoAll.reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+  const prevTotalMoney = prevMoAll.reduce((sum, e) => sum + getExerciseReward(e), 0);
   const moneyDiff = totalMoMoney - prevTotalMoney;
   const diffStr = moneyDiff >= 0 ? `+฿${moneyDiff.toLocaleString()}` : `-฿${Math.abs(moneyDiff).toLocaleString()}`;
   const diffColor = moneyDiff >= 0 ? 'var(--green)' : 'var(--red)';
 
-  const moTotalSoloMoney = allMo.filter(e => getExType(e) === 'solo').reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
-  const moTotalGrpMoney = allMo.filter(e => isGroupEx(getExType(e))).reduce((sum, e) => sum + (EX_REWARD[getExType(e)] || 100), 0);
+  const moTotalSoloMoney = allMo.filter(e => getExType(e) === 'solo').reduce((sum, e) => sum + getExerciseReward(e), 0);
+  const moTotalGrpMoney = allMo.filter(e => isGroupEx(getExType(e))).reduce((sum, e) => sum + getExerciseReward(e), 0);
 
   qd.innerHTML = `
   <!-- Top 2 Cards -->
@@ -3095,16 +3218,16 @@ function updateQuota() {
         </div>
         <div style="text-align:right;">
           <div style="font-size:12px;color:var(--text3);margin-bottom:2px;">เบิกครั้งละ</div>
-          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);">฿100</div>
+          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);">฿${getExerciseReward('solo', vDate)}</div>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;">
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
             <div style="font-size:15px;color:var(--text3);">สัปดาห์ที่ ${curWkNum} (${fmt(ws)} - ${fmt(we)})</div>
-            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${wkSolo} / ${wkLimit} ${wkSolo >= wkLimit ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}</div>
+            <div style="font-size:14px;color:var(--text);font-family:var(--mono);font-weight:600;">${wkLimit === null ? `${wkSolo} ครั้ง · ไม่จำกัดรายสัปดาห์` : `${wkSolo} / ${wkLimit} ${wkSolo >= wkLimit ? '<span style="color:var(--green);margin-left:4px;">✓</span>' : ''}`}</div>
           </div>
-          ${segBar(wkSolo, wkLimit, 'var(--green)')}
+          ${wkLimit === null ? '' : segBar(wkSolo, wkLimit, 'var(--green)')}
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;">
@@ -3125,7 +3248,7 @@ function updateQuota() {
         </div>
         <div style="text-align:right;">
           <div style="font-size:12px;color:var(--text3);margin-bottom:2px;">เบิกครั้งละ</div>
-          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);">฿500</div>
+          <div style="font-size:15px;font-weight:700;color:var(--green);font-family:var(--mono);">ออก ฿${getExerciseReward('group_ex', vDate)} · กิน ฿${getExerciseReward('group_eat', vDate)}</div>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:16px;">
@@ -3190,7 +3313,7 @@ function updateQuota() {
   if (!warn) return;
   const btnSubmit = document.getElementById('btn-submit-ex');
   if (exType === 'solo') {
-    if (wkSolo >= wkLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว (${wkLimit} ครั้ง/${locLabel})`; warn.style.display = 'block'; }
+    if (wkLimit !== null && wkSolo >= wkLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว (${wkLimit} ครั้ง/${locLabel})`; warn.style.display = 'block'; }
     else if (moSolo >= moLimit) { warn.textContent = `⚠️ โควต้าเดี่ยวเดือนนี้เต็มแล้ว (${moLimit} ครั้ง/${locLabel})`; warn.style.display = 'block'; if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; } }
     else { warn.style.display = 'none'; if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; } }
   } else {
@@ -3254,11 +3377,11 @@ function submitEx() {
     const all = getExs().filter(e => String(e.id) !== String(_editingExId));
 
     if (!editingApproved && exType === 'solo') {
-      const wkLimit = isBkk ? 2 : 3;
-      const moLimit = isBkk ? 8 : 12;
+      const wkLimit = getSoloWeeklyLimit(date, loc);
+      const moLimit = getSoloMonthlyLimit(date, loc);
       const locLabel = isBkk ? 'กทม.' : 'ต่างจว.';
       const wkSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && wkKey(e.date) === wk).length;
-      if (wkSolo >= wkLimit) { showExErr(`⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${wkLimit} ครั้ง/สัปดาห์ (ใช้ไปแล้ว ${wkSolo} ครั้ง)`); return; }
+      if (wkLimit !== null && wkSolo >= wkLimit) { showExErr(`⚠️ โควต้าเดี่ยวสัปดาห์นี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${wkLimit} ครั้ง/สัปดาห์ (ใช้ไปแล้ว ${wkSolo} ครั้ง)`); return; }
       const moSolo = all.filter(e => isUserInvolved(e, cu.email) && getExType(e) === 'solo' && e.status !== 'rejected' && monthKey(e.date) === mk).length;
       if (moSolo >= moLimit) { showExErr(`⚠️ โควต้าเดี่ยวเดือนนี้เต็มแล้ว<br>พื้นที่ ${locLabel} สูงสุด ${moLimit} ครั้ง/เดือน (ใช้ไปแล้ว ${moSolo} ครั้ง)`); return; }
     } else if (!editingApproved) {
@@ -3274,7 +3397,7 @@ function submitEx() {
       showExErr(`⚠️ กิจกรรมกลุ่มต้องมีสมาชิกอย่างน้อย 3 คน (ขณะนี้มี ${count} คน)<br>กรุณาเพิ่มสมาชิกให้ครบก่อนยื่น`);
       return;
     }
-    const reward = EX_REWARD[exType] || 100;
+    const reward = getExerciseReward(exType, date);
     const total = reward;
     const summary = `
       <div style="margin-bottom:12px;padding:12px;background:var(--surface3);border-radius:8px;border:1px solid var(--border);">
@@ -3612,7 +3735,7 @@ function renderExR() {
 
   const activeUserEmails = new Set(getUsers().filter(u => u.active !== false).map(u => u.email));
   const all = getExs().filter(e => activeUserEmails.has(e.email));
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString(new Date());
   const monthOpts = [];
   const now = new Date();
   for (let i = -6; i <= 1; i++) {
@@ -3708,7 +3831,7 @@ function renderExR() {
   const pending = sorted.filter(e => e.status === 'pending');
   const approved = sorted.filter(e => e.status === 'approved');
   const rejected = sorted.filter(e => e.status === 'rejected');
-  const totalMoney = approved.reduce((s, e) => s + (EX_REWARD[getExType(e)] || 100) * (1 + (e.members || []).length), 0);
+  const totalMoney = approved.reduce((s, e) => s + getExerciseReward(e) * (1 + (e.members || []).length), 0);
 
   const statBox = (label, val, color) =>
     `<div style="flex:1;min-width:110px;background:#1a1c26;border:1px solid rgba(255,255,255,0.03);border-radius:16px;padding:10px;text-align:center;">
@@ -3734,7 +3857,7 @@ function renderExR() {
   // ── Row Renderer ────────────────────────────────────────────────────────
   const renderRow = (e, showApproveBtn) => {
     const et = getExType(e);
-    const reward = EX_REWARD[et] || 100;
+    const reward = getExerciseReward(e);
     const tcolor = et === 'solo' ? 'var(--green)' : et === 'group_ex' ? 'var(--purple)' : 'var(--orange)';
     const proofLink = e.proofLink || (e.proofDoc?.startsWith('http') ? e.proofDoc : '');
     const proofLinks = e.proofLinks || [];
@@ -3998,9 +4121,9 @@ function renderExShare() {
     if (isInvolved(e)) return false;           // มีชื่ออยู่แล้ว
     if (e.status !== 'pending') return false;  // ล็อกแล้ว (approved/rejected)
     const wk = wkKey(e.date), mk = monthKey(e.date);
-    const wkUsed = all.filter(x => isUserInvolved(x, cu.email) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
+    const wkUsed = all.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && wkKey(x.date) === wk).length;
     if (wkUsed >= 1) return false;             // โควต้าสัปดาห์เต็ม
-    const moUsed = all.filter(x => isUserInvolved(x, cu.email) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
+    const moUsed = all.filter(x => isUserInvolved(x, cu.email) && isGroupEx(getExType(x)) && x.status !== 'rejected' && monthKey(x.date) === mk).length;
     if (moUsed >= 4) return false;             // โควต้าเดือนเต็ม
     return true;
   });
@@ -4299,7 +4422,7 @@ function updateLB() {
   const lbMonthSel = document.getElementById('lb-month-select');
   if (lbMonthSel) {
     const availableMonths = [...new Set(allExs.map(e => monthKey(e.date)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-    const curMk = monthKey(new Date().toISOString().split('T')[0]);
+    const curMk = monthKey(toLocalDateString(new Date()));
     if (!availableMonths.includes(curMk)) availableMonths.unshift(curMk);
     if (!availableMonths.includes(_lbMonth)) _lbMonth = availableMonths[0] || curMk;
     const fmtMk = (mk) => {
@@ -4312,31 +4435,37 @@ function updateLB() {
   // Filter by selected month
   const a = allExs.filter(e => monthKey(e.date) === _lbMonth);
   const sm = {}, gxm = {}, gem = {};
+  const addExerciseStat = (target, email, exercise) => {
+    if (!target[email]) target[email] = { count: 0, reward: 0 };
+    target[email].count++;
+    target[email].reward += getExerciseReward(exercise);
+  };
 
   a.forEach(e => {
     const et = getExType(e);
     if (et === 'solo') {
-      sm[e.email] = (sm[e.email] || 0) + 1;
+      addExerciseStat(sm, e.email, e);
     } else {
       const partic = [{ email: e.email }, ...(e.members || []).filter(m => m.type === 'sys')];
       partic.forEach(p => {
-        if (et === 'group_ex') gxm[p.email] = (gxm[p.email] || 0) + 1;
-        else if (et === 'group_eat') gem[p.email] = (gem[p.email] || 0) + 1;
+        if (et === 'group_ex') addExerciseStat(gxm, p.email, e);
+        else if (et === 'group_eat') addExerciseStat(gem, p.email, e);
       });
     }
   });
 
-  const renderSection = (data, colorVar, price) => {
+  const renderSection = (data, colorVar) => {
     const sorted = Object.entries(data)
       .filter(([email]) => {
         if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com' && email.toLowerCase() === 'kuniiz.ka@mail.com') return false;
         const u = getUsers().find(x => x.email === email);
         return u && u.active !== false;
       })
-      .sort((a, b) => b[1] - a[1]);
+      .sort((a, b) => b[1].count - a[1].count);
     if (!sorted.length) return '<div style="color:var(--text3);font-size:18px;padding:32px;text-align:center;font-weight:500;">ยังไม่มีข้อมูลในเดือนนี้</div>';
 
-    const mkRow = (email, count, i) => {
+    const mkRow = (email, stat, i) => {
+      const { count, reward } = stat;
       const u = getUsers().find(x => x.email === email) || { name: 'Unknown', dept: 'Media' };
       const name = u.nickname || u.name;
       const dept = u.dept || 'Media';
@@ -4353,7 +4482,7 @@ function updateLB() {
           </div>
           <div style="text-align:right;">
             <div style="font-family:var(--mono);color:var(--text2);font-size:15px;line-height:1.1;">${count} <span style="font-size:12px;color:var(--text3);">ครั้ง</span></div>
-            <div style="font-weight:500;color:${colorVar};font-family:var(--mono);font-size:20px;line-height:1.1;margin-top:2px;">฿${count * price}</div>
+            <div style="font-weight:500;color:${colorVar};font-family:var(--mono);font-size:20px;line-height:1.1;margin-top:2px;">฿${reward.toLocaleString()}</div>
           </div>
         </div>
       `;
@@ -4374,9 +4503,9 @@ function updateLB() {
     return html;
   };
 
-  document.getElementById('lb-solo').innerHTML = renderSection(sm, 'var(--green)', 100);
-  document.getElementById('lb-group-ex').innerHTML = renderSection(gxm, 'var(--purple)', 500);
-  document.getElementById('lb-group-eat').innerHTML = renderSection(gem, 'var(--orange)', 300);
+  document.getElementById('lb-solo').innerHTML = renderSection(sm, 'var(--green)');
+  document.getElementById('lb-group-ex').innerHTML = renderSection(gxm, 'var(--purple)');
+  document.getElementById('lb-group-eat').innerHTML = renderSection(gem, 'var(--orange)');
 
   // --- ADD SUMMARY TABLE ---
   const fmt = (d) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
@@ -4392,24 +4521,27 @@ function updateLB() {
   users.sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const userStats = users.map(u => {
     const uExs = allMo.filter(e => isUserInvolved(e, u.email));
-    let sC = 0, sA = 0, gexC = 0, gexA = 0, geC = 0, geA = 0;
+    let sC = 0, sA = 0, sR = 0, sAR = 0;
+    let gexC = 0, gexA = 0, gexR = 0, gexAR = 0;
+    let geC = 0, geA = 0, geR = 0, geAR = 0;
     uExs.forEach(e => {
       const et = getExType(e);
       const isAppr = e.status === 'approved';
-      if (et === 'solo') { sC++; if (isAppr) sA++; }
-      else if (et === 'group_ex') { gexC++; if (isAppr) gexA++; }
-      else if (et === 'group_eat') { geC++; if (isAppr) geA++; }
+      const reward = getExerciseReward(e);
+      if (et === 'solo') { sC++; sR += reward; if (isAppr) { sA++; sAR += reward; } }
+      else if (et === 'group_ex') { gexC++; gexR += reward; if (isAppr) { gexA++; gexAR += reward; } }
+      else if (et === 'group_eat') { geC++; geR += reward; if (isAppr) { geA++; geAR += reward; } }
     });
     return {
       name: u.name, nick: u.nickname || u.name.split(' ')[0],
       dept: u.dept || '',
       locationType: u.locationType || 'bkk',
-      sC, sR: sC * 100, sAR: sA * 100,
-      gexC, gexR: gexC * 500, gexAR: gexA * 500,
-      geC, geR: geC * 300, geAR: geA * 300,
+      sC, sR, sAR,
+      gexC, gexR, gexAR,
+      geC, geR, geAR,
       groupC: gexC + geC,
-      total: (sC * 100) + (gexC * 500) + (geC * 300),
-      totalA: (sA * 100) + (gexA * 500) + (geA * 300)
+      total: sR + gexR + geR,
+      totalA: sAR + gexAR + geAR
     };
   }).sort((a, b) => {
     let vA = a[_lbSortField], vB = b[_lbSortField];
@@ -4430,8 +4562,8 @@ function updateLB() {
               <th rowspan="2" style="text-align:left;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('dept')">แผนก${sIcon('dept')}</th>
               <th rowspan="2" style="text-align:left;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('locationType')">พื้นที่${sIcon('locationType')}</th>
               <th colspan="2" style="background:rgba(61,214,140,0.1);color:var(--green);cursor:pointer;user-select:none;" onclick="setLBSort('sC')">แบบเดี่ยว (100)${sIcon('sC')}</th>
-              <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);cursor:pointer;user-select:none;" onclick="setLBSort('gexC')">แบบกลุ่มออก (500)${sIcon('gexC')}</th>
-              <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);cursor:pointer;user-select:none;" onclick="setLBSort('geC')">แบบกลุ่มกิน (300)${sIcon('geC')}</th>
+              <th colspan="2" style="background:rgba(191,123,255,0.1);color:var(--purple);cursor:pointer;user-select:none;" onclick="setLBSort('gexC')">แบบกลุ่มออก${sIcon('gexC')}</th>
+              <th colspan="2" style="background:rgba(255,171,0,0.1);color:var(--orange);cursor:pointer;user-select:none;" onclick="setLBSort('geC')">แบบกลุ่มกิน${sIcon('geC')}</th>
               <th rowspan="2" style="background:var(--surface2);font-weight:500;font-size:16px;cursor:pointer;user-select:none;" onclick="setLBSort('total')">รวม${sIcon('total')}</th>
             </tr>
             <tr style="font-size:13px;">
@@ -4608,7 +4740,7 @@ function getWkLabel() {
 let _tt;
 let _lbSortField = 'name';
 let _lbSortDir = 1;
-let _lbMonth = monthKey(new Date().toISOString().split('T')[0]);
+let _lbMonth = monthKey(toLocalDateString(new Date()));
 
 function setLBMonth(val) {
   _lbMonth = val;
@@ -4842,7 +4974,7 @@ function viewExDetail(id) {
   const et = getExType(e);
   const isGroup = isGroupEx(et);
   const EX_LABEL_TH = { solo: 'เดี่ยว', group_ex: 'กลุ่มออกกำลังกาย', group_eat: 'กลุ่มกินข้าว' };
-  const reward = EX_REWARD[et] || 0;
+  const reward = getExerciseReward(e);
   const wkNum = getWkNum(e.date);
 
   const sysMems = (e.members || []).filter(m => m.type === 'sys');
@@ -5252,7 +5384,7 @@ function renderExHistory() {
 
   // Read month from unified dropdown — fall back to current month if not available
   const unifiedSel = document.getElementById('ex-log-month-select');
-  const curMonth = monthKey(new Date().toISOString().split('T')[0]);
+  const curMonth = monthKey(toLocalDateString(new Date()));
   const selMonth = (unifiedSel && unifiedSel.value) ? unifiedSel.value : curMonth;
   const filtered = all.filter(e => monthKey(e.date) === selMonth).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -5279,7 +5411,7 @@ function renderExHistory() {
   // ── History Card Helper ─────────────────────────────────────────────────
   const renderHistCard = (e) => {
     const et = getExType(e);
-    const reward = EX_REWARD[et] || 100;
+    const reward = getExerciseReward(e);
     const isRej = e.status === 'rejected';
 
     const d = new Date(e.date);
@@ -5370,7 +5502,6 @@ function renderExHistory() {
   });
 
   const fmtShort = d => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-  const _soloWkLimit = (cu.locationType || 'bkk') === 'bkk' ? 2 : 3;
 
   const weeklyHtml = Object.keys(groups).sort().reverse().map(wk => {
     const items = groups[wk];
@@ -5379,10 +5510,13 @@ function renderExHistory() {
     let ws = new Date(wy, wm - 1, wd);
     let we = new Date(ws); we.setDate(ws.getDate() + 6);
     if (we > dEnd) we.setTime(dEnd.getTime());
+    const soloWkLimit = getSoloWeeklyLimit(toLocalDateString(we), cu.locationType || 'bkk');
 
     const wkSolo = items.filter(e => getExType(e) === 'solo').length;
     const wkGrp  = items.filter(e => isGroupEx(getExType(e))).length;
-    const soloStatus = wkSolo >= _soloWkLimit ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkSolo}/${_soloWkLimit}</span>`;
+    const soloStatus = soloWkLimit === null
+      ? `<span style="color:var(--text);font-weight:600;">${wkSolo} ครั้ง</span>`
+      : (wkSolo >= soloWkLimit ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkSolo}/${soloWkLimit}</span>`);
     const grpStatus  = wkGrp  >= 1            ? '<span style="color:var(--green);">ครบ ✓</span>' : `<span style="color:var(--text);font-weight:600;">${wkGrp}/1</span>`;
 
     return `

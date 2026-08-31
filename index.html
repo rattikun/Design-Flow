@@ -2462,6 +2462,7 @@
             <div class="page-sub">// จัดการบัญชีผู้ใช้</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="btn-manage-departments" onclick="openDepartmentManager()"><i class="fa-solid fa-building"></i> จัดการแผนก</button>
             <button class="btn btn-ghost" id="btn-create-invite" onclick="generateRegistrationInvite()"><i class="fa-solid fa-link"></i> สร้างลิงก์ลงทะเบียน</button>
             <button class="btn btn-primary" onclick="openAddMember()">&#xFF0B; เพิ่มสมาชิก</button>
           </div>
@@ -2699,14 +2700,14 @@
             <div class="page-title">ข้อมูลของฉัน</div>
             <div
               style="display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--text3); flex-wrap: wrap;">
-              <span>สรุปโควต้าและประวัติกิจกรรมของรอบนี้</span>
+              <span>สรุปโควต้าและประวัติกิจกรรมของรอบนี้ · เรตใหม่เริ่ม 1 ก.ย. 2569 และคำนวณตามวันที่ทำกิจกรรม</span>
               <div style="display: flex; gap: 8px;">
                 <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">เดี่ยว <strong
-                    style="color:var(--green);">฿100</strong></span>
+                    id="ex-rate-solo" style="color:var(--green);">฿100</strong></span>
                 <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">กลุ่มออก
-                  <strong style="color:var(--green);">฿500</strong></span>
+                  <strong id="ex-rate-group-ex" style="color:var(--green);">฿300</strong></span>
                 <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">กลุ่มกิน
-                  <strong style="color:var(--green);">฿300</strong></span>
+                  <strong id="ex-rate-group-eat" style="color:var(--green);">฿200</strong></span>
               </div>
             </div>
           </div>
@@ -2972,6 +2973,30 @@
         <button id="modal-leave-submit-btn" class="btn btn-primary leave-step-2" onclick="submitLeave()"><i
             class="fa-solid fa-circle-plus" style="margin-right:6px;"></i> ยื่นใบลา</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Manage Departments -->
+  <div class="modal-overlay" id="modal-departments">
+    <div class="modal" style="max-width:560px;">
+      <button class="modal-close" onclick="closeModal('modal-departments')">✕</button>
+      <div class="modal-scroll-area">
+        <div class="modal-title"><i class="fa-solid fa-building" style="margin-right:8px;color:var(--accent);"></i>จัดการแผนก</div>
+        <div class="info-box">แผนกที่เพิ่มใหม่จะปรากฏในฟอร์มสมาชิกและหน้าลงทะเบียนทันที</div>
+        <div class="form-group" style="margin-top:18px;">
+          <label>ชื่อแผนกใหม่</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="new-department-name" maxlength="40" placeholder="เช่น Marketing" onkeydown="if(event.key==='Enter')addDepartment()" />
+            <button class="btn btn-primary" id="btn-add-department" onclick="addDepartment()" style="white-space:nowrap;">＋ เพิ่ม</button>
+          </div>
+        </div>
+        <div id="department-error" class="danger-box" style="display:none;margin-top:12px;"></div>
+        <div style="margin-top:22px;">
+          <div style="font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text2);">แผนกที่ใช้งานอยู่</div>
+          <div id="department-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('modal-departments')">เสร็จสิ้น</button></div>
     </div>
   </div>
 
@@ -3263,8 +3288,8 @@
           <div class="form-group"><label>ประเภท</label>
             <select id="ex-type" onchange="updateExType()">
               <option value="solo">🏃 เดี่ยว (฿100)</option>
-              <option value="group_ex">🤸 กลุ่มออกกำลังกาย (฿500)</option>
-              <option value="group_eat">🍽️ กลุ่มกินข้าว (฿300)</option>
+              <option value="group_ex">🤸 กลุ่มออกกำลังกาย (฿300)</option>
+              <option value="group_eat">🍽️ กลุ่มกินข้าว (฿200)</option>
             </select>
           </div>
           <div class="form-group"><label>กิจกรรม</label><input type="text" id="ex-act"
@@ -3364,8 +3389,8 @@
   <div id="birthday-toast" role="alert" aria-live="polite"></div>
   <div id="toast"></div>
 
-  <script src="api.js?v=20260828c"></script>
-  <script src="team-manager.js?v=20260828c"></script>
+  <script src="api.js?v=20260831c"></script>
+  <script src="team-manager.js?v=20260831c"></script>
 </body>
 
 </html>

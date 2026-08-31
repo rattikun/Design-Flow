@@ -206,6 +206,19 @@ async function api(action, payload = {}) {
       );
     };
 
+    const getDepartmentNames = async () => {
+      const defaults = ['UXUI', 'Media', 'Art', 'PM'];
+      const [departmentsRes, usersRes] = await Promise.all([
+        fetch(`${baseUrl}/departments.json`),
+        fetch(`${baseUrl}/users.json`)
+      ]);
+      const departmentsData = await departmentsRes.json();
+      const usersData = await usersRes.json();
+      const stored = Object.values(departmentsData || {}).filter(dept => dept && dept.active !== false).map(dept => String(dept.name || '').trim());
+      const usedByMembers = Object.values(usersData || {}).map(user => String(user.dept || '').trim());
+      return [...new Set([...defaults, ...stored, ...usedByMembers].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+    };
+
     // 1. LOGIN
     if (action === 'login') {
       const res = await fetch(`${baseUrl}/users.json`);
@@ -245,7 +258,25 @@ async function api(action, payload = {}) {
       return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
     }
 
-    // 3. INVITE-ONLY REGISTRATION
+    // 3. DEPARTMENTS
+    if (action === 'listDepartments') {
+      return { ok: true, departments: await getDepartmentNames() };
+    }
+
+    if (action === 'addDepartment') {
+      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์เพิ่มแผนก' };
+      const name = String(payload.name || '').trim().replace(/\s+/g, ' ');
+      if (!name || name.length > 40 || /[\u0000-\u001f<>]/.test(name)) return { ok: false, error: 'ชื่อแผนกไม่ถูกต้อง' };
+      const departments = await getDepartmentNames();
+      if (departments.some(dept => dept.toLocaleLowerCase('th') === name.toLocaleLowerCase('th'))) return { ok: false, error: 'มีแผนกนี้อยู่แล้ว' };
+      const res = await fetch(`${baseUrl}/departments.json`, {
+        method: 'POST',
+        body: JSON.stringify({ name, active: true, created_by: payload.reviewerEmail, created_at: new Date().toISOString() })
+      });
+      return { ok: res.ok, name };
+    }
+
+    // 4. INVITE-ONLY REGISTRATION
     if (action === 'createRegistrationInvite') {
       if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์สร้างลิงก์ลงทะเบียน' };
       const token = String(payload.token || '');
@@ -278,6 +309,7 @@ async function api(action, payload = {}) {
       const invite = inviteRes.ok ? await inviteRes.json() : null;
       const etag = inviteRes.headers.get('etag');
       if (!invite || invite.status !== 'open' || !etag) return { ok: false, error: 'ลิงก์นี้ถูกใช้งานแล้วหรือไม่สามารถใช้งานได้' };
+      const publicDepartments = (await getDepartmentNames()).filter(dept => dept.toLocaleLowerCase('th') !== 'pm');
       const submittedInvite = {
         ...invite,
         status: 'submitted',
@@ -286,7 +318,7 @@ async function api(action, payload = {}) {
           email, name: String(payload.name).trim(), nickname: String(payload.nickname || '').trim(),
           phone: String(payload.phone || '').trim(),
           birthday: /^\d{4}-\d{2}-\d{2}$/.test(payload.birthday || '') && payload.birthday <= `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` ? payload.birthday : '',
-          dept: ['UXUI', 'Media', 'Art'].includes(payload.dept) ? payload.dept : '',
+          dept: publicDepartments.includes(payload.dept) ? payload.dept : '',
           location_type: payload.locationType || 'bkk', pass_hash: payload.passHash
         }
       };
@@ -342,7 +374,7 @@ async function api(action, payload = {}) {
       return { ok: true, user: newUser };
     }
 
-    // 4. USERS (CRUD)
+    // 5. USERS (CRUD)
     if (action === 'addUser') {
       const res = await fetch(`${baseUrl}/users.json`, {
         method: 'POST',
@@ -1033,7 +1065,10 @@ function syncExerciseToSheets(ex, event) {
   const EX_HOOK = n8nUrl(N8N_EX_SHEETS_WEBHOOK_URL || N8N_SHEETS_WEBHOOK_URL);
   if (!EX_HOOK) return;
   const EX_LABEL = { solo: 'เดี่ยว', group_ex: 'กลุ่มออกกำลังกาย', group_eat: 'กลุ่มกินข้าว' };
-  const EX_REWARD = { solo: 200, group_ex: 500, group_eat: 300 };
+  const EX_POLICY_V2_START = '2026-09-01';
+  const rewardRates = String(ex.date || '') >= EX_POLICY_V2_START
+    ? { solo: 100, group_ex: 300, group_eat: 200 }
+    : { solo: 100, group_ex: 500, group_eat: 300 };
 
   const users = (typeof getUsers === 'function') ? getUsers() : [];
   const u = users.find(x => x.email === ex.email);
@@ -1058,7 +1093,11 @@ function syncExerciseToSheets(ex, event) {
   const memberNames = allMembers.map(m => m.name).join(', ');
   const memberNicknames = allMembers.map(m => m.nickname).join(', ');
   const memberEmails = allMembers.map(m => m.email).join(', ');
-  const reward = EX_REWARD[ex.exType] || 0;
+  // Use the same date-based calculator as the UI when available so the
+  // dashboard, approval screen, leaderboard and Sheets always agree.
+  const reward = typeof getExerciseReward === 'function'
+    ? getExerciseReward(ex)
+    : (rewardRates[ex.exType] || 0);
   const totalReward = reward * memberCount;
 
   const toThaiDateTime = (iso) => {
