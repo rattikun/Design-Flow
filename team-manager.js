@@ -3486,8 +3486,6 @@ async function doSubmitEx(data) {
 
   // SYNC TO API
   await apiSync('addEx', newEx);
-  notifyNewExercise(newEx);
-  notifyPMs('📥 คำขอเบิกออกกำลังกายใหม่', `${newEx.nickname || newEx.name} ยื่น${EX_LABEL[newEx.exType] || newEx.exType} — ${newEx.activity}`, 'exercise-review');
   syncExerciseToSheets(newEx, 'exercise_submitted');
 
   // Close modals FIRST to ensure popup always closes
