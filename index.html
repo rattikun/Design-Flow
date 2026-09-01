@@ -7,7 +7,7 @@
   <title>Design Flow — ระบบจัดการทีม</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap"
     rel="stylesheet">
   <style>
     :root {
@@ -507,7 +507,7 @@
     .dashboard-legend-dot { width:8px; height:8px; border-radius:50%; }
     .team-cal-scroll { overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
     .team-cal-grid { min-width:840px; }
-    .team-cal-day { position:relative; min-height:112px; padding:8px; border-radius:8px; color:var(--text2); font-size:14px; display:flex; flex-direction:column; align-items:stretch; gap:5px; text-align:left; border:1px solid transparent; }
+    .team-cal-day { position:relative; min-height:90px; padding:8px; border-radius:8px; color:var(--text2); font-size:14px; display:flex; flex-direction:column; align-items:stretch; gap:5px; text-align:left; border:1px solid rgba(148,163,184,.05); }
     .team-cal-day.other { opacity:.28; }
     .team-cal-day.today { box-shadow:inset 0 0 0 1px var(--accent); color:var(--text); font-weight:700; }
     .team-cal-day.holiday { background:rgba(245,200,66,.18); border-color:rgba(245,200,66,.28); }
@@ -521,8 +521,7 @@
     .team-cal-leave-dot { width:7px; height:7px; flex:0 0 auto; border-radius:50%; }
     .team-cal-leave-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--text); }
     .team-cal-leave-type { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--purple); }
-    .team-cal-legend-members { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
-    @media (max-width:600px) { .team-cal-day { min-height:104px; } }
+    @media (max-width:600px) { .team-cal-day { min-height:83px; } }
     .dashboard-list { display:grid; gap:8px; }
     .dashboard-list-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; cursor:pointer; }
     .dashboard-list-item:hover { border-color:var(--border2); }
@@ -2262,6 +2261,7 @@
       background: rgba(124, 131, 255, 0.20)
     }
   </style>
+  <link rel="stylesheet" href="ui-refresh.css?v=20260901d">
 </head>
 
 <body>
@@ -2667,7 +2667,6 @@
             </div>
           </div>
           <div class="dashboard-calendar-legend"><span><i class="dashboard-legend-dot" style="background:var(--yellow);"></i>วันหยุดธนาคาร</span><span><i class="dashboard-legend-dot" style="background:var(--accent);"></i>วันนี้</span><span>วงกรอบเหลือง = รออนุมัติ</span></div>
-          <div class="team-cal-legend-members" id="teamcal-legend-members"></div>
         </div>
         <div id="bal-overview"></div>
         <div id="accu-history-panel" style="display:none;margin-top:28px;"></div>
@@ -3390,7 +3389,7 @@
   <div id="toast"></div>
 
   <script src="api.js?v=20260831c"></script>
-  <script src="team-manager.js?v=20260901a"></script>
+  <script src="team-manager.js?v=20260901c"></script>
 </body>
 
 </html>

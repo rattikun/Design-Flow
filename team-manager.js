@@ -68,6 +68,14 @@ function updateExerciseRewardLabels(date) {
   }
 }
 
+// Render only the calendar rows a month actually needs (4–6 weeks).
+// This avoids a trailing empty week that made calendar cards look broken or oversized.
+function getMonthCalendarCellCount(year, month) {
+  const leadingDays = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Math.ceil((leadingDays + daysInMonth) / 7) * 7;
+}
+
 // ══ STORAGE ══════════════════════════════
 const LS = {
   get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -468,6 +476,7 @@ function launchApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'flex';
   setupSidebar(); initApp();
+  setupKeyboardInteractions();
   const hashId = location.hash.slice(1);
   if (VALID_PAGES.has(hashId) && document.getElementById('page-' + hashId)) showPage(hashId, { updateHash: false });
 
@@ -487,6 +496,22 @@ function launchApp() {
 
   // รอให้ Toast แจ้งเตือนอื่นตอนเปิดแอปแสดงจบก่อน
   setTimeout(checkTomorrowBirthdays, 3600);
+}
+
+function setupKeyboardInteractions() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+  });
+  const app = document.getElementById('main-app');
+  if (!app || app.dataset.keyboardReady === 'true') return;
+  app.dataset.keyboardReady = 'true';
+  app.addEventListener('keydown', event => {
+    const target = event.target.closest('.nav-item, .dashboard-list-item');
+    if (!target || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    target.click();
+  });
 }
 
 // ══ SIDEBAR ══════════════════════════════
@@ -896,7 +921,8 @@ function renderUnifiedDatePicker() {
   }
   const monthOptions = months.map((monthName, monthIndex) => `<option value="${monthIndex}"${monthIndex === month ? ' selected' : ''}>${monthName}</option>`).join('');
   const days = [];
-  for (let i = 0; i < 42; i++) {
+  const cellCount = getMonthCalendarCellCount(year, month);
+  for (let i = 0; i < cellCount; i++) {
     const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
     const dateString = toLocalDateString(date);
     const classes = ['leave-calendar-day'];
@@ -1322,7 +1348,8 @@ function renderLeaveCalendar() {
   } catch {}
   const buttons = [];
 
-  for (let i = 0; i < 42; i++) {
+  const cellCount = getMonthCalendarCellCount(year, month);
+  for (let i = 0; i < cellCount; i++) {
     const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
     const ds = _leaveDateString(date);
     const outside = date.getMonth() !== month;
@@ -1671,7 +1698,7 @@ function renderLR() {
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการรอรีวิว 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
     const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : effectiveLeaveDays(r) + ' วัน';
-    return `<div class="card">
+    return `<div class="card leave-review-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
           <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span>${r.refNo ? ` <span style="font-size:14px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 8px;border-radius:20px;">${r.refNo}</span>` : ''}</div>
@@ -1692,7 +1719,7 @@ function renderLR() {
         <span class="flow-step">○ PM</span>
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ (ไม่บังคับ)</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="ln-${r.id}" style="margin-top:6px;" /></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div class="leave-review-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-green btn-sm" onclick="lAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> อนุมัติ</button>
         <button class="btn btn-red btn-sm" onclick="lAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ไม่อนุมัติ</button>
         <button class="btn btn-ghost btn-sm" onclick="pmDeleteLeave(${r.id})" style="margin-left:auto;color:var(--red);border-color:rgba(255,80,80,0.3);font-size:13px;padding:3px 10px;"><i class="fa-solid fa-trash"></i> ลบใบลา</button>
@@ -1756,7 +1783,7 @@ function renderLP() {
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการ 🎉</div></div>'; return; }
   el.innerHTML = ls.map(r => {
     const dLabel = r.isHalf ? ('ครึ่งวัน — ' + (r.period === 'morning' ? 'เช้า' : 'บ่าย')) : effectiveLeaveDays(r) + ' วัน';
-    return `<div class="card">
+    return `<div class="card leave-review-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
           <div style="font-size:20px;font-weight:700;color:var(--text);">${uName(r.email, r.name)} <span style="font-size:16px;color:var(--text3);font-family:var(--mono);">${r.email}</span>${r.refNo ? ` <span style="font-size:14px;font-family:var(--mono);color:var(--accent);background:var(--accent-bg);padding:1px 8px;border-radius:20px;">${r.refNo}</span>` : ''}</div>
@@ -1779,7 +1806,7 @@ function renderLP() {
         <span class="flow-step active-step">● PM</span>
       </div>
       <div style="margin-top:12px;"><label>หมายเหตุ PM</label><input type="text" placeholder="บันทึกหมายเหตุ..." id="pn-${r.id}" style="margin-top:6px;" /></div>
-      <div style="margin-top:12px;display:flex;gap:8px;">
+      <div class="leave-review-actions" style="margin-top:12px;display:flex;gap:8px;">
         <button class="btn btn-green btn-sm" onclick="pAct(${r.id},'approve')"><i class="fa-solid fa-check"></i> ${r.pendingDocReview ? 'อนุมัติเอกสาร' : 'อนุมัติการลา'}</button>
         <button class="btn btn-red btn-sm" onclick="pAct(${r.id},'reject')"><i class="fa-solid fa-xmark"></i> ${r.pendingDocReview ? 'ไม่อนุมัติเอกสาร' : 'ไม่อนุมัติการลา'}</button>
       </div>
@@ -2143,7 +2170,6 @@ function changeTeamCalMonth(offset) {
 function renderTeamCalendar() {
   const grid = document.getElementById('teamcal-days');
   const label = document.getElementById('teamcal-month');
-  const legendMembers = document.getElementById('teamcal-legend-members');
   if (!grid || !label || !cu) return;
   const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const year = _teamCalMonth.getFullYear(), month = _teamCalMonth.getMonth();
@@ -2161,7 +2187,8 @@ function renderTeamCalendar() {
   const first = new Date(year, month, 1);
   const gridStart = new Date(year, month, 1 - first.getDay());
   const cells = [];
-  for (let i = 0; i < 42; i++) {
+  const cellCount = getMonthCalendarCellCount(year, month);
+  for (let i = 0; i < cellCount; i++) {
     const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
     const ds = toLocalDateString(date);
     const holiday = holidays.get(ds);
@@ -2194,10 +2221,6 @@ function renderTeamCalendar() {
     cells.push(`<div class="${classes.join(' ')}"><span class="team-cal-daynum">${date.getDate()}</span>${holidayHtml}${dayLeaves.length ? `<div class="team-cal-leaves">${leaveItemsHtml}</div>` : ''}</div>`);
   }
   grid.innerHTML = cells.join('');
-
-  if (legendMembers) {
-    legendMembers.innerHTML = uniqMembers.map(m => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text3);"><i class="dashboard-legend-dot" style="background:${_exdAvatarColor(m.email)};"></i>${escapeNotificationText(m.nickname || m.name || m.email)}</span>`).join('');
-  }
 }
 
 function renderBal() {
@@ -2351,7 +2374,7 @@ function openQuotaModal(email) {
 
   const body = document.getElementById('quota-modal-body');
   body.innerHTML = `
-    <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; padding:0 12px; margin-bottom:4px;">
+    <div class="quota-grid-head" style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; padding:0 12px; margin-bottom:4px;">
       <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase;">ประเภท</div>
       <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">ทั้งหมด</div>
       <div style="font-size:12px; font-weight:700; color:var(--text3); text-transform:uppercase; text-align:center;">คงเหลือ</div>
@@ -2365,7 +2388,7 @@ function openQuotaModal(email) {
       const history = qs[email]?.accuHistory || [];
       const totalDays = history.reduce((s, h) => s + (h.days || 0), 0);
       const histRows = history.map((h, i) => `
-        <div style="display:grid;grid-template-columns:auto 1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
+        <div class="accu-history-row" style="display:grid;grid-template-columns:auto 1fr 2fr 60px 32px;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px;">
           <span style="font-size:12px;color:var(--accent);background:var(--accent-bg);padding:1px 7px;border-radius:20px;font-family:var(--mono);white-space:nowrap;">${h.refNo || '—'}</span>
           <span style="font-size:13px;color:var(--text2);font-family:var(--mono);">${fmtDate(h.date)}</span>
           <span style="font-size:13px;color:var(--text2);">${h.scope}</span>
@@ -2384,7 +2407,7 @@ function openQuotaModal(email) {
           ${history.length ? `<div style="margin-bottom:10px;">${histRows}</div>` : '<div style="font-size:15px;color:var(--text3);margin-bottom:10px;">ยังไม่มีรายการ</div>'}
           <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
             <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:8px;">+ เพิ่มรายการใหม่</div>
-            <div style="display:grid;grid-template-columns:1fr 2fr 80px;gap:8px;align-items:end;">
+            <div class="accu-add-grid" style="display:grid;grid-template-columns:1fr 2fr 80px;gap:8px;align-items:end;">
               <div>
                 <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">📅 วันที่เบิกวันหยุด</div>
                 <span class="date-wrap quota-date-wrap">
@@ -2413,7 +2436,7 @@ function openQuotaModal(email) {
         </div>`;
     }
     return `
-      <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
+      <div class="quota-grid-row" style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:12px; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
         <div>
           <div style="font-size:16px; font-weight:700; color:#fff;">${LT[type]}</div>
           <div style="font-size:12px; color:var(--text3);">ใช้ไปแล้ว ${used} วัน</div>
@@ -2520,7 +2543,7 @@ function openTeamQuotaModal() {
     const saved = refEmail && qs[refEmail]?.[type] != null ? qs[refEmail][type] : (def.q ?? 0);
     const defaultVal = saved;
     return `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
+      <div class="team-quota-row" style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.01);">
         <div>
           <div style="font-size:17px; font-weight:700; color:#fff;">${LT[type]}</div>
           <div style="font-size:13px; color:var(--text3);">${def.n || ''}</div>
@@ -3754,8 +3777,8 @@ function renderExR() {
   const controlsEl = document.getElementById('ex-review-controls');
   if (controlsEl && !controlsEl.innerHTML) {
     controlsEl.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,0.015);padding:16px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);">
-        <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:300px;">
+      <div class="ex-review-controls-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,0.015);padding:16px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.03);">
+        <div class="ex-review-controls-main" style="display:flex;align-items:center;gap:16px;flex:1;min-width:300px;">
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="width:40px;height:40px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;"><i class="fa-solid fa-calendar-days"></i></div>
             <div>
@@ -3773,8 +3796,8 @@ function renderExR() {
               <div id="ex-review-range-label" style="font-family:var(--mono);color:var(--accent);font-size:14px;font-weight:500;margin-top:2px;opacity:0.8;">${rangeLabel}</div>
             </div>
           </div>
-          <div style="width:1px;height:40px;background:rgba(255,255,255,0.05);margin:0 8px;"></div>
-          <div style="flex:1;position:relative;">
+          <div class="ex-review-controls-divider" style="width:1px;height:40px;background:rgba(255,255,255,0.05);margin:0 8px;"></div>
+          <div class="ex-review-search" style="flex:1;position:relative;">
             <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;"></i>
             <input type="text" id="ex-review-search-input" placeholder="ค้นหาชื่อ, ชื่อเล่น, อีเมล, กิจกรรม หรือรหัส DS..." value="${_exReviewSearch || ''}" oninput="setExReviewSearch(this.value)"
               style="width:100%;height:44px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:0 15px 0 40px;color:#fff;font-size:16px;outline:none;transition:all 0.2s;" />
@@ -3875,8 +3898,8 @@ function renderExR() {
     }).join('');
 
     return `
-      <div style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+      <div class="ex-review-item" style="background:#1a1c26; border-radius:18px; border:1px solid rgba(255,255,255,0.04); padding:15px; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+        <div class="ex-review-item-head" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span style="font-size:13px; color:var(--text3); font-weight:700; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:6px; font-family:var(--mono); border:1px solid rgba(255,255,255,0.03);">ID: ${e.id}</span>
             <span style="font-size:22px; font-weight:700; color:#fff;">${e.activity || 'กิจกรรม'}</span>
@@ -3896,8 +3919,8 @@ function renderExR() {
         </div>` : ''}
 
         <!-- Bottom Row: Members & Actions -->
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:240px;">
+        <div class="ex-review-item-bottom" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div class="ex-review-item-members" style="flex:1; min-width:240px;">
             ${isGrp ? `
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                 <span style="font-size:14px; color:#5a5e7a; font-weight:600;">สมาชิกทั้งหมด</span>
@@ -3916,7 +3939,7 @@ function renderExR() {
             `}
           </div>
 
-          <div style="display:flex; align-items:center; gap:10px;">
+          <div class="ex-review-item-actions" style="display:flex; align-items:center; gap:10px;">
             ${proofLink || proofLinks.length ? `
               <a href="${proofLink || proofLinks[0]?.url}" target="_blank" style="width:38px; height:34px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.04); border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">
                 <i class="fa-solid fa-circle-play" style="font-size:22px; color:var(--accent);"></i>
@@ -3996,7 +4019,7 @@ function renderExR() {
 
   const tabsHtml = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
-      <div style="display:flex; gap:12px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03); flex:1; min-width:300px;">
+      <div class="ex-review-status-tabs" style="display:flex; gap:12px; background:rgba(255,255,255,0.02); padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,0.03); flex:1; min-width:300px;">
         <button onclick="setExReviewTab('pending')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; background:${_exReviewTab === 'pending' ? 'var(--yellow-bg)' : 'transparent'}; color:${_exReviewTab === 'pending' ? 'var(--yellow)' : '#5a5e7a'};">รออนุมัติ <span style="background:${_exReviewTab === 'pending' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'pending' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px;">${pending.length}</span></button>
         <button onclick="setExReviewTab('approved')" style="flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; background:${_exReviewTab === 'approved' ? 'var(--green-bg)' : 'transparent'}; color:${_exReviewTab === 'approved' ? 'var(--green)' : '#5a5e7a'};">อนุมัติแล้ว <span style="background:${_exReviewTab === 'approved' ? 'var(--green)' : 'rgba(255,255,255,0.05)'}; color:${_exReviewTab === 'approved' ? '#000' : '#5a5e7a'}; padding:0 8px; border-radius:6px;">${approved.length}</span></button>
       </div>
@@ -4188,7 +4211,7 @@ function renderExShare() {
     }).join('');
 
     return `
-    <div class="card" style="padding: 20px; border-radius: 16px; border: 1px solid var(--border2); background: var(--surface); box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
+    <div class="card share-activity-card" style="padding: 20px; border-radius: 16px; border: 1px solid var(--border2); background: var(--surface); box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
       
       <!-- Top Meta -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
@@ -4234,7 +4257,7 @@ function renderExShare() {
       ${e.note ? `<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;font-size:14px;color:var(--text2);border:1px dashed var(--border2);"><i class="fa-solid fa-pen-clip" style="opacity:0.5; margin-right:6px;"></i> ${e.note}</div>` : ''}
 
       <!-- Actions -->
-      <div style="margin-top: 24px; display:flex; gap: 12px;">
+      <div class="share-activity-actions" style="margin-top: 24px; display:flex; gap: 12px;">
         ${(!locked || (cu.role === 'pm' && e.status === 'approved')) && !userInvolved
         ? `<button class="btn" style="flex:2; justify-content:center; height: 44px; border-radius: 12px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(108, 138, 255, 0.3);" onclick="joinExGroup('${e.id}')"><i class="fa-solid fa-plus" style="margin-right:6px;"></i> เข้าร่วมกลุ่ม</button>`
         : ''}
@@ -4639,7 +4662,8 @@ function renderDashboardCalendar() {
   const gridStart = new Date(year, month, 1 - first.getDay());
   const statusName = { pending_lead:'รอหัวหน้าอนุมัติ', pending_pm:'รอ PM อนุมัติ', approved:'อนุมัติแล้ว' };
   const cells = [];
-  for (let i = 0; i < 42; i++) {
+  const cellCount = getMonthCalendarCellCount(year, month);
+  for (let i = 0; i < cellCount; i++) {
     const date = new Date(gridStart); date.setDate(gridStart.getDate() + i);
     const ds = toLocalDateString(date);
     const holiday = holidays.get(ds);
@@ -4685,7 +4709,7 @@ function updateDashboard() {
     leaveActions.innerHTML = attentionLeaves.slice().sort((a,b) => (b.submittedAt || '').localeCompare(a.submittedAt || '')).slice(0,4).map(r => {
       const [status, chip] = leaveStatus(r);
       const range = r.start === r.end ? fmtDate(r.start) : `${fmtDate(r.start)} – ${fmtDate(r.end)}`;
-      return `<div class="dashboard-list-item" onclick="showPage('leave-history')"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(LT[r.type] || r.type)}</div><div class="dashboard-list-meta">${range} · ${effectiveLeaveDays(r)} วัน</div></div><span class="chip ${chip}">${status}</span></div>`;
+      return `<div class="dashboard-list-item" role="button" tabindex="0" onclick="showPage('leave-history')"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(LT[r.type] || r.type)}</div><div class="dashboard-list-meta">${range} · ${effectiveLeaveDays(r)} วัน</div></div><span class="chip ${chip}">${status}</span></div>`;
     }).join('') || '<div class="dashboard-empty">✓ ไม่มีใบลาที่ต้องดำเนินการ</div>';
   }
 
@@ -4701,7 +4725,7 @@ function updateDashboard() {
     exRecent.innerHTML = myExercises.slice().sort((a,b) => (b.date || '').localeCompare(a.date || '')).slice(0,3).map(e => {
       const [text, cls] = status[e.status] || ['—',''];
       const id = encodeURIComponent(String(e.id || ''));
-      return `<div class="dashboard-list-item" onclick="viewExDetail(decodeURIComponent('${id}'))"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(e.activity || EX_LABEL[getExType(e)] || 'กิจกรรมออกกำลังกาย')}</div><div class="dashboard-list-meta">${fmtDate(e.date)} · ${EX_LABEL[getExType(e)] || ''}</div></div><span class="chip ${cls}">${text}</span></div>`;
+      return `<div class="dashboard-list-item" role="button" tabindex="0" onclick="viewExDetail(decodeURIComponent('${id}'))"><div class="dashboard-list-main"><div class="dashboard-list-title">${escapeNotificationText(e.activity || EX_LABEL[getExType(e)] || 'กิจกรรมออกกำลังกาย')}</div><div class="dashboard-list-meta">${fmtDate(e.date)} · ${EX_LABEL[getExType(e)] || ''}</div></div><span class="chip ${cls}">${text}</span></div>`;
     }).join('') || '<div class="dashboard-empty">ยังไม่มีรายการออกกำลังกาย</div>';
   }
   renderDashboardCalendar();
