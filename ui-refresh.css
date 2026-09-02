@@ -2,6 +2,32 @@
    Foundations and shared components for the complete local application.
    Visual-only layer: no application logic or production configuration changes. */
 
+/* Application identity */
+.login-logo,
+.logo-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-brand-icon {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 22%;
+  box-shadow: 0 8px 22px rgba(21, 92, 224, .25);
+}
+
+.app-brand-icon-login {
+  width: 44px;
+  height: 44px;
+}
+
+.app-brand-icon-sidebar {
+  width: 34px;
+  height: 34px;
+}
+
 :root {
   color-scheme: dark;
   --bg: #0a0d14;
