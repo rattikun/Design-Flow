@@ -90,6 +90,10 @@ const getExs = () => LS.get('tf_exs') || [];
 const saveExs = e => LS.set('tf_exs', e);
 const getQs = () => LS.get('tf_qs') || {};
 const saveQs = q => LS.set('tf_qs', q);
+function sameRecordId(left, right) {
+  if (left === null || left === undefined || right === null || right === undefined) return false;
+  return String(left) === String(right);
+}
 
 function uName(email, fallback) {
   const u = (getUsers() || []).find(x => x.email.toLowerCase() === (email || '').toLowerCase());
@@ -620,7 +624,7 @@ function openLeaveModal() {
   openModal('modal-leave');
 }
 function editLeave(id) {
-  const r = getLeaves().find(x => x.id === id);
+  const r = getLeaves().find(x => sameRecordId(x.id, id));
   if (!r || r.email !== cu.email || !r.status.startsWith('pending')) return;
   _editingLeaveId = id;
   document.getElementById('modal-leave-title').innerHTML = '<i class="fa-solid fa-pen" style="margin-right:8px;color:var(--yellow);"></i>แก้ไขใบลา';
@@ -1540,7 +1544,7 @@ function leaveConflict(targetEmail, newStart, newEnd, newIsHalf, newPeriod, excl
   return getLeaves().find(r =>
     r.email === targetEmail &&
     r.status !== 'rejected' &&
-    r.id !== excludeId &&
+    !sameRecordId(r.id, excludeId) &&
     r.start <= newEnd && r.end >= newStart &&
     !(r.isHalf && newIsHalf && r.start === newStart && r.period !== newPeriod)
   ) || null;
@@ -1565,13 +1569,13 @@ function submitLeave() {
 
   // --- EDIT MODE ---
   if (_editingLeaveId !== null) {
-    const ls = getLeaves(), idx = ls.findIndex(r => r.id === _editingLeaveId); if (idx < 0) return;
+    const ls = getLeaves(), idx = ls.findIndex(r => sameRecordId(r.id, _editingLeaveId)); if (idx < 0) return;
     const r = ls[idx];
     const conf = leaveConflict(r.email, start, end, isHalf, period, _editingLeaveId);
     if (conf) { toast('⚠️ มีใบลาที่ทับซ้อนกันอยู่แล้ว (' + LT[conf.type] + ' ' + conf.start + (conf.start !== conf.end ? ' → ' + conf.end : '') + ')'); return; }
     const _ePrev = new Date(start + 'T00:00:00'); _ePrev.setDate(_ePrev.getDate() - 1);
     const _ePrevDay = _ePrev.toISOString().slice(0, 10);
-    const _ePrevLeave = type === 'sick' ? getLeaves().some(rx => rx.id !== _editingLeaveId && rx.email === r.email && rx.status !== 'rejected' && rx.start <= _ePrevDay && rx.end >= _ePrevDay) : false;
+    const _ePrevLeave = type === 'sick' ? getLeaves().some(rx => !sameRecordId(rx.id, _editingLeaveId) && rx.email === r.email && rx.status !== 'rejected' && rx.start <= _ePrevDay && rx.end >= _ePrevDay) : false;
     if ((type === 'sick' && (diff >= 2 || _ePrevLeave)) && !link) { toast('⚠️ กรุณาแนบลิงก์ใบรับรองแพทย์'); return; }
     r.type = type; r.start = start; r.end = end; r.period = period; r.reason = reason;
     r.days = diff; r.isHalf = isHalf; r.hasDoc = !!link; r.docName = link || null;
@@ -1702,7 +1706,7 @@ function renderLR() {
   }).join('');
 }
 function lAct(id, action, rejectReason) {
-  const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
+  const ls = getLeaves(), idx = ls.findIndex(r => sameRecordId(r.id, id)); if (idx < 0) return;
   const r = ls[idx]; r.leadNote = document.getElementById('ln-' + id)?.value || '';
   r.leadAction = action;
   if (action === 'approve') {
@@ -1787,8 +1791,9 @@ function renderLP() {
     </div>`;
   }).join('');
 }
-function pAct(id, action, rejectReason) {
-  const ls = getLeaves(), idx = ls.findIndex(r => r.id === id); if (idx < 0) return;
+const _pendingPmLeaveActions = new Set();
+async function pAct(id, action, rejectReason) {
+  const ls = getLeaves(), idx = ls.findIndex(r => sameRecordId(r.id, id)); if (idx < 0) return;
   const r = ls[idx];
   r.pmNote = document.getElementById('pn-' + id)?.value || '';
   r.pmAction = action;
@@ -1816,6 +1821,9 @@ function pAct(id, action, rejectReason) {
     openModal('modal-confirm');
     return;
   }
+  const actionKey = String(r.id);
+  if (_pendingPmLeaveActions.has(actionKey)) return;
+  _pendingPmLeaveActions.add(actionKey);
   if (action === 'reject' && isDocReview) {
     // ปฏิเสธเฉพาะ "เอกสาร" — ใบลายังอนุมัติอยู่ แค่ต้องแนบเอกสารใหม่
     r.status = 'approved';
@@ -1829,19 +1837,24 @@ function pAct(id, action, rejectReason) {
     if (action === 'approve') r.docRejectReason = null;
   }
   r.pendingDocReview = false;
-  saveLeaves(ls);
-  _markLeaveModified(r);
-  apiSync('updateLeave', r);
-  if (action === 'approve') {
-    notifyLeave(r, 'pm_approved_leave', 'member');
-    syncLeaveApprovedToSheets(r, cu.name);
-    notifyUser(r.email, '✅ PM อนุมัติใบลาแล้ว', `${LT[r.type]} ${r.start} ได้รับการอนุมัติแล้ว`, 'leave-history');
-  } else if (action === 'reject') {
-    notifyLeave(r, isDocReview ? 'pm_rejected_doc' : 'pm_rejected_leave', 'member');
-    notifyUser(r.email, isDocReview ? '📎 เอกสารไม่ผ่าน' : '❌ PM ไม่อนุมัติใบลา', rejectReason || '', 'leave-history');
+  try {
+    const syncResult = await apiSync('updateLeave', r);
+    if (!syncResult.ok) return;
+    saveLeaves(ls);
+    _markLeaveModified(r);
+    if (action === 'approve') {
+      notifyLeave(r, 'pm_approved_leave', 'member');
+      syncLeaveApprovedToSheets(r, cu.name);
+      notifyUser(r.email, '✅ PM อนุมัติใบลาแล้ว', `${LT[r.type]} ${r.start} ได้รับการอนุมัติแล้ว`, 'leave-history');
+    } else if (action === 'reject') {
+      notifyLeave(r, isDocReview ? 'pm_rejected_doc' : 'pm_rejected_leave', 'member');
+      notifyUser(r.email, isDocReview ? '📎 เอกสารไม่ผ่าน' : '❌ PM ไม่อนุมัติใบลา', rejectReason || '', 'leave-history');
+    }
+    toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : (isDocReview ? '📎 เอกสารไม่ผ่าน — แจ้ง ' + r.name + ' แนบใหม่แล้ว' : '✕ PM ไม่อนุมัติ ' + r.name));
+    updateBadges(); updateDashboard(); renderLP();
+  } finally {
+    _pendingPmLeaveActions.delete(actionKey);
   }
-  toast(action === 'approve' ? '✅ PM อนุมัติ ' + r.name : (isDocReview ? '📎 เอกสารไม่ผ่าน — แจ้ง ' + r.name + ' แนบใหม่แล้ว' : '✕ PM ไม่อนุมัติ ' + r.name));
-  updateBadges(); updateDashboard(); renderLP();
 }
 
 // ══ LEAVE HISTORY ════════════════════════
@@ -2626,7 +2639,7 @@ function renderMyBal() {
 }
 
 function attachDentalDoc(id) {
-  const ls = getLeaves(), idx = ls.findIndex(x => x.id === id); if (idx < 0) return;
+  const ls = getLeaves(), idx = ls.findIndex(x => sameRecordId(x.id, id)); if (idx < 0) return;
   const r = ls[idx];
   
   const docLabel = r.type === 'dental' ? 'ใบเสร็จ/ใบรับรองแพทย์' : 'ใบรับรองแพทย์';
