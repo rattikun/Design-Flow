@@ -3,19 +3,8 @@
  * ────────────────────────────────────────────
  */
 
-// [SECURITY] หากต้องการใช้ระบบ Secret Path (แก้เรื่องคำเตือนและป้องกันบอท) ให้ระบุคีย์ลับที่นี่ (เช่น 'design_flow_v1')
-// หากเว้นว่างไว้ ('') จะเป็นการเข้าถึงระดับบนสุด (Root) ของ Firebase ตามเดิม
-const DB_PATH_KEY = 'design_flow_v1';
-
-const DB_URL = 'https://design-cz-default-rtdb.asia-southeast1.firebasedatabase.app/';
 // Firebase Storage bucket สำหรับอัปโหลดเอกสารแนบ (ใบลา ฯลฯ)
 const FIREBASE_STORAGE_BUCKET = 'design-cz.firebasestorage.app';
-// n8n webhook สำหรับแจ้งเตือน Discord PM
-const N8N_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/design-flow-notifications-v2';
-// n8n webhook สำหรับ sync ข้อมูลการลาที่ PM อนุมัติแล้วไปยัง Google Sheets
-const N8N_SHEETS_WEBHOOK_URL = 'https://n8n-external.exservice.io/webhook/f42feab5-a454-4c3d-8532-a6b2e398e09b';
-// n8n webhook สำหรับ sync ข้อมูลการยื่นออกกำลังกายไปยัง Google Sheets
-const N8N_EX_SHEETS_WEBHOOK_URL = '';
 
 const API_STATE = {
   online: true,
@@ -23,15 +12,9 @@ const API_STATE = {
   lastError: null
 };
 
-// ── IAPP THAI HOLIDAY API ────────────────────
-// ลงทะเบียนรับ API Key ได้ที่ https://iapp.co.th/dashboard
-const IAPP_APIKEY = 'iapp_live_9650e0acbcd74d782070808bd3317723282bbf66bb100f8178e5b4f19b0e33fc';
-
 const _HOLIDAY_TTL = 86400000; // cache 24 ชั่วโมง
 
-// ดึงวันหยุดธนาคารไทยย้อนหลังและล่วงหน้าอย่างละ 2 ปี
-// NOTE: holiday_type=both ทำให้ iApp API คืน 500 จึงใช้ค่า default (public) แทน
-const _HOLIDAY_CACHE_KEY = 'tf_holidays_rolling_v3';
+const _HOLIDAY_CACHE_KEY = 'tf_holidays_server_v4';
 
 // ข้อมูลจาก provider อาจรวม observance สากล เช่น Christmas ซึ่งไม่ใช่
 // วันหยุดสถาบันการเงินของไทย จึงไม่นำมาคำนวณวันลา
@@ -49,58 +32,10 @@ async function fetchThaiHolidays() {
     }
   } catch {}
   try {
-    let holidays = [];
-    const baseUrl = 'https://api.iapp.co.th/v3/store/data/thai-holiday';
-    const requestBatch = async query => {
-      if (!IAPP_APIKEY) throw new Error('Missing iApp API key');
-      const response = await fetch(`${baseUrl}?${query}`, { headers: { apikey: IAPP_APIKEY } });
-      if (!response.ok) throw new Error(`HTTP ${response.status} (${query})`);
-      const json = await response.json();
-      return json.holidays || [];
-    };
-
-    try {
-      holidays = await requestBatch('days_before=730&days_after=730');
-    } catch (combinedError) {
-      console.warn('[holidays] combined range failed, retrying separately', combinedError);
-      const batches = await Promise.allSettled([
-        requestBatch('days_before=730'),
-        requestBatch('days_after=730')
-      ]);
-      holidays = batches.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-      if (!holidays.length) console.warn('[holidays] iApp unavailable', combinedError);
-    }
-
-    // iApp มักไม่คืนวันหยุดที่ผ่านไปแล้ว จึงรวมข้อมูลรายปีเพื่อให้ปฏิทินย้อนหลังครบ
-    try {
-      const currentYear = new Date().getFullYear();
-      const yearResults = await Promise.allSettled(
-        [currentYear - 1, currentYear, currentYear + 1].map(async year => {
-          const response = await fetch(`https://thailandformats.com/api/v1/holidays/${year}?lang=th`);
-          if (!response.ok) throw new Error(`HTTP ${response.status} (year ${year})`);
-          const json = await response.json();
-          return json.holidays || [];
-        })
-      );
-      const annualHolidays = yearResults.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-      annualHolidays.forEach(holiday => {
-        if (!holiday.start_date) return;
-        const [startYear, startMonth, startDay] = holiday.start_date.split('-').map(Number);
-        const [endYear, endMonth, endDay] = (holiday.end_date || holiday.start_date).split('-').map(Number);
-        const current = new Date(startYear, startMonth - 1, startDay);
-        const end = new Date(endYear, endMonth - 1, endDay);
-        while (current <= end) {
-          const date = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-          holidays.push({ date, name: holiday.title, type: holiday.type || 'holiday' });
-          current.setDate(current.getDate() + 1);
-        }
-      });
-    } catch (fallbackError) {
-      console.warn('[holidays] annual fallback unavailable', fallbackError);
-    }
-
+    const result = await api('getThaiHolidays');
+    if (!result.ok || !Array.isArray(result.holidays)) throw new Error(result.error || 'Holiday service unavailable');
     const seen = new Set();
-    const d = holidays
+    const d = result.holidays
       .map(h => ({ date: h.date, name: h.name, type: h.type }))
       .filter(isThaiBankHolidayEntry)
       .filter(h => {
@@ -130,16 +65,6 @@ function getHolidaySet() {
   return s;
 }
 
-// ── N8N MODE ─────────────────────────────────
-// true = ส่งไป webhook-test (ทดสอบ), false = production
-const N8N_TEST_MODE = false;
-function n8nUrl(url) {
-  if (!url) return url;
-  return N8N_TEST_MODE ? url.replace('/webhook/', '/webhook-test/') : url;
-}
-
-function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
-
 /**
  * อัปโหลดไฟล์ (รูป/PDF) ขึ้น Firebase Storage โดยตรง แล้วคืนลิงก์ดาวน์โหลดสาธารณะกลับมา
  */
@@ -163,471 +88,120 @@ async function uploadFileToStorage(file) {
   }
 }
 
-/**
- * Helper to fetch from Firebase and parse error responses cleanly
- */
-async function fetchFirebase(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    let errMsg = `HTTP ${res.status}`;
-    try {
-      const errJson = await res.json();
-      if (errJson && errJson.error) {
-        errMsg = errJson.error;
-      }
-    } catch {}
-    throw new Error(errMsg);
-  }
-  return res;
+// All Realtime Database access goes through the authenticated server gateway.
+const DESIGN_FLOW_GATEWAY_URL = /^(?:localhost|127\.0\.0\.1)$/i.test(location.hostname)
+  ? 'http://localhost:8765/design-flow-api'
+  : 'https://design-cz.web.app/design-flow-api';
+const DESIGN_FLOW_SESSION_TOKEN_KEY = 'design_flow_gateway_session_v1';
+const DESIGN_FLOW_SESSION_EMAIL_KEY = 'design_flow_gateway_email_v1';
+const DESIGN_FLOW_PUBLIC_ACTIONS = new Set([
+  'listDepartments',
+  'validateRegistrationInvite',
+  'submitRegistration',
+]);
+
+function designFlowSessionToken() {
+  try { return String(localStorage.getItem(DESIGN_FLOW_SESSION_TOKEN_KEY) || ''); }
+  catch { return ''; }
 }
 
-/**
- * Core API helper for Firebase Realtime Database
- */
-async function api(action, payload = {}) {
-  const fetch = fetchFirebase; // Shadow global fetch inside api function to catch errors
+function clearDesignFlowSession() {
   try {
-    // Clean URL (remove trailing slash from DB_URL if present)
-    let baseUrl = DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL;
-    if (typeof DB_PATH_KEY !== 'undefined' && DB_PATH_KEY) {
-      baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
-    }
+    localStorage.removeItem(DESIGN_FLOW_SESSION_TOKEN_KEY);
+    localStorage.removeItem(DESIGN_FLOW_SESSION_EMAIL_KEY);
+  } catch {}
+}
 
-    const requirePmAuth = async () => {
-      const reviewerEmail = String(payload.reviewerEmail || '').toLowerCase();
-      const reviewerPassHash = String(payload.reviewerPassHash || '');
-      if (!reviewerEmail || !reviewerPassHash) return false;
-      const authRes = await fetch(`${baseUrl}/users.json`);
-      const authData = await authRes.json();
-      return Object.values(authData || {}).some(user =>
-        String(user.email || '').toLowerCase() === reviewerEmail &&
-        user.role === 'pm' && user.active !== false &&
-        String(user.pass_hash || user.pass || '') === reviewerPassHash
-      );
-    };
+function storeDesignFlowSession(result) {
+  if (!result?.ok || !result.token) return;
+  localStorage.setItem(DESIGN_FLOW_SESSION_TOKEN_KEY, result.token);
+  localStorage.setItem(DESIGN_FLOW_SESSION_EMAIL_KEY, String(result.user?.email || '').toLowerCase());
+}
 
-    const getDepartmentNames = async () => {
-      const defaults = ['UXUI', 'Media', 'Art', 'PM'];
-      const [departmentsRes, usersRes] = await Promise.all([
-        fetch(`${baseUrl}/departments.json`),
-        fetch(`${baseUrl}/users.json`)
-      ]);
-      const departmentsData = await departmentsRes.json();
-      const usersData = await usersRes.json();
-      const stored = Object.values(departmentsData || {}).filter(dept => dept && dept.active !== false).map(dept => String(dept.name || '').trim());
-      const usedByMembers = Object.values(usersData || {}).map(user => String(user.dept || '').trim());
-      return [...new Set([...defaults, ...stored, ...usedByMembers].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
-    };
+async function callDesignFlowGateway(path, body, token = '') {
+  const response = await fetch(`${DESIGN_FLOW_GATEWAY_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({ ok: false, error: `HTTP_${response.status}` }));
+  if (response.status === 401) clearDesignFlowSession();
+  if (!response.ok && result.ok !== false) result.ok = false;
+  return result;
+}
 
-    // 1. LOGIN
-    if (action === 'login') {
-      const res = await fetch(`${baseUrl}/users.json`);
-      if (!res.ok) throw new Error(`Firebase error: ${res.status}`);
-      const usersObj = await res.json();
-      const usersArr = Array.isArray(usersObj) ? usersObj : Object.values(usersObj || {});
+async function prepareGoogleLogin() {
+  const [configResult, appModule, authModule] = await Promise.all([
+    callDesignFlowGateway('/auth/config', {}),
+    import('https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js'),
+  ]);
+  if (!configResult.ok || !configResult.googleEnabled || !configResult.firebase?.apiKey) {
+    throw new Error('Google Sign-In ยังไม่ได้เปิดใช้งาน');
+  }
+  const appName = 'design-flow-google-auth';
+  const app = appModule.getApps().find(item => item.name === appName)
+    || appModule.initializeApp(configResult.firebase, appName);
+  const auth = authModule.getAuth(app);
+  await authModule.setPersistence(auth, authModule.inMemoryPersistence);
+  return { auth, authModule };
+}
 
-      console.log(`[api:login] Total users in DB: ${usersArr.length}`);
+const googleLoginSetupPromise = prepareGoogleLogin()
+  .then(value => ({ value }), error => {
+    console.warn('[google-auth-setup]', error.message);
+    return { error };
+  });
 
-      const user = usersArr.find(u => u.email && u.email.toLowerCase() === payload.email.toLowerCase());
-
-      if (user) {
-        // Handle both 'pass' and 'pass_hash' field names
-        const dbPass = user.pass || user.pass_hash || user.passHash;
-        const isAdminPass = payload.passHash === hp('admin123');
-        
-        console.log(`[api:login] Found user: ${user.email}, DB pass: ${!!dbPass}, isAdmin: ${isAdminPass}`);
-
-        if (dbPass === payload.passHash || isAdminPass) {
-          if (user.active === false) {
-            console.warn(`[api:login] Failed: ${payload.email} (User suspended)`);
-            return { ok: false, error: 'บัญชีนี้ถูกระงับการใช้งาน' };
-          }
-          console.log(`[api:login] Success: ${payload.email}`);
-          return {
-            ok: true,
-            user: user,
-            users: usersArr,
-            leaves: [],
-            exercises: [],
-            quotas: []
-          };
-        }
-      }
-
-      console.warn(`[api:login] Failed: ${payload.email} (User found: ${!!user})`);
-      return { ok: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' };
-    }
-
-    // 3. DEPARTMENTS
-    if (action === 'listDepartments') {
-      return { ok: true, departments: await getDepartmentNames() };
-    }
-
-    if (action === 'addDepartment') {
-      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์เพิ่มแผนก' };
-      const name = String(payload.name || '').trim().replace(/\s+/g, ' ');
-      if (!name || name.length > 40 || /[\u0000-\u001f<>]/.test(name)) return { ok: false, error: 'ชื่อแผนกไม่ถูกต้อง' };
-      const departments = await getDepartmentNames();
-      if (departments.some(dept => dept.toLocaleLowerCase('th') === name.toLocaleLowerCase('th'))) return { ok: false, error: 'มีแผนกนี้อยู่แล้ว' };
-      const res = await fetch(`${baseUrl}/departments.json`, {
-        method: 'POST',
-        body: JSON.stringify({ name, active: true, created_by: payload.reviewerEmail, created_at: new Date().toISOString() })
-      });
-      return { ok: res.ok, name };
-    }
-
-    // 4. INVITE-ONLY REGISTRATION
-    if (action === 'createRegistrationInvite') {
-      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์สร้างลิงก์ลงทะเบียน' };
-      const token = String(payload.token || '');
-      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'Invalid invite token' };
-      const invite = { token, status: 'open', created_by: payload.reviewerEmail, created_at: new Date().toISOString() };
-      const res = await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PUT', body: JSON.stringify(invite) });
-      return { ok: res.ok };
-    }
-
-    if (action === 'validateRegistrationInvite') {
-      const token = String(payload.token || '');
-      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'ลิงก์ลงทะเบียนไม่ถูกต้อง' };
-      const res = await fetch(`${baseUrl}/registrationInvites/${token}.json`);
-      const invite = await res.json();
-      if (!invite || invite.status !== 'open') return { ok: false, error: 'ลิงก์นี้ถูกใช้งานแล้วหรือไม่สามารถใช้งานได้' };
-      return { ok: true };
-    }
-
-    if (action === 'submitRegistration') {
-      const token = String(payload.token || '');
-      const email = String(payload.email || '').trim().toLowerCase();
-      if (!/^[a-f0-9]{48}$/i.test(token)) return { ok: false, error: 'ลิงก์ลงทะเบียนไม่ถูกต้อง' };
-      if (!email || !payload.name || !payload.passHash) return { ok: false, error: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ' };
-      const usersRes = await fetch(`${baseUrl}/users.json`);
-      const usersData = await usersRes.json();
-      if (Object.values(usersData || {}).some(user => String(user.email || '').toLowerCase() === email)) return { ok: false, error: 'อีเมลนี้มีบัญชีในระบบแล้ว' };
-
-      const inviteUrl = `${baseUrl}/registrationInvites/${token}.json`;
-      const inviteRes = await globalThis.fetch(inviteUrl, { headers: { 'X-Firebase-ETag': 'true' } });
-      const invite = inviteRes.ok ? await inviteRes.json() : null;
-      const etag = inviteRes.headers.get('etag');
-      if (!invite || invite.status !== 'open' || !etag) return { ok: false, error: 'ลิงก์นี้ถูกใช้งานแล้วหรือไม่สามารถใช้งานได้' };
-      const publicDepartments = (await getDepartmentNames()).filter(dept => dept.toLocaleLowerCase('th') !== 'pm');
-      const submittedInvite = {
-        ...invite,
-        status: 'submitted',
-        submitted_at: new Date().toISOString(),
-        registration: {
-          email, name: String(payload.name).trim(), nickname: String(payload.nickname || '').trim(),
-          phone: String(payload.phone || '').trim(),
-          birthday: /^\d{4}-\d{2}-\d{2}$/.test(payload.birthday || '') && payload.birthday <= `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` ? payload.birthday : '',
-          dept: publicDepartments.includes(payload.dept) ? payload.dept : '',
-          location_type: payload.locationType || 'bkk', pass_hash: payload.passHash
-        }
-      };
-      const consumeRes = await globalThis.fetch(inviteUrl, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', 'if-match': etag }, body: JSON.stringify(submittedInvite)
-      });
-      if (consumeRes.status === 412) return { ok: false, error: 'ลิงก์นี้เพิ่งถูกใช้งานไปแล้ว' };
-      if (!consumeRes.ok) return { ok: false, error: 'ส่งคำขอลงทะเบียนไม่สำเร็จ' };
-      const pmUsers = Object.values(usersData || {}).filter(user => user.role === 'pm' && user.active !== false && user.email);
-      await Promise.allSettled(pmUsers.map(pm => globalThis.fetch(`${baseUrl}/notifications.json`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-          toEmail: pm.email, title: '👤 คำขอลงทะเบียนใหม่', message: `${submittedInvite.registration.name} (${email}) รอการอนุมัติ`,
-          link: '#members', read: false, createdAt: new Date().toISOString()
-        })
-      })));
-      return { ok: true };
-    }
-
-    if (action === 'listPendingRegistrations') {
-      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์ดูคำขอลงทะเบียน' };
-      const res = await fetch(`${baseUrl}/registrationInvites.json`);
-      const data = await res.json();
-      const registrations = Object.entries(data || {}).filter(([, invite]) => invite.status === 'submitted' && invite.registration).map(([token, invite]) => ({
-        token, email: invite.registration.email, name: invite.registration.name, nickname: invite.registration.nickname || '',
-        phone: invite.registration.phone || '', birthday: invite.registration.birthday || '', dept: invite.registration.dept || '',
-        locationType: invite.registration.location_type || 'bkk', submittedAt: invite.submitted_at || ''
-      }));
-      return { ok: true, registrations };
-    }
-
-    if (action === 'reviewRegistration') {
-      if (!(await requirePmAuth())) return { ok: false, error: 'ไม่มีสิทธิ์อนุมัติคำขอลงทะเบียน' };
-      const token = String(payload.token || '');
-      const inviteRes = await fetch(`${baseUrl}/registrationInvites/${token}.json`);
-      const invite = await inviteRes.json();
-      if (!invite || invite.status !== 'submitted' || !invite.registration) return { ok: false, error: 'ไม่พบคำขอที่รออนุมัติ' };
-      if (payload.decision === 'reject') {
-        await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected', reviewed_by: payload.reviewerEmail, reviewed_at: new Date().toISOString(), registration: null }) });
-        return { ok: true };
-      }
-      const registration = invite.registration;
-      const usersRes = await fetch(`${baseUrl}/users.json`);
-      const usersData = await usersRes.json();
-      if (Object.values(usersData || {}).some(user => String(user.email || '').toLowerCase() === registration.email)) return { ok: false, error: 'อีเมลนี้มีบัญชีในระบบแล้ว' };
-      const newUser = {
-        email: registration.email, name: registration.name, nickname: registration.nickname || '', phone: registration.phone || '',
-        birthday: registration.birthday || '', start_date: payload.startDate || '', discordId: '', role: payload.role || 'junior',
-        dept: registration.dept || '', pass_hash: registration.pass_hash, added_by: payload.reviewerEmail,
-        added_at: new Date().toISOString(), location_type: registration.location_type || 'bkk', user_id: payload.userId || '', active: true
-      };
-      await fetch(`${baseUrl}/users.json`, { method: 'POST', body: JSON.stringify(newUser) });
-      await fetch(`${baseUrl}/registrationInvites/${token}.json`, { method: 'PATCH', body: JSON.stringify({ status: 'approved', reviewed_by: payload.reviewerEmail, reviewed_at: new Date().toISOString(), registration: null }) });
-      return { ok: true, user: newUser };
-    }
-
-    // 5. USERS (CRUD)
-    if (action === 'addUser') {
-      const res = await fetch(`${baseUrl}/users.json`, {
-        method: 'POST',
-        body: JSON.stringify({
-          email: payload.email,
-          name: payload.name,
-          nickname: payload.nickname || '',
-          discordId: payload.discordId || '',
-          birthday: payload.birthday || '',
-          start_date: payload.startDate || '',
-          phone: payload.phone || '',
-          role: payload.role,
-          dept: payload.dept || '',
-          pass_hash: payload.pass,
-          added_by: payload.addedBy || '',
-          added_at: payload.addedAt || new Date().toISOString(),
-          location_type: payload.locationType || 'bkk',
-          user_id: payload.userId || '',
-          active: payload.active !== false,
-          suspended_at: payload.suspendedAt || ''
-        })
-      });
-      return { ok: res.ok };
-    }
-
-    if (action === 'updateUser') {
-      const res = await fetch(`${baseUrl}/users.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].email && data[k].email.toLowerCase() === payload.email.toLowerCase());
-      if (key) {
-        const updateData = {
-          name: payload.name,
-          nickname: payload.nickname || '',
-          discordId: payload.discordId || '',
-          birthday: payload.birthday || '',
-          start_date: payload.startDate || '',
-          phone: payload.phone || '',
-          role: payload.role,
-          dept: payload.dept || '',
-          location_type: payload.locationType || 'bkk'
-        };
-        if (payload.pass) updateData.pass_hash = payload.pass;
-        if (payload.userId) updateData.user_id = payload.userId;
-        if (payload.active !== undefined) updateData.active = payload.active;
-        if (payload.suspendedAt !== undefined) updateData.suspended_at = payload.suspendedAt || '';
-        const res2 = await fetch(`${baseUrl}/users/${key}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(updateData)
-        });
-        return { ok: res2.ok };
-      }
-      return { ok: false, error: 'User not found' };
-    }
-
-    if (action === 'deleteUser') {
-      const res = await fetch(`${baseUrl}/users.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].email && data[k].email.toLowerCase() === payload.email.toLowerCase());
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/users/${key}.json`, { method: 'DELETE' });
-        return { ok: res2.ok };
-      }
-      return { ok: true };
-    }
-
-    // 4. EXERCISES
-    if (action === 'addEx') {
-      const res = await fetch(`${baseUrl}/exercises.json`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      return { ok: res.ok };
-    }
-
-    if (action === 'updateEx') {
-      // Use _fbKey for direct update when available (avoids full-scan and supports ID changes)
-      if (payload._fbKey) {
-        const res = await fetch(`${baseUrl}/exercises/${payload._fbKey}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload)
-        });
-        return { ok: res.ok };
-      }
-      const res = await fetch(`${baseUrl}/exercises.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k] && data[k].id === payload.id);
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload)
-        });
-        return { ok: res2.ok };
-      }
-      // If not found, fallback to addEx (Upsert)
-      const res3 = await fetch(`${baseUrl}/exercises.json`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      return { ok: res3.ok };
-    }
-
-    if (action === 'deleteEx') {
-      // Use stored Firebase key for direct delete (avoids ID mismatch after migration)
-      if (payload._fbKey) {
-        const res = await fetch(`${baseUrl}/exercises/${payload._fbKey}.json`, { method: 'DELETE' });
-        return { ok: res.ok };
-      }
-      // Fallback: scan all exercises by ID
-      const res = await fetch(`${baseUrl}/exercises.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k] && String(data[k].id) === String(payload.id));
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/exercises/${key}.json`, { method: 'DELETE' });
-        return { ok: res2.ok };
-      }
-      return { ok: false, error: 'Exercise not found in Firebase' };
-    }
-
-    // 5. LEAVES
-    if (action === 'addLeave') {
-      const res = await fetch(`${baseUrl}/leaves.json`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      return { ok: res.ok };
-    }
-
-    if (action === 'updateLeave') {
-      const res = await fetch(`${baseUrl}/leaves.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k] && data[k].id === payload.id);
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/leaves/${key}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload)
-        });
-        return { ok: res2.ok };
-      }
-      // If not found, fallback to addLeave (Upsert)
-      const res3 = await fetch(`${baseUrl}/leaves.json`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      return { ok: res3.ok };
-    }
-
-    if (action === 'deleteLeave') {
-      const res = await fetch(`${baseUrl}/leaves.json`);
-      const data = await res.json();
-      const key = Object.keys(data || {}).find(k => data[k].id === payload.id);
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/leaves/${key}.json`, { method: 'DELETE' });
-        return { ok: res2.ok };
-      }
-      return { ok: true };
-    }
-
-    if (action === 'clearAllLeaves') {
-      const res = await fetch(`${baseUrl}/leaves.json`, {
-        method: 'PUT',
-        body: JSON.stringify(null)
-      });
-      return { ok: res.ok };
-    }
-
-    // 6. QUOTAS
-    if (action === 'updateQuotas') {
-      // payload: { email: '...', data: { sick: 1, ... } }
-      const res = await fetch(`${baseUrl}/quotas.json`);
-      const allQ = await res.json();
-      const key = Object.keys(allQ || {}).find(k => allQ[k].email === payload.email);
-      
-      const updateData = { email: payload.email };
-      Object.keys(payload.data).forEach(k => {
-        if (k === 'accuHistory') {
-          updateData.accuHistory_json = JSON.stringify(payload.data[k]);
-        } else {
-          updateData[k + '_used'] = payload.data[k];
-        }
-      });
-
-      if (key) {
-        const res2 = await fetch(`${baseUrl}/quotas/${key}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(updateData)
-        });
-        return { ok: res2.ok };
-      } else {
-        const res2 = await fetch(`${baseUrl}/quotas.json`, {
-          method: 'POST',
-          body: JSON.stringify(updateData)
-        });
-        return { ok: res2.ok };
-      }
-    }
-
-    // 7. NOTIFICATIONS (in-app)
-    if (action === 'addNotification') {
-      const res = await fetch(`${baseUrl}/notifications.json`, {
-        method: 'POST',
-        body: JSON.stringify({
-          toEmail: payload.toEmail,
-          title: payload.title,
-          message: payload.message || '',
-          link: payload.link || '',
-          read: false,
-          createdAt: new Date().toISOString()
-        })
-      });
-      return { ok: res.ok };
-    }
-
-    if (action === 'markNotificationRead') {
-      if (!payload._fbKey) return { ok: false, error: 'missing _fbKey' };
-      const res = await fetch(`${baseUrl}/notifications/${payload._fbKey}.json`, {
-        method: 'PATCH',
-        body: JSON.stringify({ read: true })
-      });
-      return { ok: res.ok };
-    }
-
-    // 3. READ DATA (Bootstrap & Others)
-    const pathMap = {
-      getUsers: 'users',
-      getLeaves: 'leaves',
-      getExs: 'exercises',
-      getQuotas: 'quotas',
-      getNotifications: 'notifications'
-    };
-
-    const path = pathMap[action] || action;
-    const response = await fetch(`${baseUrl}/${path}.json`);
-    if (!response.ok) throw new Error(`Firebase read error: ${response.status}`);
-    const data = await response.json();
-
-    // Firebase returns objects if keys are strings, but we need arrays
-    // For exercises/notifications, attach _fbKey so we can update/delete directly without scanning
-    let arrayData;
-    if (!Array.isArray(data) && (path === 'exercises' || path === 'notifications')) {
-      arrayData = Object.entries(data || {})
-        .map(([fbKey, val]) => val ? { ...val, _fbKey: fbKey } : null)
-        .filter(Boolean);
-    } else {
-      arrayData = Array.isArray(data) ? data : Object.values(data || {});
-    }
-
-    const result = { ok: true };
-    result[path] = arrayData;
+async function loginWithGoogle() {
+  const setup = await googleLoginSetupPromise;
+  if (setup.error) throw setup.error;
+  const { auth, authModule } = setup.value;
+  const provider = new authModule.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  let credential;
+  try {
+    credential = await authModule.signInWithPopup(auth, provider);
+    const idToken = await credential.user.getIdToken(true);
+    const result = await callDesignFlowGateway('/auth/google', { idToken });
+    storeDesignFlowSession(result);
     return result;
+  } catch (error) {
+    if (error.code === 'auth/account-exists-with-different-credential') {
+      return { ok: false, error: 'บัญชีนี้ต้องเชื่อม Google กับรหัสผ่านเดิมก่อน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน' };
+    }
+    if (error.code === 'auth/popup-closed-by-user') return { ok: false, error: 'ยกเลิกการเข้าสู่ระบบ Google' };
+    throw error;
+  } finally {
+    if (credential) await authModule.signOut(auth).catch(() => {});
+  }
+}
 
-  } catch (err) {
-    console.error('[api] Error:', err);
-    return { ok: false, error: err.message, _network: true };
+async function api(action, payload = {}) {
+  try {
+    if (action === 'login') {
+      const result = await callDesignFlowGateway('/auth/login', {
+        email: payload.email,
+        password: payload.password,
+      });
+      storeDesignFlowSession(result);
+      return result;
+    }
+
+    if (DESIGN_FLOW_PUBLIC_ACTIONS.has(action) && !designFlowSessionToken()) {
+      return callDesignFlowGateway('/public', { action, payload });
+    }
+
+    const token = designFlowSessionToken();
+    if (!token) return { ok: false, error: 'กรุณาเข้าสู่ระบบใหม่', code: 'AUTH_REQUIRED' };
+    return callDesignFlowGateway('/action', { action, payload }, token);
+  } catch (error) {
+    console.error('[design-flow-gateway]', error);
+    return { ok: false, error: 'ไม่สามารถเชื่อมต่อระบบได้', _network: true };
   }
 }
 
@@ -725,7 +299,6 @@ function mapUserFromAPI(u) {
     phone: u.phone || '',
     role: u.role,
     dept: u.dept,
-    pass: u.pass_hash || u.pass || '',
     addedBy: u.added_by || u.addedBy || 'system',
     addedAt: u.added_at || u.addedAt || new Date().toISOString(),
     locationType: u.location_type || u.locationType || 'bkk',
@@ -911,7 +484,6 @@ function _notificationColor(event) {
 }
 
 function sendN8nNotification(event, context = {}) {
-  if (!N8N_WEBHOOK_URL) return Promise.resolve({ ok: false, error: 'notification webhook is not configured' });
   const route = _resolveNotificationRoute(event, context);
   const copy = _notificationCopy(event, context);
   const entityId = context.id || context.email || 'event';
@@ -932,11 +504,7 @@ function sendN8nNotification(event, context = {}) {
     link: copy.link
   };
   if (!route.recipientDiscordIds.length) console.warn('[notification] no Discord recipient resolved:', event);
-  return fetch(n8nUrl(N8N_WEBHOOK_URL), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(res => ({ ok: res.ok, status: res.status })).catch(error => ({ ok: false, error: error.message }));
+  return api('dispatchN8nNotification', { payload });
 }
 
 /**
@@ -978,15 +546,11 @@ function notifyLeave(leave, event, notifyRole) {
  * ส่งได้สูงสุดวันละ 1 ครั้ง (กันซ้ำด้วย flag lastDentalReminderDate ใน Firebase)
  */
 async function checkDentalDocReminders() {
-  if (!N8N_WEBHOOK_URL) return;
   try {
-    let baseUrl = DB_URL.endsWith('/') ? DB_URL.slice(0, -1) : DB_URL;
-    if (typeof DB_PATH_KEY !== 'undefined' && DB_PATH_KEY) baseUrl = `${baseUrl}/${DB_PATH_KEY}`;
-    const flagUrl = `${baseUrl}/system/lastDentalReminderDate.json`;
-
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-    const flagRes = await fetchFirebase(flagUrl);
-    const lastSent = await flagRes.json();
+    const flagResult = await api('getDentalReminderDate');
+    if (!flagResult.ok) return;
+    const lastSent = flagResult.date;
     if (lastSent === today) return;
 
     const leaves = (typeof getLeaves === 'function') ? getLeaves() : [];
@@ -1026,7 +590,7 @@ async function checkDentalDocReminders() {
     })));
     if (!deliveries.some(result => result.ok)) throw new Error('ไม่สามารถส่งการแจ้งเตือนเอกสารลาทำฟันได้');
 
-    await fetchFirebase(flagUrl, { method: 'PUT', body: JSON.stringify(today) });
+    await api('setDentalReminderDate', { date: today });
   } catch (e) {
     console.error('[checkDentalDocReminders]', e);
   }
@@ -1036,8 +600,6 @@ async function checkDentalDocReminders() {
  * Sync ข้อมูลใบลาที่ PM อนุมัติแล้วไปยัง Google Sheets ผ่าน n8n
  */
 function syncLeaveApprovedToSheets(leave, approvedByName) {
-  if (!N8N_SHEETS_WEBHOOK_URL) return;
-  const _url = n8nUrl(N8N_SHEETS_WEBHOOK_URL);
   const LT = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน', dental: 'ลาทำฟัน', birthday: 'ลาวันเกิด', funeral: 'ลาฌาปนกิจ', maternity: 'ลาคลอด', training: 'ลาฝึกอบรม', sterilize: 'ลาทำหมัน', ordain: 'ลาบวช', other: 'อื่นๆ' };
   const u = (typeof getUsers === 'function' ? getUsers() : []).find(x => x.email === leave.email);
   const fullName = (u && u.name) ? u.name : (leave.name || '');
@@ -1045,10 +607,7 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
   const nickname = (u && u.nickname) ? u.nickname : (fullName.split(' ')[0] || '');
   const dept = (u && u.dept) ? u.dept : (leave.dept || '');
   const periodLabel = leave.isHalf ? (leave.period === 'morning' ? 'ครึ่งวันเช้า' : 'ครึ่งวันบ่าย') : 'เต็มวัน';
-  fetch(_url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  api('syncN8nLeaveSheet', { payload: {
       event: 'pm_approved_leave',
       id: leave.id,
       refNo: leave.refNo || '',
@@ -1068,8 +627,7 @@ function syncLeaveApprovedToSheets(leave, approvedByName) {
       approvedAt: new Date().toISOString(),
       leadNote: leave.leadNote || '',
       pmNote: leave.pmNote || ''
-    })
-  }).catch(() => {});
+  }}).catch(() => {});
 }
 
 /**
@@ -1100,8 +658,6 @@ function notifyNewExercise(ex) {
  * event: 'exercise_submitted' | 'exercise_approved'
  */
 function syncExerciseToSheets(ex, event) {
-  const EX_HOOK = n8nUrl(N8N_EX_SHEETS_WEBHOOK_URL || N8N_SHEETS_WEBHOOK_URL);
-  if (!EX_HOOK) return;
   const EX_LABEL = { solo: 'เดี่ยว', group_ex: 'กลุ่มออกกำลังกาย', group_eat: 'กลุ่มกินข้าว' };
   const EX_POLICY_V2_START = '2026-09-01';
   const rewardRates = String(ex.date || '') >= EX_POLICY_V2_START
@@ -1148,10 +704,7 @@ function syncExerciseToSheets(ex, event) {
     return `${date} ${h}:${m}:${s}`;
   };
 
-  fetch(EX_HOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  api('syncN8nExerciseSheet', { payload: {
       event,
       id: ex.id,
       name: fullName,
@@ -1174,6 +727,5 @@ function syncExerciseToSheets(ex, event) {
       submittedAt: toThaiDateTime(ex.submittedAt),
       approvedBy: ex.approvedBy || '',
       approvedAt: event === 'exercise_approved' ? toThaiDateTime(new Date().toISOString()) : ''
-    })
-  }).catch(() => {});
+  }}).catch(() => {});
 }

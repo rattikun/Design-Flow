@@ -2288,6 +2288,12 @@
       <button class="btn btn-primary" style="width:100%;justify-content:center;"
         onclick="doLogin()">เข้าสู่ระบบ</button>
 
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text3);font-size:13px;">
+        <span style="height:1px;background:var(--border);flex:1;"></span><span>หรือ</span><span style="height:1px;background:var(--border);flex:1;"></span>
+      </div>
+      <button id="google-login-btn" class="btn btn-ghost" style="width:100%;justify-content:center;"
+        onclick="doGoogleLogin()">เข้าสู่ระบบด้วย Google</button>
+
     </div>
   </div>
 
@@ -3392,8 +3398,8 @@
   <div id="birthday-toast" role="alert" aria-live="polite"></div>
   <div id="toast"></div>
 
-  <script src="api.js?v=20260831c"></script>
-  <script src="team-manager.js?v=20260901c"></script>
+  <script src="api.js?v=20260906-server-integrations"></script>
+  <script src="team-manager.js?v=20260906-email-fix"></script>
 </body>
 
 </html>

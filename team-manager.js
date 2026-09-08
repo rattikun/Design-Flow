@@ -83,23 +83,13 @@ const LS = {
   rm: k => localStorage.removeItem(k)
 };
 const getUsers = () => LS.get('tf_users') || initUsers();
-const saveUsers = u => {
-  const allInStorage = LS.get('tf_users') || [];
-  const superAdmin = allInStorage.find(x => x.email.toLowerCase() === 'kuniiz.ka@mail.com');
-  let newList = [...u];
-  if (superAdmin && !newList.some(x => x.email.toLowerCase() === 'kuniiz.ka@mail.com')) {
-    newList.push(superAdmin);
-  }
-  LS.set('tf_users', newList);
-};
+const saveUsers = u => LS.set('tf_users', u);
 const getLeaves = () => LS.get('tf_leaves') || [];
 const saveLeaves = l => LS.set('tf_leaves', l);
 const getExs = () => LS.get('tf_exs') || [];
 const saveExs = e => LS.set('tf_exs', e);
 const getQs = () => LS.get('tf_qs') || {};
 const saveQs = q => LS.set('tf_qs', q);
-
-function hp(p) { let h = 5381; for (let i = 0; i < p.length; i++)h = ((h << 5) + h) + p.charCodeAt(i); return (h >>> 0).toString(16); }
 
 function uName(email, fallback) {
   const u = (getUsers() || []).find(x => x.email.toLowerCase() === (email || '').toLowerCase());
@@ -160,66 +150,61 @@ async function doLogin() {
     return;
   }
 
-  ensureDefaultAccounts();
-
-  // Step 1: ลอง validate กับ API (source of truth)
-  if (typeof api === 'function') {
-    try {
-      const res = await api('login', { email, passHash: hp(pass) });
-      if (res.ok && res.user) {
-        // API ตอบ ok → เก็บ user, bootstrap, แล้วเข้าระบบ
-        const u = mapUserFromAPI(res.user);
-        u.pass = hp(pass);
-        cu = u;
-        if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
-        const users = getUsers();
-        const idx = users.findIndex(x => x.email.toLowerCase() === email);
-        if (idx >= 0) users[idx] = u; else users.push(u);
-        saveUsers(users);
-        errEl.style.display = 'none';
-        LS.set('tf_sess', email);
-        await bootstrap();
-        initIDs();
-        launchApp();
-        return;
-      }
-
-      if (res._network) {
-        console.warn('[doLogin] Network error, trying LS fallback...');
-      } else {
-        console.warn('[doLogin] API rejected, trying LS fallback...');
-        if (res.error === 'บัญชีนี้ถูกระงับการใช้งาน') {
-          errEl.textContent = res.error;
-          errEl.style.display = 'block';
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('[doLogin] API Error:', e);
+  try {
+    const res = await api('login', { email, password: pass });
+    if (!res.ok || !res.user) {
+      errEl.textContent = res.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+      errEl.style.display = 'block';
+      return;
     }
+    cu = mapUserFromAPI(res.user);
+    errEl.style.display = 'none';
+    LS.set('tf_sess', email);
+    const synced = await bootstrap();
+    if (!synced.ok) throw new Error(synced.error || 'โหลดข้อมูลไม่สำเร็จ');
+    initIDs();
+    launchApp();
+  } catch (error) {
+    clearDesignFlowSession();
+    LS.rm('tf_sess');
+    errEl.textContent = error.message || 'ไม่สามารถเชื่อมต่อระบบได้';
+    errEl.style.display = 'block';
   }
+}
 
-  // Step 2: Fallback — LS-only login (offline mode / local accounts)
-  const u = getUsers().find(u => u.email.toLowerCase() === email && u.pass === hp(pass));
-  if (!u) {
-    errEl.textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (u.active === false) {
-    errEl.textContent = 'บัญชีนี้ถูกระงับการใช้งาน';
-    errEl.style.display = 'block';
-    return;
-  }
+async function doGoogleLogin() {
+  const errEl = document.getElementById('login-err');
+  const button = document.getElementById('google-login-btn');
   errEl.style.display = 'none';
-  cu = u;
-  if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
-  LS.set('tf_sess', email);
-  launchApp();
+  if (button) { button.disabled = true; button.textContent = 'กำลังเชื่อมต่อ Google…'; }
+  try {
+    const res = await loginWithGoogle();
+    if (!res.ok || !res.user) {
+      const message = res.error === 'GOOGLE_ACCOUNT_NOT_ALLOWED'
+        ? 'บัญชี Google นี้ไม่มีข้อมูลในระบบหรือถูกปิดใช้งาน'
+        : res.error === 'ACCOUNT_LINK_REQUIRED'
+          ? 'บัญชีนี้ต้องเชื่อม Google กับบัญชีเดิมก่อน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน'
+        : res.error || 'เข้าสู่ระบบ Google ไม่สำเร็จ';
+      throw new Error(message);
+    }
+    cu = mapUserFromAPI(res.user);
+    LS.set('tf_sess', cu.email);
+    const synced = await bootstrap();
+    if (!synced.ok) throw new Error(synced.error || 'โหลดข้อมูลไม่สำเร็จ');
+    initIDs();
+    launchApp();
+  } catch (error) {
+    clearDesignFlowSession();
+    LS.rm('tf_sess');
+    errEl.textContent = error.message || 'เข้าสู่ระบบ Google ไม่สำเร็จ';
+    errEl.style.display = 'block';
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'เข้าสู่ระบบด้วย Google'; }
+  }
 }
 function resetAndLogin() { localStorage.clear(); location.reload(); }
 function doLogout() {
-  cu = null; LS.rm('tf_sess');
+  cu = null; LS.rm('tf_sess'); clearDesignFlowSession();
   document.getElementById('main-app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-email').value = '';
@@ -228,35 +213,23 @@ function doLogout() {
 async function tryRestore() {
   if (await handlePublicRegistrationRoute()) return;
   ensureDefaultAccounts();
-  const e = LS.get('tf_sess'); if (!e) return;
-  const u = getUsers().find(x => x.email.toLowerCase() === e.toLowerCase());
-  if (!u) return;
-  if (u.active === false) {
+  const e = LS.get('tf_sess');
+  if (!e || !designFlowSessionToken()) return;
+  const sessionCheck = await api('getUsers');
+  if (!sessionCheck.ok) {
+    doLogout();
+    return;
+  }
+  const u = (sessionCheck.users || []).map(mapUserFromAPI).find(x => x.email.toLowerCase() === e.toLowerCase());
+  if (!u || u.active === false) {
     doLogout();
     return;
   }
   cu = u;
-  if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm';
-  // launch ทันที (เร็ว) แล้ว bootstrap เบื้องหลัง
+  await bootstrap();
   migrateExIds();
+  initIDs();
   launchApp();
-  if (typeof bootstrap === 'function') {
-    bootstrap().then(res => {
-      if (res.ok) {
-        migrateExIds();
-        migrateOldExIds().then(() => {
-          _applyLocalLeaveChanges(); // re-apply local changes overwritten by bootstrap
-          initIDs(); // Update lid from fresh data
-          // refresh visible page หลัง sync เสร็จ
-          const active = document.querySelector('.page.active');
-          if (active) {
-            const id = active.id.replace('page-', '');
-            if (typeof showPage === 'function') showPage(id);
-          }
-        });
-      }
-    });
-  }
 }
 
 let _registrationInviteToken = '';
@@ -315,7 +288,7 @@ async function addDepartment() {
   const name = input.value.trim().replace(/\s+/g, ' ');
   if (!name) { error.textContent = 'กรุณากรอกชื่อแผนก'; error.style.display = 'block'; return; }
   button.disabled = true;
-  const result = await api('addDepartment', { name, reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  const result = await api('addDepartment', { name });
   button.disabled = false;
   if (!result.ok) { error.textContent = result.error || 'เพิ่มแผนกไม่สำเร็จ'; error.style.display = 'block'; return; }
   error.style.display = 'none';
@@ -376,7 +349,7 @@ async function submitInviteRegistration() {
   const button = document.getElementById('registration-submit');
   button.disabled = true; button.textContent = 'กำลังส่งข้อมูล...';
   const result = await api('submitRegistration', {
-    token: _registrationInviteToken, name, email, passHash: hp(pass),
+    token: _registrationInviteToken, name, email, password: pass,
     nickname: document.getElementById('reg-nickname').value.trim(),
     phone: document.getElementById('reg-phone').value.trim(),
     birthday,
@@ -396,7 +369,7 @@ async function generateRegistrationInvite() {
   if (!cu || cu.role !== 'pm') { toast('⛔ เฉพาะ PM เท่านั้น'); return; }
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   const token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
-  const result = await api('createRegistrationInvite', { token, reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  const result = await api('createRegistrationInvite', { token });
   if (!result.ok) { toast('⚠️ ' + (result.error || 'สร้างลิงก์ไม่สำเร็จ')); return; }
   const base = location.protocol === 'file:' ? 'https://design-cz.com/' : location.href.split('#')[0];
   document.getElementById('invite-link-output').value = `${base}#register=${token}`;
@@ -413,7 +386,7 @@ async function copyRegistrationInvite() {
 async function loadPendingRegistrations() {
   const container = document.getElementById('pending-registrations');
   if (!container || !cu || cu.role !== 'pm') { if (container) container.style.display = 'none'; return; }
-  const result = await api('listPendingRegistrations', { reviewerEmail: cu.email, reviewerPassHash: cu.pass });
+  const result = await api('listPendingRegistrations');
   if (!result.ok) { container.style.display = 'none'; return; }
   const registrations = result.registrations || [];
   container.style.display = 'block';
@@ -434,7 +407,7 @@ async function reviewRegistration(token, decision) {
   if (!cu || cu.role !== 'pm') return;
   const role = document.getElementById(`registration-role-${token}`)?.value || 'junior';
   const result = await api('reviewRegistration', {
-    token, decision, role, startDate: toLocalDateString(new Date()), userId: decision === 'approve' ? _nextUserId() : '', reviewerEmail: cu.email, reviewerPassHash: cu.pass
+    token, decision, role, startDate: toLocalDateString(new Date()), userId: decision === 'approve' ? _nextUserId() : ''
   });
   if (!result.ok) { toast('⚠️ ' + (result.error || 'ดำเนินการไม่สำเร็จ')); return; }
   if (decision === 'approve' && result.user) {
@@ -676,8 +649,8 @@ function setupLeaveFormForRole() {
   if (isMgr) {
     const sel = document.getElementById('for-member-select');
     let members = cu.role === 'pm' ? getUsers().filter(u => ['junior', 'senior', 'lead'].includes(u.role)) : getMyTeamMembers();
-    if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-      members = members.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+    if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+      members = members.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
     }
     sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
@@ -1023,8 +996,8 @@ function renderMembers() {
   const allUsers = getUsers();
   const ve = getVisibleEmails(true);
   let users = ve ? allUsers.filter(u => ve.has(u.email)) : allUsers;
-  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
   }
 
   if (_memberTab === 'active') {
@@ -1058,7 +1031,7 @@ async function openAddMember() {
   document.getElementById('add-err').style.display = 'none';
   openModal('modal-add');
 }
-function addMember() {
+async function addMember() {
   const name = document.getElementById('new-name').value.trim(), email = document.getElementById('new-email').value.trim().toLowerCase();
   const pass = document.getElementById('new-pass').value, role = document.getElementById('new-role').value, dept = document.getElementById('new-dept').value.trim();
   const err = document.getElementById('add-err');
@@ -1072,10 +1045,11 @@ function addMember() {
   const active = document.getElementById('new-active').value === 'true';
   if (users.find(u => u.email.toLowerCase() === email)) { err.textContent = 'อีเมลนี้มีในระบบแล้ว'; err.style.display = 'block'; return; }
   const userId = _nextUserId();
-  const newUser = { email, name, nickname, discordId, birthday: birth, startDate, phone, role, dept, pass: hp(pass), addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId, active, suspendedAt: active ? '' : new Date().toISOString() };
+  const newUser = { email, name, nickname, discordId, birthday: birth, startDate, phone, role, dept, addedBy: cu.name, addedAt: new Date().toISOString(), locationType: document.getElementById('new-loc').value || 'bkk', userId, active, suspendedAt: active ? '' : new Date().toISOString() };
+  const result = await api('addUser', { ...newUser, password: pass });
+  if (!result.ok) { err.textContent = result.error || 'เพิ่มสมาชิกไม่สำเร็จ'; err.style.display = 'block'; return; }
   users.push(newUser);
   saveUsers(users);
-  if (typeof apiSync === 'function') apiSync('addUser', newUser);
   closeModal('modal-add'); renderMembers(); setupLeaveFormForRole(); toast('✅ เพิ่มสมาชิก ' + name + ' เรียบร้อย');
 }
 async function openEdit(email) {
@@ -1107,7 +1081,7 @@ async function openEdit(email) {
 
   openModal('modal-edit');
 }
-function saveMember() {
+async function saveMember() {
   const ek = document.getElementById('edit-key').value, name = document.getElementById('edit-name').value.trim();
   const pass = document.getElementById('edit-pass').value, role = document.getElementById('edit-role').value, dept = document.getElementById('edit-dept').value.trim();
   if (!name) { toast('⚠️ กรุณากรอกชื่อ'); return; } if (pass && pass.length < 6) { toast('⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัว'); return; }
@@ -1118,13 +1092,14 @@ function saveMember() {
   const discordId = document.getElementById('edit-discord').value.trim();
   const active = document.getElementById('edit-active').value === 'true';
   const wasActive = users[idx].active !== false;
-  users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].startDate = startDate; users[idx].phone = phone; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk'; if (pass && pass.length >= 6) users[idx].pass = hp(pass);
+  users[idx].name = name; users[idx].nickname = nickname; users[idx].discordId = discordId; users[idx].birthday = birth; users[idx].startDate = startDate; users[idx].phone = phone; users[idx].role = role; users[idx].dept = dept; users[idx].locationType = document.getElementById('edit-loc').value || 'bkk';
   users[idx].active = active;
   if (wasActive && !active) users[idx].suspendedAt = new Date().toISOString();
   if (active) users[idx].suspendedAt = '';
+  const result = await api('updateUser', { ...users[idx], ...(pass ? { password: pass } : {}) });
+  if (!result.ok) { toast('⚠️ ' + (result.error || 'บันทึกสมาชิกไม่สำเร็จ')); return; }
   saveUsers(users);
-  if (typeof apiSync === 'function') apiSync('updateUser', users[idx]);
-  if (ek === cu.email) { cu = users[idx]; if (cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com') cu.role = 'pm'; LS.set('tf_sess', cu.email); setupSidebar(); }
+  if (ek === cu.email) { cu = users[idx]; LS.set('tf_sess', cu.email); setupSidebar(); }
   closeModal('modal-edit'); renderMembers(); toast('✅ บันทึก ' + name + ' เรียบร้อย');
 }
 function confDel(email) {
@@ -1134,10 +1109,14 @@ function confDel(email) {
   document.getElementById('conf-body').innerHTML = 'ต้องการลบ <strong>' + u.name + '</strong> (' + u.email + ') ออกจากระบบ?';
   document.getElementById('conf-ok').onclick = () => delMember(email); openModal('modal-confirm');
 }
-function delMember(email) {
-  saveUsers(getUsers().filter(x => x.email !== email));
-  if (typeof apiSync === 'function') apiSync('deleteUser', { email });
-  closeModal('modal-confirm'); renderMembers(); toast('🗑️ ลบสมาชิกเรียบร้อย');
+async function delMember(email) {
+  const result = await api('deleteUser', { email });
+  if (!result.ok) { toast('⚠️ ' + (result.error || 'ปิดบัญชีไม่สำเร็จ')); return; }
+  const users = getUsers();
+  const target = users.find(user => user.email === email);
+  if (target) target.active = false;
+  saveUsers(users);
+  closeModal('modal-confirm'); renderMembers(); toast('🗄️ ปิดบัญชีและเก็บข้อมูลเดิมแล้ว');
 }
 
 // ══ CHANGE PASSWORD ══════════════════════
@@ -1152,17 +1131,12 @@ async function doChangePass() {
   const old = document.getElementById('cp-old').value, n1 = document.getElementById('cp-new').value, n2 = document.getElementById('cp-confirm').value;
   const err = document.getElementById('cp-err');
   if (!old || !n1 || !n2) { err.textContent = '⚠️ กรุณากรอกข้อมูลให้ครบ'; err.style.display = 'block'; return; }
-  if (hp(old) !== cu.pass) { err.textContent = '⚠️ รหัสผ่านเดิมไม่ถูกต้อง'; err.style.display = 'block'; return; }
   if (n1.length < 6) { err.textContent = '⚠️ รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร'; err.style.display = 'block'; return; }
   if (n1 !== n2) { err.textContent = '⚠️ ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'; err.style.display = 'block'; return; }
 
   err.style.display = 'none';
-  const newHash = hp(n1);
-  const res = await apiSync('updateUser', { email: cu.email, pass: newHash });
+  const res = await api('updateUser', { email: cu.email, currentPassword: old, password: n1 });
   if (res.ok) {
-    cu.pass = newHash;
-    const users = getUsers(), idx = users.findIndex(u => u.email === cu.email);
-    if (idx >= 0) { users[idx].pass = newHash; saveUsers(users); }
     closeModal('modal-change-pass'); toast('✅ เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
   } else {
     err.textContent = '⚠️ ' + (res.error || 'เกิดข้อผิดพลาดในการเชื่อมต่อ'); err.style.display = 'block';
@@ -1776,8 +1750,8 @@ function lAct(id, action, rejectReason) {
 // ══ LEAVE PM ═════════════════════════════
 function renderLP() {
   let ls = getLeaves().filter(r => r.status === 'pending_pm');
-  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-    ls = ls.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+    ls = ls.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
   }
   const el = document.getElementById('leave-pm-list');
   if (!ls.length) { el.innerHTML = '<div class="card"><div style="color:var(--text3);text-align:center;padding:20px;font-size:17px;">ไม่มีรายการ 🎉</div></div>'; return; }
@@ -2027,8 +2001,8 @@ function getVisibleEmails(includeInactive = false) {
   } else {
     result = new Set([cu.email]);
   }
-  if (result && cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-    result.delete('kuniiz.ka@mail.com');
+  if (result && cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+    result.delete('kuniiz.ka@gmail.com');
   }
   return result;
 }
@@ -2094,8 +2068,8 @@ function renderTeamHist() {
     if (_teamHistStatus === 'need_doc') return r.status === 'approved' && leaveNeedsDoc(r) && !r.docName;
     return r.status === _teamHistStatus;
   });
-  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-    data = data.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+    data = data.filter(r => r.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
   }
   if (isLead) {
     data = data.filter(r => myTeamEmails.has(r.email));
@@ -2888,7 +2862,7 @@ function updateExSysMemberSelect() {
   // Filter out current user and already-selected members
   const available = allUsers
     .filter(u => u.active !== false && u.email !== cu.email && !exMembers.some(m => m.email === u.email))
-    .filter(u => cu && cu.email.toLowerCase() === 'kuniiz.ka@mail.com' ? true : u.email.toLowerCase() !== 'kuniiz.ka@mail.com')
+    .filter(u => cu && cu.email.toLowerCase() === 'kuniiz.ka@gmail.com' ? true : u.email.toLowerCase() !== 'kuniiz.ka@gmail.com')
     .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   sel.innerHTML = '<option value="">— เลือกสมาชิกในระบบ —</option>' + available.map(u => {
@@ -4492,7 +4466,7 @@ function updateLB() {
   const renderSection = (data, colorVar) => {
     const sorted = Object.entries(data)
       .filter(([email]) => {
-        if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com' && email.toLowerCase() === 'kuniiz.ka@mail.com') return false;
+        if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com' && email.toLowerCase() === 'kuniiz.ka@gmail.com') return false;
         const u = getUsers().find(x => x.email === email);
         return u && u.active !== false;
       })
@@ -4550,8 +4524,8 @@ function updateLB() {
   const dStart = new Date(y, parseInt(mm) - 1, 19), dEnd = new Date(y, parseInt(mm), 18);
   const rangeLabel = `${fmt(dStart)} - ${fmt(dEnd)}`;
   let users = getUsers().filter(u => u.active !== false);
-  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@mail.com') {
-    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@mail.com');
+  if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
+    users = users.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
   }
   users.sort((a, b) => a.name.localeCompare(b.name, 'th'));
   const userStats = users.map(u => {
