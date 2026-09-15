@@ -17,6 +17,7 @@ const RL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'Project
 const RC = { junior: 'var(--accent)', senior: 'var(--purple)', lead: 'var(--yellow)', pm: 'var(--orange)' };
 const EX_LABEL = { solo: '🏃 เดี่ยว', group_ex: '🤸 กลุ่มออกกำลังกาย', group_eat: '🍽️ กลุ่มกินข้าว' };
 const EX_POLICY_V2_START = '2026-09-01';
+const EX_POLICY_TRANSITION_CYCLE = '2026-08'; // รอบ 19 ส.ค. – 18 ก.ย. 2569
 const EX_REWARD_BEFORE_V2 = { solo: 100, group_ex: 500, group_eat: 300 };
 const EX_REWARD_V2 = { solo: 100, group_ex: 300, group_eat: 200 };
 
@@ -38,8 +39,11 @@ function getSoloWeeklyLimit(date, locationType = 'bkk') {
 }
 
 function getSoloMonthlyLimit(date, locationType = 'bkk') {
-  if (usesExercisePolicyV2(date)) return locationType === 'bkk' ? 4 : 12;
-  return locationType === 'bkk' ? 8 : 12;
+  if (locationType !== 'bkk') return 12;
+  // รอบเปลี่ยนนโยบาย: W1–W2 ยังใช้ 2 ครั้ง/สัปดาห์ ส่วนวันที่ตั้งแต่
+  // 1 ก.ย. ใช้ 1 ครั้ง/สัปดาห์ และกำหนดเพดานรวมของรอบไว้ที่ 6 ครั้ง
+  if (monthKey(date) === EX_POLICY_TRANSITION_CYCLE) return 6;
+  return usesExercisePolicyV2(date) ? 4 : 8;
 }
 
 function getColaThreshold(date, isBkk) {
