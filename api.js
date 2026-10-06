@@ -66,22 +66,43 @@ function getHolidaySet() {
 }
 
 /**
- * อัปโหลดไฟล์ (รูป/PDF) ขึ้น Firebase Storage โดยตรง แล้วคืนลิงก์ดาวน์โหลดสาธารณะกลับมา
+ * อัปโหลดไฟล์ (รูป/PDF) ผ่าน Gateway (ต้อง login) — server ตรวจชนิดไฟล์และบันทึกลง Firebase Storage
+ * คืนลิงก์รูปแบบเดิม ({ ok, url, fileName }) เพื่อให้ข้อมูลเก่าและ viewDocPopup ใช้ได้เหมือนเดิม
  */
+const DOC_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').replace(/^data:[^,]*,/, ''));
+    reader.onerror = () => reject(reader.error || new Error('อ่านไฟล์ไม่สำเร็จ'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadFileToStorage(file) {
   try {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const path = `leave-docs/${Date.now()}_${safeName}`;
-    const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o?name=${encodeURIComponent(path)}`;
-    const res = await fetch(uploadUrl, {
+    if (!file) throw new Error('ไม่พบไฟล์');
+    if (file.size > DOC_UPLOAD_MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 10 MB');
+    const token = designFlowSessionToken();
+    if (!token) throw new Error('กรุณาเข้าสู่ระบบใหม่ก่อนแนบไฟล์');
+    const dataBase64 = await readFileAsBase64(file);
+    const res = await fetch(`${DESIGN_FLOW_GATEWAY_URL}/upload`, {
       method: 'POST',
-      headers: { 'Content-Type': file.type },
-      body: file
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ fileName: file.name, dataBase64 }),
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const url = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(data.name)}?alt=media&token=${data.downloadTokens}`;
-    return { ok: true, url, fileName: file.name };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok || !data.url) {
+      const messages = {
+        AUTH_REQUIRED: 'session หมดอายุ กรุณาเข้าสู่ระบบใหม่',
+        FILE_TYPE_NOT_ALLOWED: 'รองรับเฉพาะไฟล์ PDF, PNG, JPG, WebP',
+        FILE_SIZE_INVALID: 'ไฟล์ว่างหรือใหญ่เกิน 10 MB',
+        UPLOAD_RATE_LIMITED: 'อัปโหลดถี่เกินไป กรุณารอสักครู่',
+      };
+      throw new Error(messages[data.error] || `อัปโหลดไม่สำเร็จ (HTTP ${res.status})`);
+    }
+    return { ok: true, url: data.url, fileName: file.name };
   } catch (err) {
     console.error('[uploadFileToStorage] Error:', err);
     return { ok: false, error: err.message };
