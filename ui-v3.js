@@ -466,6 +466,25 @@
 
   var _profileTab = 'info';
   DFV3.profileTab = function (t) { _profileTab = t === 'display' ? 'display' : 'info'; renderPage('profile'); };
+  /* logout confirmation (calls the legacy doLogout only after the user confirms) */
+  DFV3.confirmLogout = function () {
+    var m = document.getElementById('df-logout');
+    if (!m) {
+      m = document.createElement('div'); m.id = 'df-logout'; m.className = 'df-inv-scrim';
+      m.innerHTML = '<div class="df-confirm" role="alertdialog" aria-modal="true" aria-labelledby="df-logout-t" aria-describedby="df-logout-d">' +
+        '<span class="df-confirm-ic" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path><path d="M10 16l-4-4 4-4M6 12h10"></path></svg></span>' +
+        '<h2 id="df-logout-t">ออกจากระบบ?</h2><p id="df-logout-d">ครั้งหน้าเข้าใหม่ได้ด้วยปุ่ม "เข้าสู่ระบบด้วย Google"</p>' +
+        '<div class="df-confirm-act"><button type="button" class="df-confirm-no" data-x>ยกเลิก</button><button type="button" class="df-confirm-yes" data-go>ออกจากระบบ</button></div></div>';
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-x]')) { m.hidden = true; return; }
+        if (e.target.closest('[data-go]')) { m.hidden = true; if (typeof window.doLogout === 'function') window.doLogout(); }
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !m.hidden) m.hidden = true; });
+      document.body.appendChild(m);
+    }
+    m.hidden = false;
+    var b = m.querySelector('[data-x]'); if (b) b.focus();
+  };
   DFV3.openDisplaySettings = function () { _profileTab = 'display'; showPage('profile'); };
 
   /* ======================= PROFILE PHOTO + FRAME =======================
@@ -617,7 +636,7 @@
       return '<button type="button" role="radio" aria-checked="' + on + '" class="df-frame' + (on ? ' on' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="DFV3.setFrame(\'' + id + '\')"><span class="sw f-' + id + '" aria-hidden="true"></span>' + FRAMES[id] + '</button>';
     }).join('');
     var account = '<section class="df-card"><div class="df-card-head"><h2>บัญชี</h2></div><div class="df-profile-actions">' +
-      '<button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></section>';
+      '<button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="DFV3.confirmLogout()">ออกจากระบบ</button></div></section>';
     view.innerHTML = DFV3.header({ eyebrow: 'บัญชีของฉัน', title: 'โปรไฟล์ของฉัน' }) +
       '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"><img src="team-photo.jpg?v=20261011" alt=""></div>' +
       '<div class="df-profile-row"><div class="df-pava">' +

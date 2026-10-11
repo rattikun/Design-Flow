@@ -977,3 +977,15 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .df-ua span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .df-ua:hover, .df-ua:focus-visible { background: var(--ds-tint); color: var(--ds-accent-ink); border-color: var(--ds-tint-line); }
 .df-ua.out:hover, .df-ua.out:focus-visible { background: var(--ds-warn-bg); color: var(--ds-warn); border-color: transparent; }
+
+/* ---------- 32. Confirm dialog (logout) ---------- */
+.df-confirm { width: 380px; max-width: 100%; background: var(--ds-surface); color: var(--ds-text); border-radius: 22px; box-shadow: 0 24px 60px rgba(10, 10, 40, .3); padding: 28px 24px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.df-confirm-ic { width: 52px; height: 52px; border-radius: 16px; background: var(--ds-warn-bg); color: var(--ds-warn); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.df-confirm h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ds-text); }
+.df-confirm p { margin: 0; font-size: 14px; color: var(--ds-muted); line-height: 1.6; }
+.df-confirm-act { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 14px; }
+.df-confirm-act button { font-family: inherit; font-size: 15px; font-weight: 600; min-height: 46px; border-radius: 12px; cursor: pointer; }
+.df-confirm-no { border: 1px solid var(--ds-line-strong); background: var(--ds-surface); color: var(--ds-text2); }
+.df-confirm-yes { border: 0; background: var(--ds-warn); color: #fff; }
+.df-confirm-yes:hover { filter: brightness(1.05); }
+#df-logout { z-index: 5000; }
