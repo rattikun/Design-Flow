@@ -191,7 +191,6 @@
     hero.className = 'df-jhero';
     hero.setAttribute('aria-label', 'ภาพรวมวันนี้');
     hero.innerHTML =
-      '<img class="df-jhero-bg" src="team-photo.jpg?v=20261011" alt="" aria-hidden="true">' +
       '<img class="df-jhero-img" src="team-photo.jpg?v=20261011" alt="รูปสมาชิก' + esc(teamName) + 'ถ่ายรวมกัน">' +
       '<div class="df-jhero-glass">' +
         '<span class="df-jhero-chip">' + esc(chip) + '</span>' +
