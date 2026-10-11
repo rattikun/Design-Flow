@@ -1,0 +1,64 @@
+/* Design Flow v3 — บันทึกกิจกรรม (PM) */
+.df-au-view .df-ph-actions { flex-wrap: nowrap; }
+.df-au-view .df-ph-actions .df-au-month { width: auto; min-width: 150px; }
+.df-au-view .df-ph-actions .btn { white-space: nowrap; }
+.df-au-mlink { display: none !important; }
+@media (max-width: 760px) { .df-au-mlink { display: inline-flex !important; } }
+.df-au-table .df-au-from, .df-au-table .df-au-to { width: 38%; }
+.df-au-sub { margin: -6px 0 16px; color: var(--ds-muted); font-size: .9rem; }
+.df-au-month, .df-au-who, .df-au-q {
+  height: 40px; border: 1px solid var(--ds-line-strong); border-radius: 12px; background: var(--ds-surface);
+  color: var(--ds-text); font: inherit; padding: 0 12px; min-width: 0;
+}
+.df-au-q { flex: 1 1 220px; }
+.df-au-who { flex: 0 1 180px; }
+.df-au-card { gap: 12px; }
+.df-au-tools { display: flex; flex-direction: column; gap: 12px; }
+.df-au-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-au-chip {
+  border: 1px solid var(--ds-line); background: var(--ds-surface2); color: var(--ds-text2);
+  border-radius: 999px; padding: 6px 14px; font: inherit; font-size: .88rem; cursor: pointer;
+}
+.df-au-chip.on { background: var(--ds-tint); border-color: var(--ds-tint-line); color: var(--ds-accent-ink); font-weight: 600; }
+.df-au-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.df-au-count { margin-left: auto; color: var(--ds-muted); font-size: .85rem; }
+.df-au-day { margin: 14px 0 6px; font-size: .85rem; font-weight: 600; color: var(--ds-muted); }
+.df-au-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.df-au-row { border: 1px solid var(--ds-line2); border-radius: 14px; background: var(--ds-surface); overflow: hidden; }
+.df-au-main {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 0; background: none;
+  color: var(--ds-text); font: inherit; text-align: left; cursor: pointer;
+}
+.df-au-main:disabled { cursor: default; opacity: 1; }
+.df-au-main:not(:disabled):hover { background: var(--ds-surface2); }
+.df-au-time { flex: 0 0 44px; font-variant-numeric: tabular-nums; color: var(--ds-muted); font-size: .85rem; }
+.df-au-text { flex: 1 1 auto; min-width: 0; line-height: 1.45; }
+.df-au-label { color: var(--ds-text2); background: var(--ds-surface2); border-radius: 8px; padding: 1px 8px; font-size: .88rem; }
+.df-au-note { color: var(--ds-muted); font-size: .88rem; }
+.df-au-kind { flex: 0 0 auto; font-size: .78rem; font-weight: 600; border-radius: 999px; padding: 3px 10px; background: var(--ds-surface2); color: var(--ds-muted); }
+.k-create .df-au-kind { background: var(--ds-ok-bg); color: var(--ds-ok); }
+.k-update .df-au-kind { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.k-delete .df-au-kind { background: var(--ds-warn-bg); color: var(--ds-warn); }
+.df-au-caret { flex: 0 0 auto; color: var(--ds-faint); transition: transform .15s; }
+.df-au-row.open .df-au-caret { transform: rotate(180deg); }
+.df-au-detail { padding: 4px 14px 14px 70px; }
+.df-au-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.df-au-table th, .df-au-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--ds-line2); vertical-align: top; word-break: break-word; }
+.df-au-table thead th { border-top: 0; color: var(--ds-faint); font-weight: 500; font-size: .8rem; }
+.df-au-table tbody th { color: var(--ds-muted); font-weight: 500; width: 140px; }
+.df-au-from { color: var(--ds-warn); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ds-warn) 40%, transparent); }
+.df-au-to { color: var(--ds-ok); font-weight: 500; }
+.df-au-arrow { color: var(--ds-faint); width: 20px; }
+.df-au-empty { color: var(--ds-faint); font-style: italic; text-decoration: none; }
+.df-au-hint { margin: 4px 0 8px; color: var(--ds-muted); font-size: .85rem; }
+.df-au-state { padding: 32px 8px; text-align: center; color: var(--ds-muted); }
+.df-au-err { color: var(--ds-warn); }
+@media (max-width: 640px) {
+  .df-au-card { padding: 16px 12px; }
+  .df-au-main { flex-wrap: wrap; gap: 8px 10px; }
+  .df-au-text { flex-basis: calc(100% - 100px); }
+  .df-au-kind { margin-left: 96px; }
+  .df-au-detail { padding: 4px 12px 12px; }
+  .df-au-table tbody th { width: 96px; }
+  .df-au-count { margin-left: 0; }
+}

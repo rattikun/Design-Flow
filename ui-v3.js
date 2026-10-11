@@ -267,7 +267,7 @@
     { id: 'leave-history', label: 'การลา', icon: 'fa-regular fa-calendar', match: ['leave-history', 'my-balance', 'leave-review', 'leave-pm', 'leave-balance', 'team-hist', 'leave-new', 'leave-detail'] },
     { id: 'exercise-log', label: 'ออกกำลังกาย', icon: 'fa-solid fa-person-running', match: ['exercise-log', 'exercise-share', 'exercise-review', 'ex-new'] },
     { id: 'leaderboard', label: 'อันดับ', icon: 'fa-solid fa-trophy', match: ['leaderboard'], fallback: 'exercise-share', fallbackLabel: 'แชร์' },
-    { id: 'members', label: 'ทีม', icon: 'fa-solid fa-user-group', match: ['members'], menu: true }
+    { id: 'members', label: 'ทีม', icon: 'fa-solid fa-user-group', match: ['members', 'audit-log'], menu: true }
   ];
   function buildTabBar() {
     var app = document.getElementById('main-app');

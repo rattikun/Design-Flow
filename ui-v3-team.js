@@ -190,7 +190,8 @@
     var depts = new Set(active.map(function (u) { return u.dept; }).filter(Boolean));
     var eyebrow = cu.role === 'lead' ? (cu.dept ? 'ทีม ' + esc(cu.dept) : 'ทีมของฉัน') : (depts.size > 1 ? 'ทุกแผนก · ' + depts.size + ' แผนก' : depts.size ? 'ทีม ' + esc(Array.from(depts)[0]) : 'ทุกแผนก');
 
-    var actions = (isPM ? '<button type="button" class="df-team-btn" onclick="openDepartmentManager()">จัดการแผนก</button>' +
+    var actions = (isPM ? '<button type="button" class="df-team-btn df-au-mlink" onclick="showPage(\'audit-log\')">บันทึกกิจกรรม</button>' +
+      '<button type="button" class="df-team-btn" onclick="openDepartmentManager()">จัดการแผนก</button>' +
       '<button type="button" class="df-team-btn" onclick="DFV3Invite.open()">สร้างลิงก์ลงทะเบียน</button>' : '') +
       '<button type="button" class="df-team-btn primary lg" onclick="openAddMember()">+ เพิ่มสมาชิก</button>';
 
