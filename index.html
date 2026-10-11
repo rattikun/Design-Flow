@@ -88,6 +88,9 @@
       letter-spacing: -1px;
     }
 
+    .form-hint { margin-top: 6px; font-size: 12.5px; line-height: 1.5; color: var(--text3, #8b93a1); }
+    .reg-email-hint { grid-column: 1 / -1; margin: -6px 0 2px; padding: 8px 10px; border-radius: 8px; background: rgba(240,184,102,.08); color: #f0b866; }
+    .reg-login-hint { margin: 2px 0 14px; }
     .login-sub {
       font-size: 16px;
       color: var(--text3);
@@ -2308,8 +2311,9 @@
         <div class="form-grid">
           <div class="form-group"><label>ชื่อ-นามสกุล *</label><input id="reg-name" type="text" /></div>
           <div class="form-group"><label>ชื่อเล่น</label><input id="reg-nickname" type="text" /></div>
-          <div class="form-group"><label>อีเมล *</label><input id="reg-email" type="email" autocomplete="email" /></div>
+          <div class="form-group"><label>อีเมล (Gmail) *</label><input id="reg-email" type="email" autocomplete="email" placeholder="you@gmail.com" /></div>
           <div class="form-group"><label>โทรศัพท์</label><input id="reg-phone" type="tel" autocomplete="tel" /></div>
+          <div class="form-hint reg-email-hint">⚠️ <b>สำคัญ:</b> อีเมลนี้ใช้เข้าสู่ระบบด้วย Google และ<b>เปลี่ยนภายหลังไม่ได้</b> — ใช้บัญชี Google ที่คุณใช้ประจำ</div>
           <div class="form-group"><label>วันเกิด</label>
             <span class="date-wrap"><span class="date-display">
               <input class="date-part" data-part="d" maxlength="2" placeholder="วว" inputmode="numeric"><span class="date-sep">/</span>
@@ -2319,10 +2323,8 @@
           </div>
           <div class="form-group"><label>ทีม</label><select id="reg-dept"><option value="">— ไม่ระบุ —</option><option value="UXUI">UXUI</option><option value="Media">Media</option><option value="Art">Art</option></select></div>
           <div class="form-group"><label>พื้นที่</label><select id="reg-loc"><option value="bkk">กรุงเทพ</option><option value="province">ต่างจังหวัด</option></select></div>
-          <div class="registration-spacer" aria-hidden="true"></div>
-          <div class="form-group"><label>รหัสผ่าน *</label><input id="reg-pass" type="password" minlength="6" autocomplete="new-password" /></div>
-          <div class="form-group"><label>ยืนยันรหัสผ่าน *</label><input id="reg-confirm" type="password" minlength="6" autocomplete="new-password" /></div>
         </div>
+        <div class="form-hint reg-login-hint">หลัง PM อนุมัติ เข้าระบบได้ทันทีด้วยปุ่ม "เข้าสู่ระบบด้วย Google" ไม่ต้องตั้งรหัสผ่าน</div>
         <div id="registration-error" class="login-err" style="display:none;"></div>
         <button id="registration-submit" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitInviteRegistration()">ส่งข้อมูลให้ PM อนุมัติ</button>
       </div>
@@ -3408,7 +3410,7 @@
   <div id="toast"></div>
 
   <script src="api.js?v=20261011-public-invite"></script>
-  <script src="team-manager.js?v=20260915-exercise-transition"></script>
+  <script src="team-manager.js?v=20261011-no-password"></script>
 </body>
 
 </html>

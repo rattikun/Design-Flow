@@ -345,19 +345,17 @@ async function openInviteRegistration(token) {
 async function submitInviteRegistration() {
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim().toLowerCase();
-  const pass = document.getElementById('reg-pass').value;
-  const confirmPass = document.getElementById('reg-confirm').value;
   const error = document.getElementById('registration-error');
-  if (!name || !email || !pass || !confirmPass) { error.textContent = 'กรุณากรอกชื่อ อีเมล และรหัสผ่านให้ครบ'; error.style.display = 'block'; return; }
-  if (pass.length < 6) { error.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; error.style.display = 'block'; return; }
-  if (pass !== confirmPass) { error.textContent = 'ยืนยันรหัสผ่านไม่ตรงกัน'; error.style.display = 'block'; return; }
+  if (!name || !email) { error.textContent = 'กรุณากรอกชื่อและอีเมลให้ครบ'; error.style.display = 'block'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { error.textContent = 'รูปแบบอีเมลไม่ถูกต้อง'; error.style.display = 'block'; return; }
+  if (!confirm(`ยืนยันอีเมล ${email}\n\nอีเมลนี้จะใช้เข้าสู่ระบบด้วย Google และเปลี่ยนภายหลังไม่ได้`)) return;
   const birthday = document.getElementById('reg-birth').value;
   if (birthday && birthday > toLocalDateString(new Date())) { error.textContent = 'วันเกิดต้องไม่เกินวันที่ปัจจุบัน'; error.style.display = 'block'; return; }
   error.style.display = 'none';
   const button = document.getElementById('registration-submit');
   button.disabled = true; button.textContent = 'กำลังส่งข้อมูล...';
   const result = await api('submitRegistration', {
-    token: _registrationInviteToken, name, email, password: pass,
+    token: _registrationInviteToken, name, email,
     nickname: document.getElementById('reg-nickname').value.trim(),
     phone: document.getElementById('reg-phone').value.trim(),
     birthday,
