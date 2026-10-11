@@ -505,8 +505,9 @@
     holeEl.style.left = ((r.left - pad) / z) + 'px'; holeEl.style.top = ((r.top - pad) / z) + 'px';
     holeEl.style.width = ((r.width + pad * 2) / z) + 'px'; holeEl.style.height = ((r.height + pad * 2) / z) + 'px';
   }
+  function tourKey() { return 'df-tour-done:' + String((typeof cu !== 'undefined' && cu && cu.email) || '').toLowerCase(); }
   function finishTour() {
-    try { localStorage.setItem('df-tour-done', '1'); } catch (e) {}
+    try { localStorage.setItem(tourKey(), '1'); localStorage.setItem('df-tour-done', '1'); } catch (e) {}
     tourStep = -1;
     if (tourEl) tourEl.hidden = true;
     if (holeEl) holeEl.hidden = true;
@@ -559,7 +560,8 @@
     tourStep = 0; setTimeout(function () { buildTour(); paintTour(); }, 50);
   };
   function maybeAutoTour() {
-    var seen = false; try { seen = localStorage.getItem('df-tour-done') === '1'; } catch (e) { seen = true; }
+    if (typeof cu === 'undefined' || !cu) return;
+    var seen = false; try { seen = localStorage.getItem(tourKey()) === '1'; } catch (e) { seen = true; }
     if (seen || tourStep >= 0) return;
     var dash = document.getElementById('page-dashboard');
     if (dash && dash.classList.contains('active')) { buildTour(); tourStep = 0; paintTour(); }
@@ -803,7 +805,7 @@
         '<p class="df-muted" style="margin:8px 0 0;font-size:13px">ถ้าไม่แสดง ให้กด "เปิดในแท็บใหม่" แล้วล็อกอิน Google ด้วยอีเมลที่ใช้ในระบบ</p>';
     });
     hook('updateDashboard', renderDashExtras);
-    hook('showPage', function (id) { onShowPage(id); refreshTabBar(); });
+    hook('showPage', function (id) { onShowPage(id); refreshTabBar(); if (id === 'dashboard') setTimeout(maybeAutoTour, 900); });
     hook('setupSidebar', decorateSidebar);
     DFV3.registerPage('profile', { create: true, render: renderProfile });
     hook('launchApp', function () { buildTabBar(); refreshTabBar(); setTimeout(maybeAutoTour, 1200); });
