@@ -430,9 +430,48 @@
       '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display : info) + '</div>';
   }
 
+  /* ======================= CALENDAR TOOLTIP =======================
+     Instant styled tooltip for calendar cells (holiday name, who is on leave).
+     Uses the cell's own title text; UI only. */
+  var TIP_SEL = '.df-leave-day, .dashboard-calendar-day, .df-leave-thol, .df-leave-tchip, button.df-ex-cal';
+  var tipEl = null, tipFor = null;
+  function tipText(el) {
+    if (el.hasAttribute('title')) { el.setAttribute('data-df-tip', el.getAttribute('title')); el.removeAttribute('title'); }
+    return el.getAttribute('data-df-tip') || '';
+  }
+  function showTip(el) {
+    var text = tipText(el);
+    if (!text) return hideTip();
+    if (!tipEl) { tipEl = document.createElement('div'); tipEl.id = 'df-tip'; tipEl.setAttribute('role', 'tooltip'); document.body.appendChild(tipEl); }
+    tipEl.textContent = text;
+    tipEl.hidden = false; tipFor = el;
+    var z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+    var r = el.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+    // rects are in screen px; fixed offsets are scaled by the root zoom (text-size setting)
+    var left = Math.max(8, Math.min(window.innerWidth - t.width - 8, r.left + r.width / 2 - t.width / 2));
+    var top = r.top - t.height - 8;
+    tipEl.classList.toggle('below', top < 8);
+    if (top < 8) top = r.bottom + 8;
+    tipEl.style.left = (left / z) + 'px'; tipEl.style.top = (top / z) + 'px';
+  }
+  function hideTip() { if (tipEl) tipEl.hidden = true; tipFor = null; }
+  function installTips() {
+    document.addEventListener('mouseover', function (e) {
+      var el = e.target.closest && e.target.closest(TIP_SEL);
+      if (el && (el.hasAttribute('title') || el.hasAttribute('data-df-tip'))) { if (el !== tipFor) showTip(el); }
+      else if (tipFor) hideTip();
+    });
+    document.addEventListener('focusin', function (e) {
+      var el = e.target.closest && e.target.closest(TIP_SEL);
+      if (el && (el.hasAttribute('title') || el.hasAttribute('data-df-tip'))) showTip(el); else hideTip();
+    });
+    ['scroll', 'click'].forEach(function (ev) { window.addEventListener(ev, hideTip, true); });
+  }
+
   /* ======================= INSTALL ======================= */
   function install() {
     if (typeof renderDashboardCalendar === 'function') window.renderDashboardCalendar = safe(renderCalendarV3);
+    installTips();
     hook('updateDashboard', renderDashExtras);
     hook('showPage', function (id) { onShowPage(id); refreshTabBar(); });
     hook('setupSidebar', decorateSidebar);

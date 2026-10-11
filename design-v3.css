@@ -868,3 +868,15 @@ html[data-font] #login-screen, html[data-font] #registration-screen { min-height
     background: var(--ds-tint); color: var(--ds-accent-ink); font: 700 16px var(--df-font);
   }
 }
+
+/* ---------- 27. Calendar tooltip (holiday name / who is on leave) ---------- */
+#df-tip {
+  position: fixed; z-index: 30000; max-width: 260px; pointer-events: none;
+  padding: 8px 12px; border-radius: 10px; background: var(--ds-text); color: var(--ds-bg);
+  font: 600 13px/1.4 var(--df-font); box-shadow: 0 8px 24px rgba(10, 10, 40, .22);
+}
+#df-tip::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px;
+  background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px;
+}
+#df-tip.below::after { bottom: auto; top: -5px; }
