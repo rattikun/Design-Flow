@@ -542,6 +542,38 @@
   };
   function refreshViews() { /* other pages pick up the new photo on their next render */ }
 
+  /* Google Drive for exercise proof — connect card, shown to the Drive owner only (server enforces it too) */
+  var DRIVE_OWNER = 'rattikun.k@gmail.com';
+  var DRV = { loading: false, loaded: false, connected: false, configured: true, email: '', err: '' };
+  function drivePost(path) {
+    var token = typeof designFlowSessionToken === 'function' ? designFlowSessionToken() : '';
+    return fetch(DESIGN_FLOW_GATEWAY_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: '{}' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || d.ok === false) throw new Error(d.error || 'HTTP_' + r.status); return d; }); });
+  }
+  function loadDrive() {
+    if (DRV.loading) return; DRV.loading = true;
+    drivePost('/drive/status').then(function (d) { DRV.connected = !!d.connected; DRV.configured = d.configured !== false; DRV.email = d.email || ''; DRV.err = ''; },
+      function (e) { DRV.err = e.message === 'NOT_FOUND' || /HTTP_404/.test(e.message) ? 'NOT_DEPLOYED' : e.message; })
+      .then(function () { DRV.loading = false; DRV.loaded = true; rerenderProfile(); });
+  }
+  DFV3.connectDrive = function () {
+    drivePost('/drive/connect').then(function (d) { location.href = d.url; }, function (e) { DRV.err = e.message; rerenderProfile(); });
+  };
+  function driveCard() {
+    if (!cu || String(cu.email).toLowerCase() !== DRIVE_OWNER) return '';
+    if (!DRV.loaded) { loadDrive(); }
+    var st = !DRV.loaded ? '<span class="df-muted">กำลังตรวจสอบ…</span>'
+      : DRV.err === 'NOT_DEPLOYED' || !DRV.configured ? '<span class="df-drive-st off">ยังไม่พร้อม · ต้องตั้งค่าระบบหลังบ้านก่อน</span>'
+      : DRV.connected ? '<span class="df-drive-st on">เชื่อมแล้ว · ' + esc(DRV.email) + '</span>'
+      : '<span class="df-drive-st off">ยังไม่ได้เชื่อม</span>';
+    var canConnect = DRV.loaded && DRV.configured && DRV.err !== 'NOT_DEPLOYED';
+    return '<section class="df-card"><div class="df-card-head"><h2>Google Drive สำหรับหลักฐานออกกำลังกาย</h2>' + st + '</div>' +
+      '<p class="df-muted">ไฟล์ที่ทีมอัปโหลดตอนยื่นเบิกจะเก็บใน Drive นี้ แยกโฟลเดอร์ตามแผนก → คน → เดือน ระบบเห็นเฉพาะไฟล์ที่ระบบสร้างเอง</p>' +
+      (DRV.err && DRV.err !== 'NOT_DEPLOYED' ? '<div class="df-photo-msg err" style="margin:0">⚠️ ' + esc(DRV.err) + '</div>' : '') +
+      (canConnect ? '<div class="df-profile-actions"><button type="button" class="btn ' + (DRV.connected ? 'btn-ghost' : 'btn-primary') + '" onclick="DFV3.connectDrive()">' + (DRV.connected ? 'เชื่อมใหม่' : 'เชื่อม Google Drive') + '</button></div>' : '') +
+      '</section>';
+  }
+
   function renderProfile(view) {
     var u = userByEmail(cu.email) || cu;
     var loc = u.locationType === 'province' ? 'ต่างจังหวัด' : 'กรุงเทพ';
@@ -599,7 +631,7 @@
       '<p class="df-photo-hint">รองรับ JPG, PNG ไม่เกิน 5 MB · แนะนำรูปสี่เหลี่ยมจัตุรัส เห็นหน้าชัด · รูปนี้จะแสดงในปฏิทินทีม ใบลา และ Leaderboard</p>' +
       (PHOTO.msg ? '<div role="status" class="df-photo-msg ' + PHOTO.msgType + '">' + esc(PHOTO.msg) + '</div>' : '') +
       '<div class="df-ptabs" role="tablist" aria-label="หมวดโปรไฟล์">' + tab('info', 'ข้อมูลส่วนตัว') + tab('display', 'การแสดงผล') + '</div></section>' +
-      '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display + account : info) + '</div>';
+      '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display + driveCard() + account : info) + '</div>';
   }
 
   /* ======================= CALENDAR TOOLTIP =======================

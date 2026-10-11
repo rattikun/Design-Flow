@@ -277,6 +277,122 @@
   }
 
   function val(id) { var el = $(id); return el ? el.value : ''; }
+  /* ---------- proof upload → Google Drive of the team (via Quick Panel gateway) ----------
+     New feature (no legacy equivalent). Writes nothing to Design-Flow data itself:
+     the resulting Drive link is put into the legacy #ex-link field, and the legacy submit saves it. */
+  var UP = { status: 'idle', pct: 0, name: '', url: '', err: '', xhr: null };
+  var UP_MAX = 500 * 1024 * 1024;
+  var UP_TYPES = /^(video\/(mp4|quicktime|webm|x-m4v|3gpp)|image\/(jpeg|png|webp|heic|heif))$/;
+  var UP_ERR = {
+    DRIVE_NOT_CONFIGURED: 'ระบบยังไม่ได้เชื่อม Google Drive — วางลิงก์หลักฐานแทนไปก่อน',
+    DRIVE_NOT_CONNECTED: 'ระบบยังไม่ได้เชื่อม Google Drive — วางลิงก์หลักฐานแทนไปก่อน',
+    DRIVE_RECONNECT_REQUIRED: 'การเชื่อม Google Drive หมดอายุ — แจ้ง PM ให้เชื่อมใหม่ แล้ววางลิงก์แทนไปก่อน',
+    FILE_TYPE_NOT_ALLOWED: 'รองรับวิดีโอ MP4, MOV, WebM และรูป JPG, PNG, WebP, HEIC',
+    FILE_SIZE_INVALID: 'ไฟล์ใหญ่เกิน 500 MB',
+    UPLOAD_RATE_LIMITED: 'อัปโหลดถี่เกินไป รอสักครู่แล้วลองใหม่',
+    AUTH_REQUIRED: 'session หมดอายุ กรุณาเข้าสู่ระบบใหม่',
+    ACCOUNT_DISABLED: 'บัญชีนี้ใช้อัปโหลดไม่ได้'
+  };
+  function upPage() { return isActive('exercise-share') ? 'exercise-share' : 'ex-new'; }
+  function upRender() { try { D.renderPage(upPage()); } catch (e) {} }
+  function upBar() {
+    var b = document.querySelector('.df-ex-upbar > i'), t = document.querySelector('.df-ex-uppct');
+    if (b) b.style.width = UP.pct + '%'; if (t) t.textContent = UP.pct + '%';
+  }
+  function gatewayPost(path, body) {
+    var token = typeof designFlowSessionToken === 'function' ? designFlowSessionToken() : '';
+    if (!token) return Promise.reject(new Error('AUTH_REQUIRED'));
+    return fetch(DESIGN_FLOW_GATEWAY_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP_' + r.status)); return d; }); });
+  }
+  function shrinkImage(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.5 * 1024 * 1024) return Promise.resolve(file);
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(function (b) { URL.revokeObjectURL(url); resolve(b && b.size < file.size ? new File([b], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : file); }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+  function putFile(uploadUrl, file) {
+    return new Promise(function (resolve, reject) {
+      var x = new XMLHttpRequest(); UP.xhr = x;
+      x.open('PUT', uploadUrl, true);
+      x.setRequestHeader('Content-Type', file.type);
+      x.upload.onprogress = function (e) { if (e.lengthComputable) { var p = Math.min(99, Math.floor(e.loaded / e.total * 100)); if (p !== UP.pct) { UP.pct = p; upBar(); } } };
+      x.onload = function () { UP.xhr = null; if (x.status >= 200 && x.status < 300) { try { resolve(JSON.parse(x.responseText)); } catch (e) { reject(new Error('UPLOAD_FAILED')); } } else reject(new Error('UPLOAD_FAILED')); };
+      x.onerror = function () { UP.xhr = null; reject(new Error('UPLOAD_FAILED')); };
+      x.onabort = function () { UP.xhr = null; reject(new Error('ABORTED')); };
+      x.send(file);
+    });
+  }
+  function startUpload(file) {
+    if (!file || UP.status === 'busy') return;
+    if (!UP_TYPES.test(file.type)) { UP.status = 'error'; UP.err = UP_ERR.FILE_TYPE_NOT_ALLOWED; return upRender(); }
+    if (file.size > UP_MAX) { UP.status = 'error'; UP.err = UP_ERR.FILE_SIZE_INVALID; return upRender(); }
+    UP.status = 'busy'; UP.pct = 0; UP.name = file.name; UP.err = ''; upRender();
+    var session;
+    shrinkImage(file).then(function (f) {
+      file = f;
+      return gatewayPost('/drive/upload-session', { mimeType: f.type, size: f.size, date: val('ex-date'), activity: val('ex-act') });
+    }).then(function (s) { session = s; return putFile(s.uploadUrl, file); })
+      .then(function (meta) {
+        UP.pct = 100; upBar();
+        var members = (g('exMembers') || []).filter(function (m) { return m.type === 'sys' && m.email; }).map(function (m) { return m.email; });
+        return gatewayPost('/drive/finalize', { sessionKey: session.sessionKey, fileId: meta.id, memberEmails: members });
+      }).then(function (r) {
+        UP.status = 'done'; UP.url = r.url; UP.name = r.name || UP.name;
+        var el = $('ex-link'); if (el) el.value = r.url;
+        clearExErr();
+      }, function (e) {
+        var code = e && e.message;
+        if (code === 'ABORTED') { UP.status = 'idle'; return; }
+        UP.status = 'error'; UP.err = UP_ERR[code] || 'อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง หรือวางลิงก์แทน';
+      }).then(upRender);
+  }
+  window.__dfExUp = {
+    pick: function () {
+      var inp = $('df-ex-upfile');
+      if (!inp) {
+        inp = document.createElement('input'); inp.type = 'file'; inp.id = 'df-ex-upfile'; inp.hidden = true;
+        inp.accept = 'video/mp4,video/quicktime,video/webm,video/x-m4v,video/3gpp,image/jpeg,image/png,image/webp,image/heic,image/heif';
+        inp.addEventListener('change', function () { var f = inp.files && inp.files[0]; inp.value = ''; startUpload(f); });
+        document.body.appendChild(inp);
+      }
+      inp.click();
+    },
+    drop: function (e) { e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; startUpload(f); },
+    cancel: function () { if (UP.xhr) UP.xhr.abort(); UP.status = 'idle'; upRender(); },
+    reset: function () { UP = { status: 'idle', pct: 0, name: '', url: '', err: '', xhr: null }; var el = $('ex-link'); if (el) el.value = ''; upRender(); }
+  };
+  // the link field only shows a Drive link that came from this uploader as "uploaded"
+  function proofBlock(where) {
+    var link = val('ex-link');
+    if (UP.status === 'done' && link !== UP.url) UP.status = 'idle';
+    var CLOUD = '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8"></path><path d="M12 12v8M9 15l3-3 3 3"></path></svg>';
+    var box;
+    if (UP.status === 'busy') {
+      box = '<div class="df-ex-up busy" role="status" aria-live="polite"><div class="df-ex-uptop"><b>' + esc(UP.name) + '</b><span class="df-ex-uppct">' + UP.pct + '%</span></div>' +
+        '<div class="df-ex-upbar"><i style="width:' + UP.pct + '%"></i></div><div class="df-ex-uprow"><span class="df-ex-mut df-ex-sm">กำลังอัปโหลดเข้า Google Drive ของทีม · อย่าปิดหน้านี้</span><button type="button" class="df-ex-link" onclick="__dfExUp.cancel()">ยกเลิก</button></div></div>';
+    } else if (UP.status === 'done') {
+      box = '<div class="df-ex-up done"><span class="df-ex-upok" aria-hidden="true">✓</span><div class="df-ex-upmain"><b>' + esc(UP.name) + '</b><span class="df-ex-mut df-ex-sm">อัปโหลดแล้ว · เก็บใน Google Drive ของทีม · หัวหน้าและ PM เปิดดูได้</span></div>' +
+        '<span class="df-ex-upact"><a class="df-ex-link" href="' + esc(UP.url) + '" target="_blank" rel="noopener noreferrer">เปิดดู ↗</a><button type="button" class="df-ex-link" onclick="__dfExUp.reset()">เปลี่ยนไฟล์</button></span></div>';
+    } else {
+      box = '<button type="button" class="df-ex-up drop" onclick="__dfExUp.pick()" ondragover="event.preventDefault()" ondrop="__dfExUp.drop(event)">' + CLOUD +
+        '<span><b>อัปโหลดวิดีโอหรือรูปหลักฐาน</b><small>MP4, MOV, JPG, PNG · ไม่เกิน 500 MB · เก็บใน Google Drive ของทีม</small></span></button>' +
+        (UP.status === 'error' ? '<div class="df-ex-alert err" role="alert">' + esc(UP.err) + '</div>' : '');
+    }
+    var linkLabel = UP.status === 'done' || UP.status === 'busy' ? '' : (where === 'share'
+      ? '<label class="df-ex-sf">หรือวางลิงก์วิดีโอ<input data-k="sh-link" class="df-ex-input" type="url" placeholder="ลิงก์ Google Drive หรือ YouTube" value="' + esc(link) + '" oninput="__dfExShare.text(\'ex-link\',this.value)"></label>'
+      : '<label class="df-ex-f">หรือวางลิงก์วิดีโอ<input data-k="link" class="df-ex-input lg" type="url" placeholder="ลิงก์ Google Drive หรือ YouTube" value="' + esc(link) + '" oninput="__dfExForm.text(\'ex-link\',this.value)"></label>');
+    return '<div class="df-ex-proof"><span class="df-ex-prooflbl">หลักฐาน <span class="df-ex-req">* จำเป็น</span></span>' + box + linkLabel + '</div>';
+  }
+
   window.__dfExForm = {
     type: function (t) { var s = $('ex-type'); if (!s || s.value === t) return; s.value = t; updateExType(); D.renderPage('ex-new'); },
     date: function (ds) { selectExerciseCalendarDate(ds); _calMk = null; D.renderPage('ex-new'); },
@@ -465,8 +581,7 @@
       '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">3</span><h2>รายละเอียดกิจกรรม</h2></div>' +
       '<label class="df-ex-f">กิจกรรม<input data-k="act" class="df-ex-input lg" placeholder="เช่น วิ่ง 5 กม., ว่ายน้ำ, โยคะ" value="' + esc(val('ex-act')) + '" oninput="__dfExForm.text(\'ex-act\',this.value)"></label>' + groupHtml + '</section>' +
       '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">4</span><h2>แนบหลักฐาน</h2></div>' +
-      '<label class="df-ex-f">ลิงก์วิดีโอหลักฐาน <span class="df-ex-req">* จำเป็น</span><input data-k="link" class="df-ex-input lg" type="url" placeholder="วางลิงก์ Google Drive หรือ YouTube" value="' + esc(val('ex-link')) + '" oninput="__dfExForm.text(\'ex-link\',this.value)"></label>' +
-      '<span class="df-ex-mut df-ex-sm">ระบบอัปโหลดไฟล์ปิดชั่วคราว — อัปโหลดวิดีโอขึ้น Google Drive แล้ววางลิงก์แทน (ตั้งสิทธิ์ให้ทุกคนที่มีลิงก์ดูได้)</span>' +
+      proofBlock('form') +
       '<label class="df-ex-f">หมายเหตุ <span class="df-ex-opt">ไม่บังคับ</span><textarea data-k="note" class="df-ex-input" rows="2" oninput="__dfExForm.text(\'ex-note\',this.value)">' + esc(val('ex-note')) + '</textarea></label>' +
       '</section></div>';
 
@@ -622,7 +737,7 @@
       '<label class="df-ex-sf">วันที่ทำกิจกรรม' + selectHtml(DO.opts, date, 'onchange="__dfExShare.date(this.value)"', 'sf') + '</label>' +
       '<span class="df-ex-mut df-ex-sm">' + DO.hint + '</span>' +
       '<div class="df-ex-sf">ชวนเพื่อน (ใส่ชื่อในกลุ่ม · รวมคุณ ' + count + ' คน)<div class="df-ex-sfrs">' + (friends || '<span class="df-ex-mut df-ex-sm">ไม่มีสมาชิกที่เพิ่มได้</span>') + '</div></div>' +
-      '<label class="df-ex-sf">ลิงก์วิดีโอหลักฐาน <span class="df-ex-req">* จำเป็น</span><input data-k="sh-link" class="df-ex-input" type="url" placeholder="วางลิงก์ Google Drive หรือ YouTube" value="' + esc(val('ex-link')) + '" oninput="__dfExShare.text(\'ex-link\',this.value)"></label>' +
+      proofBlock('share') +
       (warn ? '<div class="df-ex-alert warn" role="status">' + esc(warn) + '</div>' : '') +
       (dup && !err ? '<div class="df-ex-alert warn" role="status">วันที่นี้คุณมีรายการยื่นแล้ว กรุณาเลือกวันอื่น</div>' : '') +
       (err ? '<div class="df-ex-alert err" role="alert">' + err + '</div>' : '') +

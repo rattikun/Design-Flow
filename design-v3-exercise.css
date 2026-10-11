@@ -657,3 +657,28 @@ html[data-theme="dark"] .df-ex-stabs .df-ex-xtab.on { background: var(--ds-text)
   .df-ex-cal small { font-size: 9px; }
   .df-ex-new .df-ex-sum { position: static; }
 }
+
+/* ---------- proof upload → Google Drive ---------- */
+.df-ex-proof { display: flex; flex-direction: column; gap: 10px; }
+.df-ex-prooflbl { font-size: 14px; font-weight: 600; color: var(--ds-text); }
+.df-ex-up { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; border-radius: 14px; padding: 14px 16px; font-family: inherit; text-align: left; }
+.df-ex-up.drop { cursor: pointer; border: 2px dashed var(--ds-tint-line); background: var(--ds-tint); color: var(--ds-accent-ink); min-height: 72px; }
+.df-ex-up.drop:hover, .df-ex-up.drop:focus-visible { border-color: var(--ds-accent); }
+.df-ex-up.drop svg { flex: none; }
+.df-ex-up.drop span { display: flex; flex-direction: column; gap: 2px; }
+.df-ex-up.drop b { font-size: 15px; }
+.df-ex-up.drop small { font-size: 12px; font-weight: 400; color: var(--ds-muted); }
+.df-ex-up.busy { flex-direction: column; align-items: stretch; gap: 8px; border: 1px solid var(--ds-line); background: var(--ds-surface2, var(--surface)); }
+.df-ex-uptop, .df-ex-uprow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.df-ex-uptop b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ds-text); }
+.df-ex-uppct { font-weight: 700; color: var(--ds-accent-ink); font-variant-numeric: tabular-nums; }
+.df-ex-upbar { height: 8px; border-radius: 4px; background: var(--ds-line); overflow: hidden; }
+.df-ex-upbar > i { display: block; height: 100%; background: var(--ds-accent); border-radius: 4px; transition: width .2s; }
+.df-ex-up.done { border: 1px solid var(--ds-leave); background: var(--ds-leave-bg); }
+.df-ex-upok { width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--ds-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.df-ex-upmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.df-ex-upmain b { font-size: 14px; color: var(--ds-leave-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-ex-up.done { flex-wrap: wrap; }
+.df-ex-upmain b { white-space: normal; overflow-wrap: anywhere; }
+.df-ex-upact { display: flex; gap: 16px; margin-left: 44px; flex-basis: 100%; }
+.df-ex-upact .df-ex-link { white-space: nowrap; }

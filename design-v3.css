@@ -959,3 +959,6 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .df-photo-msg:empty { display: none; }
 @media (prefers-reduced-motion: reduce) { .df-ring::before, .df-ring.f-sparkle .spark { animation: none; } .df-ring, .df-ring .inner img { transition: none; } }
 @media (max-width: 760px) { .df-frames, .df-photo-hint { padding-left: 18px; padding-right: 18px; } .df-photo-msg { margin-left: 18px; margin-right: 18px; } }
+.df-drive-st { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.df-drive-st.on { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-drive-st.off { background: var(--ds-hol-bg); color: var(--ds-hol-fg); }
