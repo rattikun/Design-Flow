@@ -262,11 +262,15 @@
     var m = formModal(); if (!m) return;
     if (m.classList.contains('df-ex-driven')) { m.classList.remove('df-ex-driven'); closeModal('modal-ex-form'); }
   }
+  var _inlineOpen = false;      // set while the share page initialises the legacy form for its side form
+  function pageOfMode(m) { return m === 'share' ? 'exercise-share' : 'ex-new'; }
   function afterLegacyOpen(mode) {
     var m = formModal();
     if (!m || !m.classList.contains('open')) return; // legacy refused (e.g. no permission) — nothing to do
     hideFormModal(); // keep the legacy form "open" (so legacy quota checks use the chosen date) but invisible
-    _armed = mode; _ext = { name: '', dept: '' };
+    _ext = { name: '', dept: '' };
+    if (_inlineOpen && mode === 'new') { _armed = 'share'; return; }
+    _armed = mode;
     if (isActive('ex-new')) D.renderPage('ex-new'); else showPage('ex-new');
   }
 
@@ -293,8 +297,39 @@
     cancel: function () { showPage('exercise-log'); }
   };
 
+  /* date options: days of open submission cycles up to today (legacy calendar rules: selectExerciseCalendarDate) */
+  function dateOptions(date, editing) {
+    var t = today();
+    var dupFor = function (ds) { return getExs().some(function (e) { return String(e.id) !== String(editing) && e.status !== 'rejected' && e.date === ds && isUserInvolved(e, cu.email); }); };
+    var dOpts = [], seen = {};
+    var startCycle = cycleOf(monthKey(t)).start, prevCycleStart = new Date(startCycle); prevCycleStart.setMonth(prevCycleStart.getMonth() - 1);
+    for (var dt = new Date(pd(t)); dt >= prevCycleStart; dt.setDate(dt.getDate() - 1)) {
+      var ds = toLocalDateString(dt);
+      if (!_isExerciseCycleOpenForSubmission(monthKey(ds), t)) continue;
+      var dup = dupFor(ds);
+      seen[ds] = 1;
+      dOpts.push({ v: ds, l: dsWd(ds) + (ds === t ? ' (วันนี้)' : '') + (dup ? ' · ยื่นแล้ว' : ''), dis: dup && ds !== date });
+    }
+    if (!seen[date]) dOpts.unshift({ v: date, l: dsWd(date) + ' ' + (pd(date).getFullYear() + 543) });
+    var cyc = cycleOf(monthKey(t)), dayBefore = new Date(cyc.start); dayBefore.setDate(dayBefore.getDate() - 1);
+    var prevOpen = _isExerciseCycleOpenForSubmission(monthKey(dayBefore), t);
+    return { opts: dOpts, dupFor: dupFor, cyc: cyc,
+      hint: 'เลือกได้เฉพาะวันในรอบนี้ (' + dShort(cyc.start) + ' – ' + dShort(cyc.end) + ') และไม่เกินวันนี้' + (prevOpen ? ' · วันนี้ยังยื่นย้อนหลังรอบก่อนได้' : '') };
+  }
+  /* in-system people for a group, read from the legacy #ex-sys-member select (legacy availability rules) */
+  function legacyPeople() {
+    updateExSysMemberSelect();
+    var sel = $('ex-sys-member');
+    return sel ? Array.prototype.slice.call(sel.options).filter(function (o) { return o.value; }).map(function (o) {
+      var u = uByEmail(o.value) || {};
+      var reason = (o.textContent.match(/\(([^()]*เต็ม[^()]*)\)\s*$/) || [])[1] || '';
+      var why = reason.indexOf('สป.') >= 0 ? 'ทำกลุ่มแล้วสัปดาห์นี้' : reason ? 'ทำกลุ่มครบแล้วเดือนนี้' : (o.disabled ? 'เพิ่มไม่ได้' : '');
+      return { email: o.value, nick: u.nickname || String(u.name || o.value).split(' ')[0], dept: u.dept || '', off: o.disabled, why: why };
+    }) : [];
+  }
+
   function renderNew(view) {
-    if (!_armed) { openExModal(); return; } // initialises the legacy form exactly like the old "ยื่นเบิกใหม่" button
+    if (!_armed || _armed === 'share') { _armed = null; openExModal(); return; } // initialises the legacy form exactly like the old "ยื่นเบิกใหม่" button
     var editing = g('_editingExId'), isEdit = editing !== null && editing !== undefined;
     var type = val('ex-type') || 'solo', isGrp = isGroupEx(type);
     var date = val('ex-date') || today();
@@ -311,26 +346,11 @@
         '<span class="df-ex-type-q' + (r.n > 0 ? '' : ' full') + '">' + noteTxt + '</span></button>';
     }).join('');
 
-    // date options: days of open submission cycles up to today (legacy calendar rules)
-    var dupFor = function (ds) { return getExs().some(function (e) { return String(e.id) !== String(editing) && e.status !== 'rejected' && e.date === ds && isUserInvolved(e, cu.email); }); };
-    var dOpts = [], seen = {};
-    var startCycle = cycleOf(monthKey(t)).start, prevCycleStart = new Date(startCycle); prevCycleStart.setMonth(prevCycleStart.getMonth() - 1);
-    for (var dt = new Date(pd(t)); dt >= prevCycleStart; dt.setDate(dt.getDate() - 1)) {
-      var ds = toLocalDateString(dt);
-      if (!_isExerciseCycleOpenForSubmission(monthKey(ds), t)) continue;
-      var dup = dupFor(ds);
-      seen[ds] = 1;
-      dOpts.push({ v: ds, l: dsWd(ds) + (ds === t ? ' (วันนี้)' : '') + (dup ? ' · ยื่นแล้ว' : ''), dis: dup && ds !== date });
-    }
-    if (!seen[date]) dOpts.unshift({ v: date, l: dsWd(date) + ' ' + (pd(date).getFullYear() + 543) });
-    var cyc = cycleOf(monthKey(t)), dayBefore = new Date(cyc.start); dayBefore.setDate(dayBefore.getDate() - 1);
-    var prevOpen = _isExerciseCycleOpenForSubmission(monthKey(dayBefore), t);
-    var dateHint = 'เลือกได้เฉพาะวันในรอบนี้ (' + dShort(cyc.start) + ' – ' + dShort(cyc.end) + ') และไม่เกินวันนี้' + (prevOpen ? ' · วันนี้ยังยื่นย้อนหลังรอบก่อนได้' : '');
+    var DO = dateOptions(date, editing), dOpts = DO.opts, dateHint = DO.hint, dupFor = DO.dupFor;
 
     // group members (from the legacy select, so availability rules are the legacy ones)
     var groupHtml = '';
     if (isGrp) {
-      updateExSysMemberSelect();
       var mem = g('exMembers') || [];
       var count = 1 + mem.length, ok = count >= 3;
       var chips = '<span class="df-ex-mchip me">' + av(cu.nickname || cu.name, cu.email, 32) + '<span class="df-ex-mtxt"><b>' + esc(D.nick(cu) || cu.name) + '</b><small>ตัวคุณ · ใส่อัตโนมัติ</small></span></span>' +
@@ -343,16 +363,10 @@
             '<span class="df-ex-mtxt"><b>' + esc(name) + '</b><small>' + esc(sub) + '</small></span>' +
             '<button type="button" class="df-ex-mx" aria-label="ลบ ' + esc(name) + '" onclick="__dfExForm.remove(' + q(m.id) + ')">×</button></span>';
         }).join('');
-      var sel = $('ex-sys-member');
-      var people = sel ? Array.prototype.slice.call(sel.options).filter(function (o) { return o.value; }).map(function (o) {
-        var u = uByEmail(o.value) || {};
-        var nick = u.nickname || String(u.name || o.value).split(' ')[0];
-        var reason = (o.textContent.match(/\(([^()]*เต็ม[^()]*)\)\s*$/) || [])[1] || '';
-        var why = reason.indexOf('สป.') >= 0 ? 'ทำกลุ่มแล้วสัปดาห์นี้' : reason ? 'ทำกลุ่มครบแล้วเดือนนี้' : '';
-        if (o.disabled && !why) why = 'เพิ่มไม่ได้';
-        return '<button type="button" class="df-ex-person"' + (o.disabled ? ' disabled title="' + esc(why) + '"' : ' title="เพิ่ม ' + esc(nick) + '"') +
-          ' onclick="__dfExForm.addSys(' + q(o.value) + ')">' + av(nick, o.value, 28) + '<span class="df-ex-ptxt"><span>' + esc(nick) + '</span><small>' + esc(o.disabled ? why : (u.dept || '')) + '</small></span></button>';
-      }).join('') : '';
+      var people = legacyPeople().map(function (p) {
+        return '<button type="button" class="df-ex-person"' + (p.off ? ' disabled title="' + esc(p.why) + '"' : ' title="เพิ่ม ' + esc(p.nick) + '"') +
+          ' onclick="__dfExForm.addSys(' + q(p.email) + ')">' + av(p.nick, p.email, 28) + '<span class="df-ex-ptxt"><span>' + esc(p.nick) + '</span><small>' + esc(p.off ? p.why : p.dept) + '</small></span></button>';
+      }).join('');
       groupHtml = '<div class="df-ex-group">' +
         '<div class="df-ex-ghead"><span>สมาชิกในกลุ่ม</span><span class="df-ex-gnote' + (ok ? ' ok' : '') + '">' + (ok ? 'ครบ ' + count + ' คนแล้ว — ส่งได้' : 'มี ' + count + ' คน · ต้องเพิ่มอีก ' + (3 - count) + ' คน') + '</span></div>' +
         '<span class="df-ex-mut df-ex-sm">คุณถูกใส่ชื่อให้อัตโนมัติ · ต้องเพิ่มอีกอย่างน้อย 2 คน ที่ยังไม่ได้ทำกิจกรรมกลุ่มในเดือนนี้</span>' +
@@ -401,70 +415,166 @@
     paint(view, '<div class="df-ex df-ex-new">' + head + '<div class="df-ex-newgrid">' + form + summary + '</div></div>');
   }
 
-  /* ======================= X3 · แชร์กิจกรรมกลุ่ม (exercise-share) ======================= */
+  /* ======================= X3B · แชร์กิจกรรมกลุ่ม (exercise-share) — list + side form =======================
+     Lists come from legacy renderExShare (window._exShareMine / _exShareAllSorted / _exShareCanJoin).
+     Join/leave: legacy joinExGroup / leaveExGroup with the legacy visibility gates.
+     Side form: drives the hidden legacy #modal-ex-form exactly like the ex-new page, then submitEx(). */
+  var SH = { wk: 'all' };
+  var IDEAS = { group_ex: ['วิ่ง 5 กม.', 'ตีแบด 1 ชม.', 'ฟุตซอล', 'โยคะ 45 นาที'], group_eat: ['สลัดมื้อกลางวัน', 'ข้าวกล่องคลีน', 'ผลไม้บ่ายสาม'] };
+  function shareView() { var tab = window._exShareTab || 'mine', c = $('ex-share-filter-joinable'); return tab === 'mine' ? 'mine' : (c && !c.checked ? 'all' : 'open'); }
+  function rerenderShare() { D.renderPage('exercise-share'); }
   window.__dfExShare = {
-    tab: function (t) { setExShareTab(t); schedule('exercise-share'); },
-    filter: function (on) { var c = $('ex-share-filter-joinable'); if (c) c.checked = !!on; applyExShareAllFilter(); schedule('exercise-share'); },
-    month: function (mk) { var s = $('ex-share-month-select'); if (s) s.value = mk; onExShareMonthChange(); },
-    open: function () { openExModal(); if (_armed) window.__dfExForm.type('group_ex'); }
+    view: function (v) {               // legacy UI state: tab 'mine' | 'all' + "เข้าร่วมได้" checkbox
+      var c = $('ex-share-filter-joinable');
+      if (v === 'mine') setExShareTab('mine');
+      else { if (c) c.checked = v === 'open'; setExShareTab('all'); applyExShareAllFilter(); }
+      schedule('exercise-share');
+    },
+    wk: function (w) { SH.wk = w; rerenderShare(); },
+    month: function (mk) { var s = $('ex-share-month-select'); if (s) s.value = mk; SH.wk = 'all'; onExShareMonthChange(); },
+    type: function (t) { var s = $('ex-type'); if (!s || s.value === t) return; s.value = t; updateExType(); rerenderShare(); },
+    idea: function (t) { var el = $('ex-act'); if (el) el.value = t; clearExErr(); rerenderShare(); },
+    text: function (id, v) { var el = $(id); if (el) el.value = v; if (id === 'ex-act') clearExErr(); },
+    date: function (ds) { selectExerciseCalendarDate(ds); rerenderShare(); },
+    friend: function (email) {
+      var m = (g('exMembers') || []).find(function (x) { return x.type === 'sys' && x.email === email; });
+      if (m) removeExMember(m.id);
+      else { var s = $('ex-sys-member'); if (!s) return; s.value = email; if (s.value !== email) return; addExSysMember(); }
+      rerenderShare();
+    },
+    submit: function () { submitEx(); rerenderShare(); },
+    full: function () { _armed = 'new'; showPage('ex-new'); }   // continue in the full form (outside people, note) with the same legacy form state
   };
-  function renderShare(view) {
-    var tab = window._exShareTab || 'mine';
-    var mine = window._exShareMine || [], allSorted = window._exShareAllSorted || [], canJoin = window._exShareCanJoin || [];
-    var chk = $('ex-share-filter-joinable'), useFilter = chk ? chk.checked : true;
-    var ms = $('ex-share-month-select');
-    var mOpts = ms ? Array.prototype.slice.call(ms.options).map(function (o) { return { v: o.value, l: cycleLabel(o.value) }; }) : [];
-    var curMk = ms ? ms.value : '';
-    var head = D.header({ eyebrow: 'ลงชื่อร่วมได้เอง · ล็อกอัตโนมัติเมื่อครบ 3 คน', title: 'แชร์กิจกรรมกลุ่ม',
-      actions: (mOpts.length ? '<label class="df-ex-lbl">รอบ' + selectHtml(mOpts, curMk, 'aria-label="เลือกรอบ" onchange="__dfExShare.month(this.value)"') + '</label>' : '') +
-        '<button type="button" class="df-ex-cta" onclick="__dfExShare.open()">+ เปิดกิจกรรมใหม่</button>' });
-    var tabBtn = function (id, label, n) {
-      var on = tab === id;
-      return '<button type="button" role="tab" aria-selected="' + on + '" class="df-ex-tab' + (on ? ' on' : '') + '" onclick="__dfExShare.tab(\'' + id + '\')">' + label + ' <span>' + n + '</span></button>';
-    };
-    var bar = '<div class="df-ex-tabrow"><div class="df-ex-tabs" role="tablist" aria-label="มุมมอง">' + tabBtn('mine', 'มีชื่อฉัน', mine.length) + tabBtn('all', 'กิจกรรมของทีม', allSorted.length) + '</div>' +
-      (tab === 'all' ? '<label class="df-ex-check"><input type="checkbox"' + (useFilter ? ' checked' : '') + ' onchange="__dfExShare.filter(this.checked)">แสดงเฉพาะที่ยังเข้าร่วมได้</label>' : '') + '</div>';
-    var list = tab === 'mine' ? mine : (useFilter ? canJoin : allSorted);
-    var body;
-    if (!list.length) {
-      body = tab === 'mine'
-        ? '<section class="df-card df-ex-blank"><h2>ยังไม่มีกิจกรรมที่มีชื่อคุณ</h2><p>ดูกิจกรรมของทีมแล้วกด "ร่วมด้วย" หรือเปิดกิจกรรมใหม่ชวนเพื่อน</p><button type="button" class="df-ex-ghost" onclick="__dfExShare.tab(\'all\')">ดูกิจกรรมของทีม (' + allSorted.length + ')</button></section>'
-        : '<section class="df-card df-ex-blank"><h2>' + (useFilter ? 'ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้' : 'ยังไม่มีกิจกรรมกลุ่มในรอบนี้') + '</h2><p>' + (useFilter ? 'โควต้าเต็มหรือไม่มีคำขอใหม่ · เปิดกิจกรรมใหม่ชวนเพื่อนได้เลย' : 'เปิดกิจกรรมใหม่ชวนเพื่อนได้เลย') + '</p></section>';
-    } else {
-      var label = tab === 'mine' ? 'ที่มีชื่อฉัน' : useFilter ? 'ที่เปิดรับ' : 'ทั้งหมดในทีม';
-      body = '<div class="df-ex-mut df-ex-count">พบ ' + list.length + ' กิจกรรม' + label + '</div><div class="df-ex-sgrid">' + list.map(shareCard).join('') + '</div>';
-    }
-    paint(view, '<div class="df-ex df-ex-share">' + head + bar + body + '</div>');
+  function armShareForm() {
+    if (_armed === 'share') return true;
+    if (_armed) return false;
+    _inlineOpen = true;
+    try { openExModal(); } finally { _inlineOpen = false; }
+    if (_armed !== 'share') return false;
+    var s = $('ex-type'); if (s) { s.value = 'group_ex'; updateExType(); }
+    return true;
   }
+
+  function renderShare(view) {
+    if (!SH.init) { SH.init = true; window.__dfExShare.view('open'); } // board default tab: เปิดรับอยู่
+    var v = shareView();
+    var mine = window._exShareMine || [], allSorted = window._exShareAllSorted || [], canJoin = window._exShareCanJoin || [];
+    var ms = $('ex-share-month-select');
+    var mOpts = ms ? Array.prototype.slice.call(ms.options).map(function (o) { return { v: o.value, l: cycleLong(o.value) }; }) : [];
+    var curMk = (ms && ms.value) || monthKey(today()), isCur = curMk === monthKey(today());
+    var head = D.header({ eyebrow: 'ชวนเพื่อนออกกำลังกาย · กลุ่มละอย่างน้อย 3 คน · PM ตรวจและอนุมัติ', title: 'แชร์กิจกรรมกลุ่ม',
+      actions: mOpts.length ? '<label class="df-ex-lbl">รอบ' + selectHtml(mOpts, curMk, 'aria-label="เลือกรอบ" onchange="__dfExShare.month(this.value)"') + '</label>' : '' });
+
+    // summary strip — same quota maths as legacy updateQuota, for the selected cycle
+    var Q = quotaFor(isCur ? today() : curMk + '-20');
+    var segs = [0, 1, 2, 3].map(function (k) { return '<span class="' + (k < Q.moGrp ? 'on' : '') + '"></span>'; }).join('');
+    var wkTxt = !isCur ? '<strong class="df-ex-ssmut">รอบที่ผ่านมา</strong>' : Q.wkGrp >= 1 ? '<strong class="ok">มีกลุ่มแล้ว ✓</strong>' : Q.moGrp >= 4 ? '<strong class="ok">ครบ 4 ครั้งในรอบนี้แล้ว</strong>' : '<strong>ยังว่าง · ร่วมได้ 1 กลุ่ม</strong>';
+    var strip = '<section class="df-ex-sstrip"><div class="df-ex-ssq">' + tile('ic-run', 48) + '<div><span>กลุ่มของฉันรอบนี้</span><div class="df-ex-ssbar"><div role="img" aria-label="ใช้ไป ' + Q.moGrp + ' จาก 4 ครั้ง">' + segs + '</div><strong>' + Q.moGrp + '/4 ครั้ง</strong></div></div></div>' +
+      '<div class="df-ex-ssk"><span>' + (isCur ? 'สัปดาห์นี้ (W' + Q.wkNum + ' · ' + rangeTxt(Q.ws, Q.we) + ')' : 'สัปดาห์') + '</span>' + wkTxt + '</div>' +
+      '<div class="df-ex-ssk"><span>เงินที่จะได้ถ้าอนุมัติ</span><strong class="plain">' + money(Q.grpMoney) + '</strong></div></section>';
+
+    // list (legacy lists) + week filter
+    var base = v === 'mine' ? mine : v === 'open' ? canJoin : allSorted;
+    var c = cycleOf(curMk), nW = getWkNum(toLocalDateString(isCur ? new Date(Math.min(Date.now(), c.end.getTime())) : c.end));
+    if (SH.wk !== 'all' && SH.wk > nW) SH.wk = 'all';
+    var list = base.filter(function (e) { return SH.wk === 'all' || getWkNum(e.date) === SH.wk; });
+    var tabBtn = function (id, label, n) { var on = v === id; return '<button type="button" role="tab" aria-selected="' + on + '" class="df-ex-xtab' + (on ? ' on dark' : '') + '" onclick="__dfExShare.view(\'' + id + '\')">' + label + ' <span>' + n + '</span></button>'; };
+    var wks = [['all', 'ทุกสัปดาห์']]; for (var w = nW; w >= 1; w--) wks.push([w, 'W' + w]);
+    var tools = '<div class="df-ex-stools"><div class="df-ex-xtabs df-ex-stabs" role="tablist" aria-label="มุมมอง">' + tabBtn('open', 'เปิดรับอยู่', canJoin.length) + tabBtn('mine', 'มีชื่อฉัน', mine.length) + tabBtn('all', 'ทั้งหมด', allSorted.length) + '</div>' +
+      '<div class="df-ex-swks" role="group" aria-label="สัปดาห์">' + wks.map(function (x) { var on = SH.wk === x[0]; return '<button type="button" aria-pressed="' + on + '" class="df-ex-xflt' + (on ? ' on' : '') + '" onclick="__dfExShare.wk(' + (x[0] === 'all' ? "'all'" : x[0]) + ')">' + x[1] + '</button>'; }).join('') + '</div></div>';
+    var cards = list.length ? list.map(shareCard).join('') :
+      '<div class="df-ex-sempty"><strong>' + (v === 'mine' ? 'ยังไม่มีกิจกรรมที่มีชื่อคุณ' : v === 'open' ? 'ไม่มีกิจกรรมที่เข้าร่วมได้ในขณะนี้' : 'ยังไม่มีกิจกรรมกลุ่มในรอบนี้') + '</strong><span>' +
+      (v === 'open' ? 'โควต้าเต็มหรือไม่มีคำขอใหม่ · เปิดกิจกรรมใหม่ทางขวาแล้วใส่ชื่อเพื่อนอีก 2 คน' : 'เปิดกิจกรรมใหม่ทางขวา แล้วใส่ชื่อเพื่อนอีก 2 คน') + '</span></div>';
+
+    paint(view, '<div class="df-ex df-ex-share2">' + head + strip + '<div class="df-ex-sgrid2"><section class="df-ex-slist" aria-label="กิจกรรม">' + tools + cards + '</section>' +
+      '<aside class="df-ex-sside">' + shareForm() + shareHow() + '</aside></div></div>');
+  }
+
   function shareCard(e) {
     var et = getExType(e), locked = e.status !== 'pending';
     var count = 1 + (e.members || []).length;
     var isSub = e.email === cu.email;
     var inMem = (e.members || []).some(function (m) { return m.type === 'sys' && m.email === cu.email; });
     var involved = isSub || inMem;
-    var canAct = !locked || (cu.role === 'pm' && e.status === 'approved'); // same gate as legacy renderExShare
+    var canAct = !locked || (cu.role === 'pm' && e.status === 'approved'); // same gates as legacy renderExShare
+    var d = pd(e.date), su = uByEmail(e.email) || {};
     var people = [{ email: e.email, name: e.name, type: 'sys', lead: true }].concat(e.members || []);
-    var slots = people.map(function (m) {
-      var n = m.type === 'out' ? m.name : nickOf(m.email, m.name);
-      var isMe = m.type === 'sys' && m.email === cu.email;
-      return '<span class="df-ex-slot' + (isMe ? ' me' : '') + (m.type === 'out' ? ' out' : '') + '" title="' + esc(n + (m.lead ? ' · ผู้เปิดกิจกรรม' : m.type === 'out' ? ' · นอกระบบ' : '')) + '">' + esc(first(n)) + '</span>';
+    var seats = people.map(function (m, k) {
+      var n = m.type === 'out' ? m.name : nickOf(m.email, m.name), isMe = m.type === 'sys' && m.email === cu.email;
+      var md = m.type === 'out' ? '' : ((uByEmail(m.email) || {}).dept || '');
+      var tip = n + (m.lead ? ' · ผู้เปิด' : m.type === 'out' ? ' · นอกระบบ' : md && su.dept && md !== su.dept ? ' · นอกแผนก' : '');
+      return av(n, m.email || m.name, 38, 'df-ex-seat' + (isMe ? ' me' : '') + (m.type === 'out' ? ' out' : '')).replace('aria-hidden="true"', 'title="' + esc(tip) + '"');
     });
-    for (var i = people.length; i < 3; i++) slots.push('<span class="df-ex-slot empty" aria-hidden="true">+</span>');
-    var names = people.map(function (m) { return m.type === 'out' ? m.name + ' (นอก)' : nickOf(m.email, m.name); }).join(', ');
-    var badge = e.status === 'approved' ? ['อนุมัติแล้ว · ล็อก', 'lock'] : e.status === 'rejected' ? ['ไม่อนุมัติ', 'no'] :
-      count < 3 ? ['ขาดอีก ' + (3 - count) + ' คน', 'open'] : ['ครบแล้ว · รออนุมัติ', 'full'];
-    var btn;
-    if (canAct && !involved) btn = '<button type="button" class="df-ex-join" onclick="joinExGroup(' + q(e.id) + ')">ร่วมด้วย</button>';
-    else if (canAct && involved && !isSub) btn = '<button type="button" class="df-ex-leave" onclick="leaveExGroup(' + q(e.id) + ')">ถอนตัว</button>';
-    else if (canAct && isSub) btn = '<span class="df-ex-off">คุณเป็นผู้เปิดกิจกรรม</span>';
-    else btn = '<span class="df-ex-off">' + (e.status === 'approved' ? 'ล็อกแล้ว' : 'ไม่อนุมัติ') + '</span>';
-    return '<article class="df-ex-scard"><div class="df-ex-shead"><div class="df-ex-stext"><span class="df-ex-mut df-ex-sm">' + TNAME[et] + ' · ' + money(getExerciseReward(e)) + '</span>' +
-      '<h2>' + esc(e.activity || 'กิจกรรม') + '</h2><span class="df-ex-mut">' + dsWd(e.date) + ' ' + (pd(e.date).getFullYear() + 543) + ' · W' + getWkNum(e.date) + '</span></div>' +
-      '<span class="df-ex-sbadge ' + badge[1] + '">' + badge[0] + '</span></div>' +
-      '<div class="df-ex-slots">' + slots.join('') + '<span class="df-ex-mut">' + (count < 3 ? count + ' / 3 คน' : count + ' คน') + '</span></div>' +
-      '<div class="df-ex-snames">' + esc(names) + '</div>' +
-      (e.note ? '<div class="df-ex-snote">' + esc(e.note) + '</div>' : '') +
-      btn + '<button type="button" class="df-ex-link center" onclick="viewExDetail(' + q(e.id) + ')">ดูรายละเอียด ›</button></article>';
+    for (var i = people.length; i < 3; i++) seats.push('<span class="df-ex-av df-ex-seat empty" aria-hidden="true" style="width:38px;height:38px;font-size:15px">+</span>');
+    var names = people.map(function (m) { return m.type === 'sys' && m.email === cu.email ? 'คุณ' : m.type === 'out' ? m.name : nickOf(m.email, m.name); });
+    var badge = e.status === 'approved' ? ['อนุมัติแล้ว · ล็อก', 'done'] : e.status === 'rejected' ? ['ไม่อนุมัติ', 'no'] : count < 3 ? ['ขาดอีก ' + (3 - count) + ' คน', 'open'] : ['ครบแล้ว · รออนุมัติ', 'full'];
+    // join hint uses the same checks as legacy canJoin / joinExGroup
+    var hint = '', dis = false;
+    if (canAct && !involved) {
+      var grpAll = getExs().filter(function (x) { return isGroupEx(getExType(x)) && x.status !== 'rejected' && isUserInvolved(x, cu.email); });
+      if (grpAll.filter(function (x) { return wkKey(x.date) === wkKey(e.date); }).length >= 1) { dis = true; hint = 'สัปดาห์นั้นคุณมีกลุ่มแล้ว'; }
+      else if (grpAll.filter(function (x) { return monthKey(x.date) === monthKey(e.date); }).length >= 4) { dis = true; hint = 'ครบ 4 ครั้งในรอบนี้แล้ว'; }
+    }
+    var act;
+    if (canAct && !involved) act = '<button type="button" class="df-ex-sbtn primary"' + (dis ? ' disabled' : '') + ' onclick="joinExGroup(' + q(e.id) + ')">ร่วมด้วย</button>';
+    else if (canAct && involved && !isSub) act = '<button type="button" class="df-ex-sbtn" onclick="leaveExGroup(' + q(e.id) + ')">ถอนตัว</button>';
+    else if (canAct && isSub) act = '<button type="button" class="df-ex-sbtn" onclick="viewExDetail(' + q(e.id) + ')">แนบหลักฐาน / รายละเอียด</button>';
+    else act = '<span class="df-ex-soff">' + (e.status === 'approved' ? (involved ? 'คุณได้ ' + money(getExerciseReward(e)) : 'ล็อกแล้ว') : 'ไม่อนุมัติ') + '</span>';
+    return '<article class="df-ex-scard2' + (involved ? ' me' : '') + (e.status !== 'pending' ? ' closed' : '') + '">' +
+      '<div class="df-ex-sdate"><span>' + WD[d.getDay()] + '</span><b>' + d.getDate() + '</b><span>' + MON[d.getMonth()] + '</span></div>' +
+      '<div class="df-ex-smain"><div class="df-ex-stop"><div class="df-ex-stxt"><span class="df-ex-skind">' + tile(TICON[et], 20) + TNAME[et] + ' · ' + money(getExerciseReward(e)) + '/คน · W' + getWkNum(e.date) + '</span>' +
+      '<h2>' + esc(e.activity || 'กิจกรรม') + '</h2><span class="df-ex-sby">เปิดโดย ' + (isSub ? 'คุณ' : esc(nickOf(e.email, e.name)) + (su.dept ? ' (' + esc(su.dept) + ')' : '')) + (e.note ? ' · “' + esc(e.note) + '”' : '') + '</span></div>' +
+      '<span class="df-ex-spill ' + badge[1] + '">' + badge[0] + '</span></div>' +
+      '<div class="df-ex-sbottom"><div class="df-ex-sppl"><div class="df-ex-seats">' + seats.join('') + '</div><span>' + esc(names.join(', ')) + ' · ' + count + (count < 3 ? '/3 คน' : ' คน') + '</span></div>' +
+      '<div class="df-ex-sacts">' + (hint ? '<span class="df-ex-shint">' + hint + '</span>' : '') + act +
+      (canAct && isSub ? '' : '<button type="button" class="df-ex-link" onclick="viewExDetail(' + q(e.id) + ')">รายละเอียด</button>') + '</div></div></div></article>';
+  }
+
+  function shareForm() {
+    if (!armShareForm()) return '<section class="df-ex-sform"><h2>เปิดกิจกรรมใหม่</h2><span class="df-ex-mut df-ex-sm">กำลังใช้ฟอร์มยื่นเบิกอยู่ — <a href="#ex-new" onclick="event.preventDefault();showPage(\'ex-new\')">กลับไปที่ฟอร์ม</a></span></section>';
+    var type = val('ex-type'); if (!isGroupEx(type)) type = 'group_ex';
+    var date = val('ex-date') || today(), DO = dateOptions(date, g('_editingExId'));
+    var mem = g('exMembers') || [], count = 1 + mem.length, need = Math.max(0, 3 - count);
+    var outs = mem.filter(function (m) { return m.type === 'out'; });
+    var types = [['group_ex', 'ออกกำลังกาย', 'ic-run'], ['group_eat', 'กินข้าว', 'ic-eat']].map(function (T) {
+      var on = T[0] === type;
+      return '<button type="button" role="radio" aria-checked="' + on + '" class="df-ex-stype' + (on ? ' on' : '') + '" onclick="__dfExShare.type(\'' + T[0] + '\')">' + tile(T[2], 32) +
+        '<span><b>' + T[1] + '</b><small>' + money(getExerciseReward(T[0], date)) + '/คน</small></span></button>';
+    }).join('');
+    var ppl = legacyPeople(), chosen = mem.filter(function (m) { return m.type === 'sys'; });
+    var friends = chosen.map(function (m) {
+      var n = nickOf(m.email, m.name);
+      return '<button type="button" aria-pressed="true" class="df-ex-sfr on" onclick="__dfExShare.friend(' + q(m.email) + ')" title="เอาออก">' + av(n, m.email, 22) + esc(n) + ' ×</button>';
+    }).concat(ppl.map(function (p) {
+      return '<button type="button" aria-pressed="false" class="df-ex-sfr"' + (p.off ? ' disabled title="' + esc(p.why) + '"' : '') + ' onclick="__dfExShare.friend(' + q(p.email) + ')">' + av(p.nick, p.email, 22) + esc(p.nick) + '</button>';
+    })).join('') + outs.map(function (m) { return '<span class="df-ex-sfr out">' + esc(m.name) + ' · นอกระบบ</span>'; }).join('');
+    var errEl = $('ex-err'), warnEl = $('ex-warn'), btnL = $('btn-submit-ex');
+    var err = errEl && errEl.style.display !== 'none' ? errEl.innerHTML : '';
+    var warn = warnEl && warnEl.style.display !== 'none' ? warnEl.textContent : '';
+    var dup = DO.dupFor(date);
+    var blocked = need > 0 || !!(btnL && btnL.disabled);
+    var label = need > 0 ? 'เปิดกิจกรรม · ใส่ชื่อเพื่อนอีก ' + need + ' คน' : 'เปิดกิจกรรม · ' + count + ' คน · ' + money(getExerciseReward(type, date)) + '/คน';
+    var ideas = (IDEAS[type] || []).map(function (t) { return '<button type="button" class="df-ex-sidea" onclick="__dfExShare.idea(' + q(t) + ')">' + esc(t) + '</button>'; }).join('');
+    return '<section class="df-ex-sform" aria-label="เปิดกิจกรรมใหม่"><h2>เปิดกิจกรรมใหม่</h2>' +
+      '<div class="df-ex-stypes" role="radiogroup" aria-label="ประเภท">' + types + '</div>' +
+      '<label class="df-ex-sf">กิจกรรม<input data-k="sh-act" class="df-ex-input" placeholder="เช่น วิ่งสวนเบญจกิติ 5 กม." value="' + esc(val('ex-act')) + '" oninput="__dfExShare.text(\'ex-act\',this.value)"></label>' +
+      '<div class="df-ex-sideas">' + ideas + '</div>' +
+      '<label class="df-ex-sf">วันที่ทำกิจกรรม' + selectHtml(DO.opts, date, 'onchange="__dfExShare.date(this.value)"', 'sf') + '</label>' +
+      '<span class="df-ex-mut df-ex-sm">' + DO.hint + '</span>' +
+      '<div class="df-ex-sf">ชวนเพื่อน (ใส่ชื่อในกลุ่ม · รวมคุณ ' + count + ' คน)<div class="df-ex-sfrs">' + (friends || '<span class="df-ex-mut df-ex-sm">ไม่มีสมาชิกที่เพิ่มได้</span>') + '</div></div>' +
+      '<label class="df-ex-sf">ลิงก์วิดีโอหลักฐาน <span class="df-ex-req">* จำเป็น</span><input data-k="sh-link" class="df-ex-input" type="url" placeholder="วางลิงก์ Google Drive หรือ YouTube" value="' + esc(val('ex-link')) + '" oninput="__dfExShare.text(\'ex-link\',this.value)"></label>' +
+      (warn ? '<div class="df-ex-alert warn" role="status">' + esc(warn) + '</div>' : '') +
+      (dup && !err ? '<div class="df-ex-alert warn" role="status">วันที่นี้คุณมีรายการยื่นแล้ว กรุณาเลือกวันอื่น</div>' : '') +
+      (err ? '<div class="df-ex-alert err" role="alert">' + err + '</div>' : '') +
+      '<button type="button" class="df-ex-send"' + (blocked ? ' disabled' : '') + ' onclick="__dfExShare.submit()">' + label + '</button>' +
+      '<button type="button" class="df-ex-link center" onclick="__dfExShare.full()">ใช้ฟอร์มเต็ม (เพิ่มคนนอกระบบ · หมายเหตุ) ›</button></section>';
+  }
+  function shareHow() {
+    return '<section class="df-ex-show"><strong>ทำงานยังไง</strong>' +
+      '<span>1 · ทำกิจกรรมเสร็จแล้วเปิดกิจกรรม ใส่ชื่อเพื่อนอย่างน้อย 2 คน (รวมคุณ 3 คน) และแนบลิงก์วิดีโอ</span>' +
+      '<span>2 · เพื่อนที่ยังไม่มีชื่อกด “ร่วมด้วย” ได้ระหว่างรออนุมัติ · ถอนตัวได้ถ้ากลุ่มยังเหลืออย่างน้อย 3 คน</span>' +
+      '<span>3 · PM ตรวจวิดีโอแล้วอนุมัติ — อนุมัติแล้วรายการจะล็อก</span>' +
+      '<span class="df-ex-mut">กลุ่มได้ 1 ครั้ง/สัปดาห์ · 4 ครั้ง/รอบ ต่อคน · ทุกคนในกลุ่มได้ ' + money(getExerciseReward('group_ex', today())) + ' (ออก) / ' + money(getExerciseReward('group_eat', today())) + ' (กิน)</span></section>';
   }
 
   /* ======================= X4 · Leaderboard ======================= */
@@ -786,8 +896,8 @@
     D.registerPage('leaderboard', { render: renderLB, refreshOn: [] });
     D.registerPage('exercise-review', { render: renderReview, refreshOn: [] });
     // coalesced re-render after the legacy renderers refresh their (hidden) DOM
-    ['updateQuota', 'renderExHistory'].forEach(function (fn) { D.hook(fn, function () { schedule('exercise-log'); schedule('ex-new'); }); });
-    ['renderExMembers'].forEach(function (fn) { D.hook(fn, function () { schedule('ex-new'); }); });
+    ['updateQuota', 'renderExHistory'].forEach(function (fn) { D.hook(fn, function () { schedule('exercise-log'); schedule('ex-new'); schedule('exercise-share'); }); });
+    ['renderExMembers'].forEach(function (fn) { D.hook(fn, function () { schedule('ex-new'); schedule('exercise-share'); }); });
     ['renderExShare', 'setExShareTab', 'applyExShareAllFilter'].forEach(function (fn) { D.hook(fn, function () { schedule('exercise-share'); }); });
     ['updateLB'].forEach(function (fn) { D.hook(fn, function () { schedule('leaderboard'); }); });
     ['renderExR'].forEach(function (fn) { D.hook(fn, function () { schedule('exercise-review'); }); });
@@ -795,16 +905,17 @@
     D.hook('openExModal', function () { afterLegacyOpen('new'); });
     D.hook('editEx', function () { afterLegacyOpen('edit'); });
     D.hook('showPage', function (id) {
-      if (id !== 'ex-new') { _armed = null; releaseFormModal(); }
-      else { var nv = document.querySelector('[onclick="showPage(\'exercise-log\')"]'); if (nv) nv.classList.add('active'); }
+      if (_armed && id !== pageOfMode(_armed)) { _armed = null; releaseFormModal(); }
+      if (id === 'ex-new') { var nv = document.querySelector('[onclick="showPage(\'exercise-log\')"]'); if (nv) nv.classList.add('active'); }
     });
     // after a successful legacy submit, go back to "ข้อมูลของฉัน"
     var orig = window.doSubmitEx;
     if (typeof orig === 'function' && !orig.__dfex) {
       var wrapped = function () {
-        var fromPage = isActive('ex-new');
+        var fromPage = isActive('ex-new'), fromShare = _armed === 'share' && isActive('exercise-share');
         var p = orig.apply(this, arguments);
         if (fromPage) Promise.resolve(p).then(function () { if (isActive('ex-new')) showPage('exercise-log'); }, function () {});
+        if (fromShare) Promise.resolve(p).then(function () { _armed = null; releaseFormModal(); try { renderExShare(); } catch (x) {} schedule('exercise-share'); }, function () {}); // legacy doSubmitEx does not refresh the share lists
         return p;
       };
       wrapped.__dfex = true; window.doSubmitEx = wrapped;
