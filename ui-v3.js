@@ -476,10 +476,11 @@
     ['cards', 'ตัวเลขสำคัญของคุณ', 'วันลาคงเหลือ ใบลารออนุมัติ เงินออกกำลังกาย และวันหยุดถัดไป ดูได้ทันทีที่เข้าระบบ'],
     ['cal', 'ปฏิทินทีม', 'เห็นว่าใครลาวันไหน และวันหยุดธนาคาร ช่วยให้วางแผนลาไม่ชนกับเพื่อน'],
     ['bell', 'การแจ้งเตือน', 'ผลอนุมัติใบลา ตัดรอบเบิก และวันเกิดเพื่อน จะแจ้งที่กระดิ่งนี้'],
-    [null, 'พร้อมใช้งานแล้ว', 'เคล็ดลับ: ตั้งรูปโปรไฟล์ได้ที่การ์ดชื่อมุมล่างซ้าย และสลับโหมดมืด/สว่างได้ตลอด · เปิดทัวร์นี้อีกครั้งที่ปุ่ม "วิธีใช้งาน"']
+    ['display', 'ปรับการแสดงผล', 'เลือกโหมดสว่าง/มืด และขนาดตัวอักษร (เล็กลง · ปกติ · ใหญ่ขึ้น) ได้ที่ปุ่ม "การแสดงผล" ใต้ชื่อของคุณ — บนมือถือกดรูปโปรไฟล์มุมบนขวา แล้วเลือกแท็บ "การแสดงผล"'],
+    [null, 'พร้อมใช้งานแล้ว', 'เคล็ดลับ: ตั้งรูปโปรไฟล์และกรอบรูปได้ที่ปุ่ม "โปรไฟล์" ใต้ชื่อของคุณ · เปิดทัวร์นี้อีกครั้งที่ปุ่ม "วิธีใช้งาน"']
   ];
   var tourStep = -1, tourEl = null, holeEl = null;
-  function visible(el) { if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; }
+  function visible(el) { if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > 0 && r.left < window.innerWidth && getComputedStyle(el).visibility !== 'hidden'; }
   function tourTarget(k) {
     var q = function (sel) { return document.querySelector(sel); };
     if (k === 'nav') { var tb = q('#df-tabbar'); return visible(tb) ? tb : q('.df-sidebar .nav-section:nth-of-type(2)') ? q('.df-sidebar') : null; }
@@ -487,6 +488,7 @@
     if (k === 'cards') return q('#page-dashboard .dashboard-stats');
     if (k === 'cal') { var d = q('#dashboard-calendar-days'); return d && d.closest('.dashboard-panel'); }
     if (k === 'bell') return q('#notif-bell');
+    if (k === 'display') { var ua = q('.df-user-actions .df-ua:nth-child(2)'); return visible(ua) ? ua : q('#df-m-avatar'); }
     return null;
   }
   function placeHole() {
