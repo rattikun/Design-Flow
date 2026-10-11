@@ -15,6 +15,7 @@
   if (typeof window === 'undefined') return;
 
   var TH_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  var TH_DAY_LONG = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
   var TH_MON_S = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   var TYPE_ICON = { vacation: 'ic-vac', personal: 'ic-biz', sick: 'ic-sick', dental: 'ic-dent', birthday: 'ic-bday', accumulated: 'ic-acc' };
 
@@ -182,16 +183,26 @@
       sub = whenTxt(mine.start < t ? t : mine.start) + 'คุณ' + plainType(mine.type) + (String(mine.status).indexOf('pending') === 0 ? ' (รออนุมัติ)' : '') + (hNext ? ' ต่อด้วยวันหยุด ' + fmtShort(hNext.date) : '');
     } else sub = hol.length ? 'ยังไม่มีวันลาที่กำลังจะถึง · วันหยุดถัดไป ' + fmtShort(hol[0].date) + ' ' + (hol[0].name || '') : 'ยังไม่มีวันลาที่กำลังจะถึง';
 
-    var shown = team.slice(0, 6);
-    var faces = shown.map(function (u, i) {
-      return DFV3.avatar(u, 36).replace('aria-hidden="true"', 'title="' + esc(nick(u)) + '"').replace('style="', 'style="' + (i ? 'margin-left:-8px;' : '') + 'box-shadow:0 0 0 2px var(--ds-tint);');
-    }).join('') + (team.length > 6 ? '<span class="df-hero-more">+' + (team.length - 6) + '</span>' : '');
-    var countTxt = team.length + ' คน' + (isMgr ? (awayToday.length ? ' · ลา ' + awayToday.length : ' · อยู่ครบ') : '');
-
-    hero.innerHTML = '<div class="df-hero-text"><span class="df-hero-eyebrow">' + esc(cu.dept ? 'ทีม ' + cu.dept : 'ทีมของฉัน') + ' · สัปดาห์นี้</span>' +
-      '<h2>' + esc(title) + '</h2><p>' + esc(sub) + '</p>' +
-      '<div class="df-hero-team">' + faces + '<span class="df-hero-count">' + esc(countTxt) + '</span></div></div>' +
-      '<div class="df-hero-photo" aria-hidden="true"><img src="team-photo.jpg?v=20261011" alt="" loading="lazy"></div>';
+    // J · แดชบอร์ด (ไม่มีอนิเมชั่น): รูปทีมเต็มกรอบ + การ์ดกระจกทางซ้าย
+    var now = new Date();
+    var chip = TH_DAY_LONG[now.getDay()] + ' ' + fmtShort(t) + ' · ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    var summary = sub + ' — ' + title;
+    var teamName = cu.dept ? 'ทีม ' + cu.dept : 'ทีมของฉัน';
+    hero.className = 'df-jhero';
+    hero.setAttribute('aria-label', 'ภาพรวมวันนี้');
+    hero.innerHTML =
+      '<img class="df-jhero-bg" src="team-photo.jpg?v=20261011" alt="" aria-hidden="true">' +
+      '<img class="df-jhero-img" src="team-photo.jpg?v=20261011" alt="รูปสมาชิก' + esc(teamName) + 'ถ่ายรวมกัน">' +
+      '<div class="df-jhero-glass">' +
+        '<span class="df-jhero-chip">' + esc(chip) + '</span>' +
+        '<h1>' + esc(greetingWord() + ' ' + nick(cu)) + '</h1>' +
+        '<p>' + esc(summary) + '</p>' +
+        '<div class="df-jhero-actions">' +
+          '<button type="button" class="df-jhero-btn primary df-hero-cta-leave" onclick="openLeaveModal()">+ ยื่นใบลา</button>' +
+          '<button type="button" class="df-jhero-btn df-hero-cta-ex" onclick="openExModal()">ยื่นเบิกออกกำลังกาย</button>' +
+        '</div>' +
+      '</div>' +
+      '<span class="df-jhero-badge">' + esc(teamName + ' · ' + team.length + ' คน') + '</span>';
   }
 
   function fmtShort(ds) { var d = new Date(ds + 'T00:00:00'); return d.getDate() + ' ' + TH_MON_S[d.getMonth()]; }
@@ -489,8 +500,8 @@
   function tourTarget(k) {
     var q = function (sel) { return document.querySelector(sel); };
     if (k === 'nav') { var tb = q('#df-tabbar'); return visible(tb) ? tb : q('.df-sidebar .nav-section:nth-of-type(2)') ? q('.df-sidebar') : null; }
-    if (k === 'leave') return q('#page-dashboard .dashboard-head-actions .btn-primary');
-    if (k === 'exercise') return q('#page-dashboard .dashboard-head-actions [onclick^="openExModal"]');
+    if (k === 'leave') return q('#df-dash-hero .df-hero-cta-leave') || q('#page-dashboard .dashboard-head-actions .btn-primary');
+    if (k === 'exercise') return q('#df-dash-hero .df-hero-cta-ex') || q('#page-dashboard .dashboard-head-actions [onclick^="openExModal"]');
     if (k === 'approve') { var a = ['#nav-leave-review', '#nav-leave-pm', '#nav-ex-review'].map(q).filter(function (n) { return n && n.style.display !== 'none' && visible(n); }); return a[0] ? a[0].parentNode : null; }
     if (k === 'cards') return q('#page-dashboard .dashboard-stats');
     if (k === 'cal') { var d = q('#dashboard-calendar-days'); return d && d.closest('.dashboard-panel'); }
