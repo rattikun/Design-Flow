@@ -962,3 +962,11 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .df-drive-st { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
 .df-drive-st.on { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
 .df-drive-st.off { background: var(--ds-hol-bg); color: var(--ds-hol-fg); }
+
+/* ---------- 30. Sticky side panels ("สรุปก่อนส่ง") --------------------------
+   legacy .main had overflow:auto while the window is what scrolls, which made
+   .main the sticky container and broke position:sticky. clip keeps the
+   horizontal clipping without creating a scroll container. */
+.main { overflow: visible !important; overflow-x: clip !important; }
+/* keep the floating bell clear of the stuck panel */
+.df-ex-new .df-ex-sum, .df-leave-aside { top: 76px !important; }
