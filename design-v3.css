@@ -821,3 +821,50 @@ html[data-theme="dark"] .dashboard-stat .ic-solo { --tbg: #3D2219; --tfg: #F5A58
 /* date-part boxes: Anuphan digits are wider than the old font — widen everywhere */
 .date-part[data-part="d"], .date-part[data-part="m"] { width: 2.6ch !important; min-width: 24px !important; text-align: center; }
 .date-part[data-part="y"] { width: 4.6ch !important; min-width: 42px !important; }
+
+/* ---------- 26. Profile tabs + display settings (theme, font size) -------- */
+.df-ptabs { display: flex; gap: 4px; padding: 0 28px; border-top: 1px solid var(--ds-line); }
+.df-ptab {
+  min-height: 48px; padding: 0 16px; border: 0; background: transparent; cursor: pointer;
+  font: 600 15px var(--df-font); color: var(--ds-muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.df-ptab:hover { color: var(--ds-text); }
+.df-ptab.on { color: var(--ds-accent-ink); border-bottom-color: var(--ds-accent); }
+.df-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px; }
+.df-opts-3 { grid-template-columns: repeat(3, minmax(0, 200px)); }
+@media (max-width: 600px) { .df-opts, .df-opts-3 { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); } }
+.df-opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+  min-height: 96px; padding: 16px; border-radius: 16px; cursor: pointer;
+  border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text); font-family: var(--df-font);
+}
+.df-opt:hover { background: var(--ds-surface2); }
+.df-opt.on { border: 2px solid var(--ds-accent); background: var(--ds-tint); padding: 15px; }
+.df-opt-ic { height: 26px; display: flex; align-items: center; color: var(--ds-accent-ink); }
+.df-opt b { font-size: 15px; font-weight: 600; }
+.df-opt small { font-size: 12px; color: var(--ds-muted); }
+.df-font-sample { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 14px; background: var(--ds-surface2); border: 1px solid var(--ds-line2); }
+.df-font-sample b { font-size: 16px; color: var(--ds-text); }
+.df-font-sample span { font-size: 14px; color: var(--ds-text2); }
+
+/* whole-site text size: zoom the page; keep viewport-height boxes the right size */
+html { --df-z: 1; }
+html[data-font="sm"] { --df-z: .875; zoom: .875; }
+html[data-font="lg"] { --df-z: 1.125; zoom: 1.125; }
+html[data-font] .sidebar { height: calc(100vh / var(--df-z)); }
+html[data-font] .modal { max-height: calc(90vh / var(--df-z)); }
+html[data-font] #modal-ex-detail .modal.exd-modal { max-height: calc((100vh - 48px) / var(--df-z)); }
+html[data-font] .df-ex-xdetail { max-height: calc((100vh - 32px) / var(--df-z)); }
+html[data-font] #notif-list { max-height: min(560px, calc((100vh - 145px) / var(--df-z))); }
+html[data-font] #login-screen, html[data-font] #registration-screen { min-height: calc(100vh / var(--df-z)); }
+@media (max-width: 768px) {
+  html[data-font] .modal { max-height: calc((100dvh - 20px) / var(--df-z)); }
+}
+#df-m-avatar { display: none; }
+@media (max-width: 768px) {
+  #df-m-avatar {
+    display: inline-flex; align-items: center; justify-content: center; position: fixed; top: 9px; right: 68px; z-index: 951;
+    width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--ds-tint); color: var(--ds-accent-ink); font: 700 16px var(--df-font);
+  }
+}

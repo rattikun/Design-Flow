@@ -11,7 +11,7 @@
   <link rel="manifest" href="site.webmanifest?v=20260902a">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;display=swap">
-  <script>/* v3 theme: UI preference only */(function(){try{var t=localStorage.getItem('df-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <script>/* v3 theme: UI preference only */(function(){try{var t=localStorage.getItem('df-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);var f=localStorage.getItem('df-font');if(f==='sm'||f==='lg')document.documentElement.setAttribute('data-font',f);}catch(e){}})();</script>
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap"
     rel="stylesheet">
@@ -2394,10 +2394,6 @@
             <div id="sb-fullname" hidden>—</div>
           </div>
         </div>
-        <div class="df-theme-switch" role="group" aria-label="ธีมการแสดงผล">
-          <button type="button" data-df-theme="light" aria-pressed="true" onclick="dfSetTheme('light')"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg> สว่าง</button>
-          <button type="button" data-df-theme="dark" aria-pressed="false" onclick="dfSetTheme('dark')"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg> มืด</button>
-        </div>
         <div class="df-version">Design Flow v3.0.0<br>อัปเดตล่าสุด 11 ต.ค. 2569</div>
       </div>
     </aside>
@@ -3400,6 +3396,12 @@
       var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'dark' ? '#10111C' : '#F5F6FB');
     }
     dfSetTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    function dfSetFont(f) {
+      f = (f === 'sm' || f === 'lg') ? f : 'md';
+      if (f === 'md') document.documentElement.removeAttribute('data-font'); else document.documentElement.setAttribute('data-font', f);
+      try { localStorage.setItem('df-font', f); } catch (e) {}
+      document.querySelectorAll('[data-df-font]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-df-font') === f)); });
+    }
   </script>
   <script src="api.js?v=20261011-public-invite"></script>
   <script src="team-manager.js?v=20261011-no-password"></script>

@@ -359,6 +359,16 @@
     // the whole "ขุนทอง" menu (นัดตีแบด, เรียกเก็บเงิน) is for PM and Team Lead only
     var khun = document.getElementById('nav-sec-khun');
     if (khun) khun.style.display = (cu.role === 'pm' || cu.role === 'lead') ? '' : 'none';
+    // mobile top bar: avatar shortcut to the profile (theme + text size live there)
+    var bar = document.querySelector('.mobile-nav-bar');
+    if (bar && !document.getElementById('df-m-avatar')) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.id = 'df-m-avatar'; b.setAttribute('aria-label', 'โปรไฟล์และการแสดงผล');
+      b.onclick = function () { showPage('profile'); };
+      bar.appendChild(b);
+    }
+    var mav = document.getElementById('df-m-avatar');
+    if (mav) mav.textContent = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase();
     var team = document.getElementById('df-sb-team');
     if (team) team.textContent = cu.dept ? 'ทีม ' + cu.dept : 'ระบบจัดการทีม';
   }
@@ -373,21 +383,51 @@
   }
   DFV3.serviceText = serviceText;
 
+  var _profileTab = 'info';
+  DFV3.profileTab = function (t) { _profileTab = t === 'display' ? 'display' : 'info'; renderPage('profile'); };
+  DFV3.openDisplaySettings = function () { _profileTab = 'display'; showPage('profile'); };
+
   function renderProfile(view) {
     var u = userByEmail(cu.email) || cu;
     var loc = u.locationType === 'province' ? 'ต่างจังหวัด' : 'กรุงเทพ';
     var bday = u.birthday ? (function () { var d = new Date(u.birthday + 'T00:00:00'); return d.getDate() + ' ' + TH_MON_S[d.getMonth()]; })() : '—';
     var field = function (k, v) { return '<div class="df-field"><span>' + k + '</span><b>' + esc(v || '—') + '</b></div>'; };
-    view.innerHTML = DFV3.header({ eyebrow: 'บัญชีของฉัน', title: 'โปรไฟล์ของฉัน' }) +
-      '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"></div>' +
-      '<div class="df-profile-row">' + DFV3.avatar(u, 120).replace('class="df-av"', 'class="df-av df-av-ring"') +
-      '<div class="df-profile-name"><h2>' + esc(nick(u)) + '</h2><span>' + esc(u.name) + ' · ' + esc(DFV3.ROLE_LABEL[u.role] || u.role) + (u.dept ? ' · ' + esc(u.dept) : '') + '</span></div>' +
-      '<div class="df-profile-actions"><button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></div></section>' +
-      '<section class="df-card"><div class="df-card-head"><h2>ข้อมูลส่วนตัวและการทำงาน</h2><span class="df-lock"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>แก้ไขได้โดยหัวหน้าทีม / PM เท่านั้น</span></div>' +
+    var tab = function (id, label) {
+      var on = _profileTab === id;
+      return '<button type="button" role="tab" id="df-ptab-' + id + '" aria-selected="' + on + '" aria-controls="df-ppanel" class="df-ptab' + (on ? ' on' : '') + '" onclick="DFV3.profileTab(\'' + id + '\')">' + label + '</button>';
+    };
+    var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    var font = document.documentElement.getAttribute('data-font') || 'md';
+    var seg = function (attr, val, cur, fn, icon, label, hint) {
+      var on = val === cur;
+      return '<button type="button" class="df-opt' + (on ? ' on' : '') + '" ' + attr + '="' + val + '" aria-pressed="' + on + '" onclick="' + fn + '(\'' + val + '\');DFV3.renderPage(\'profile\')">' +
+        '<span class="df-opt-ic" aria-hidden="true">' + icon + '</span><b>' + label + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
+    };
+    var SUN = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>';
+    var MOON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>';
+    var A = function (px) { return '<span style="font-size:' + px + 'px;font-weight:700;line-height:1">ก</span>'; };
+
+    var info = '<section class="df-card"><div class="df-card-head"><h2>ข้อมูลส่วนตัวและการทำงาน</h2><span class="df-lock"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>แก้ไขได้โดยหัวหน้าทีม / PM เท่านั้น</span></div>' +
       '<div class="df-fields">' + field('ชื่อ–นามสกุล', u.name) + field('ชื่อเล่น', u.nickname) + field('อีเมล', u.email) +
       field('ตำแหน่ง', DFV3.ROLE_LABEL[u.role] || u.role) + field('ทีม', u.dept) + field('พื้นที่', loc) +
       field('วันเริ่มงาน', u.startDate ? DFV3.thDate(u.startDate, { year: true }) : '—') + field('อายุงาน', serviceText(u.startDate)) + field('วันเกิด', bday) + '</div>' +
       '<p class="df-muted">ข้อมูลไม่ถูกต้อง? แจ้งหัวหน้าทีมหรือ PM เพื่อแก้ไข</p></section>';
+
+    var display = '<section class="df-card"><div class="df-card-head"><h2>ธีม</h2></div>' +
+      '<div class="df-opts" role="group" aria-label="ธีม">' +
+      seg('data-df-theme', 'light', theme, 'dfSetTheme', SUN, 'สว่าง', '') + seg('data-df-theme', 'dark', theme, 'dfSetTheme', MOON, 'มืด', '') + '</div></section>' +
+      '<section class="df-card"><div class="df-card-head"><h2>ขนาดตัวอักษร</h2><span class="df-muted">ใช้กับทุกหน้าในเว็บ · จำค่าไว้ในเครื่องนี้</span></div>' +
+      '<div class="df-opts df-opts-3" role="group" aria-label="ขนาดตัวอักษร">' +
+      seg('data-df-font', 'sm', font, 'dfSetFont', A(15), 'เล็กลง', '87.5%') + seg('data-df-font', 'md', font, 'dfSetFont', A(20), 'ปกติ', '100%') + seg('data-df-font', 'lg', font, 'dfSetFont', A(25), 'ใหญ่ขึ้น', '112.5%') + '</div>' +
+      '<div class="df-font-sample"><b>ตัวอย่างข้อความ</b><span>ลาพักร้อน 2 วัน · 12–13 ต.ค. · รออนุมัติจากหัวหน้าทีม</span></div></section>';
+
+    view.innerHTML = DFV3.header({ eyebrow: 'บัญชีของฉัน', title: 'โปรไฟล์ของฉัน' }) +
+      '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"></div>' +
+      '<div class="df-profile-row">' + DFV3.avatar(u, 120).replace('class="df-av"', 'class="df-av df-av-ring"') +
+      '<div class="df-profile-name"><h2>' + esc(nick(u)) + '</h2><span>' + esc(u.name) + ' · ' + esc(DFV3.ROLE_LABEL[u.role] || u.role) + (u.dept ? ' · ' + esc(u.dept) : '') + '</span></div>' +
+      '<div class="df-profile-actions"><button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></div>' +
+      '<div class="df-ptabs" role="tablist" aria-label="หมวดโปรไฟล์">' + tab('info', 'ข้อมูลส่วนตัว') + tab('display', 'การแสดงผล') + '</div></section>' +
+      '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display : info) + '</div>';
   }
 
   /* ======================= INSTALL ======================= */
