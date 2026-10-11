@@ -680,7 +680,7 @@
   }
   function loadDrive() {
     if (DRV.loading) return; DRV.loading = true;
-    drivePost('/drive/status').then(function (d) { DRV.connected = !!d.connected; DRV.configured = d.configured !== false; DRV.email = d.email || ''; DRV.err = ''; },
+    drivePost('/drive/status').then(function (d) { DRV.connected = !!d.connected; DRV.fullAccess = !!d.fullAccess; DRV.configured = d.configured !== false; DRV.email = d.email || ''; DRV.err = ''; },
       function (e) { DRV.err = e.message === 'NOT_FOUND' || /HTTP_404/.test(e.message) ? 'NOT_DEPLOYED' : e.message; })
       .then(function () { DRV.loading = false; DRV.loaded = true; rerenderProfile(); });
   }
@@ -698,6 +698,7 @@
     return '<section class="df-card"><div class="df-card-head"><h2>Google Drive สำหรับหลักฐานออกกำลังกาย</h2>' + st + '</div>' +
       '<p class="df-muted">ไฟล์ที่ทีมอัปโหลดตอนยื่นเบิกจะเก็บใน Drive นี้ แยกโฟลเดอร์ตามแผนก → คน → เดือน ระบบเห็นเฉพาะไฟล์ที่ระบบสร้างเอง</p>' +
       (DRV.err && DRV.err !== 'NOT_DEPLOYED' ? '<div class="df-photo-msg err" style="margin:0">⚠️ ' + esc(DRV.err) + '</div>' : '') +
+      (DRV.connected && !DRV.fullAccess ? '<div class="df-photo-msg err" style="margin:0">ต้องกด "เชื่อมใหม่" 1 ครั้ง เพื่อให้ระบบอัปเดตไฟล์รายงานเบิกที่มีอยู่แล้วใน Drive ได้ (Google อาจขึ้นเตือนว่าแอปยังไม่ได้รับการยืนยัน — กด ขั้นสูง › ไปที่แอป)</div>' : '') +
       (canConnect ? '<div class="df-profile-actions"><button type="button" class="btn ' + (DRV.connected ? 'btn-ghost' : 'btn-primary') + '" onclick="DFV3.connectDrive()">' + (DRV.connected ? 'เชื่อมใหม่' : 'เชื่อม Google Drive') + '</button></div>' : '') +
       '</section>';
   }

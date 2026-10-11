@@ -355,6 +355,77 @@
         UP.status = 'error'; UP.err = UP_ERR[code] || ('อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง หรือวางลิงก์แทน (รหัส: ' + (code || 'ไม่ทราบ') + ')'); console.warn('[df-ex-upload]', code);
       }).then(upRender);
   }
+  /* ---------- PM: send the latest approved counts into the team's Excel report (Google Drive) ----------
+     The gateway fills only the input rows of the cycle's month sheet; headings/formulas are never changed. */
+  var REP = { cycle: '', label: '', busy: false, msg: '', err: '', info: null, edit: false };
+  var REP_ERR = {
+    PM_REQUIRED: 'เฉพาะ PM เท่านั้น',
+    DRIVE_NOT_CONNECTED: 'ยังไม่ได้เชื่อม Google Drive — เจ้าของ Drive เชื่อมได้ที่ โปรไฟล์ › การแสดงผล',
+    DRIVE_RECONNECT_REQUIRED: 'การเชื่อม Google Drive หมดอายุ — ให้เจ้าของ Drive กดเชื่อมใหม่',
+    REPORT_FILE_INVALID: 'ลิงก์ไฟล์ไม่ถูกต้อง',
+    REPORT_FILE_NOT_XLSX: 'ไฟล์ต้องเป็น Excel (.xlsx)',
+    REPORT_FILE_NOT_FOUND: 'ไม่พบไฟล์ หรือบัญชี Drive ที่เชื่อมไว้ไม่มีสิทธิ์เปิดไฟล์นี้',
+    REPORT_FILE_NO_ACCESS: 'บัญชี Drive ที่เชื่อมไว้ไม่มีสิทธิ์แก้ไขไฟล์นี้ — ต้องเชื่อม Drive ใหม่ (สิทธิ์ทั้ง Drive) หรือแชร์ไฟล์ให้แก้ไขได้',
+    SHEET_NOT_FOUND: 'ไม่พบชีตของเดือนนี้ในไฟล์',
+    TEMPLATE_LAYOUT_UNSUPPORTED: 'หัวตารางของชีตนี้ไม่ตรงรูปแบบ (FullName · Nickname · รวมเดี่ยว · ทีมออกกำลังกาย · ทีมทานอาหาร · ยอดจ่าย · ต่างจังหวัด)',
+    REPORT_FILE_NOT_SET: ''
+  };
+  function repModal() {
+    var m = $('df-rep');
+    if (m) return m;
+    m = document.createElement('div'); m.id = 'df-rep'; m.className = 'df-inv-scrim'; m.hidden = true;
+    m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-rx]')) { if (!REP.busy) m.hidden = true; } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !m.hidden && !REP.busy) m.hidden = true; });
+    document.body.appendChild(m);
+    return m;
+  }
+  function repPaint() {
+    var m = repModal(), info = REP.info, file = info && info.report;
+    var needFile = !file || REP.edit;
+    var body = needFile
+      ? '<label class="df-ex-f">ลิงก์ไฟล์รายงาน (.xlsx ใน Google Drive)<input id="df-rep-url" class="df-ex-input" type="url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off"></label>' +
+        '<p class="df-ex-mut df-ex-sm" style="margin:0">ตั้งครั้งเดียว ครั้งต่อไปกดส่งได้ทันที · ระบบเขียนเฉพาะช่องกรอกของชีตเดือนนั้น ไม่แตะหัวข้อหรือสูตร</p>'
+      : '<div class="df-rep-file"><span class="ic" aria-hidden="true">XLSX</span><div><b>' + esc(file.name || 'ไฟล์รายงาน') + '</b>' +
+        (file.lastExport ? '<small>ส่งล่าสุด ' + esc(new Date(file.lastExport.at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })) + ' · ชีต ' + esc(file.lastExport.sheet) + ' · ' + file.lastExport.rows + ' คน</small>' : '<small>ยังไม่เคยส่ง</small>') +
+        '</div><a class="df-ex-link" href="' + esc(file.url) + '" target="_blank" rel="noopener noreferrer">เปิดไฟล์ ↗</a></div>' +
+        '<ul class="df-rep-rules"><li>รอบ <b>' + esc(REP.label) + '</b> → ชีตเดือนที่รอบสิ้นสุด</li><li>ทุกคนที่บัญชียังใช้งานอยู่ · นับเฉพาะใบเบิกที่อนุมัติแล้ว</li><li>กิจกรรมกลุ่มนับให้ทุกคนในกลุ่ม · ☑ ต่างจังหวัดตามพื้นที่ในโปรไฟล์</li><li>เขียนทับข้อมูลรอบนี้ด้วยข้อมูลล่าสุดทุกครั้งที่กด · ไม่แตะหัวข้อหรือสูตร</li></ul>';
+    m.innerHTML = '<div class="df-confirm df-rep" role="dialog" aria-modal="true" aria-labelledby="df-rep-t">' +
+      '<h2 id="df-rep-t">ส่งข้อมูลไปไฟล์รายงาน</h2>' + body +
+      (REP.err ? '<div class="df-ex-alert err" role="alert">' + esc(REP.err) + '</div>' : '') +
+      (REP.msg ? '<div class="df-ex-alert ok" role="status">' + REP.msg + '</div>' : '') +
+      '<div class="df-confirm-act"><button type="button" class="df-confirm-no" data-rx' + (REP.busy ? ' disabled' : '') + '>ปิด</button>' +
+      (needFile
+        ? '<button type="button" class="df-confirm-go" onclick="__dfExReport.save()"' + (REP.busy ? ' disabled' : '') + '>' + (REP.busy ? 'กำลังตรวจไฟล์…' : 'บันทึกไฟล์') + '</button>'
+        : '<button type="button" class="df-confirm-go" onclick="__dfExReport.send()"' + (REP.busy ? ' disabled' : '') + '>' + (REP.busy ? 'กำลังส่ง…' : 'ส่งข้อมูลล่าสุด') + '</button>') +
+      '</div>' + (!needFile ? '<button type="button" class="df-ex-link center" onclick="__dfExReport.change()"' + (REP.busy ? ' disabled' : '') + '>เปลี่ยนไฟล์</button>' : '') + '</div>';
+    m.hidden = false;
+  }
+  function repFail(e) { var c = e && e.message; REP.err = (REP_ERR[c] != null ? REP_ERR[c] : '') || ('ทำไม่สำเร็จ (รหัส: ' + (c || 'ไม่ทราบ') + ')'); }
+  function repLoad() {
+    return gatewayPost('/drive/status', {}).then(function (d) { REP.info = d; if (!d.connected) REP.err = REP_ERR.DRIVE_NOT_CONNECTED; }, function (e) { repFail(e); });
+  }
+  window.__dfExReport = {
+    open: function (cycle, label) {
+      REP.cycle = cycle; REP.label = label; REP.msg = ''; REP.err = ''; REP.edit = false; REP.busy = true; repPaint();
+      repLoad().then(function () { REP.busy = false; repPaint(); });
+    },
+    change: function () { REP.edit = true; REP.msg = ''; REP.err = ''; repPaint(); },
+    save: function () {
+      var inp = $('df-rep-url'), v = inp ? inp.value.trim() : '';
+      if (!v) { REP.err = 'วางลิงก์ไฟล์ก่อน'; return repPaint(); }
+      REP.busy = true; REP.err = ''; repPaint();
+      gatewayPost('/drive/report-config', { fileUrl: v }).then(function () { REP.edit = false; return repLoad(); }, repFail)
+        .then(function () { REP.busy = false; repPaint(); });
+    },
+    send: function () {
+      REP.busy = true; REP.err = ''; REP.msg = ''; repPaint();
+      gatewayPost('/drive/export-exercise', { cycle: REP.cycle }).then(function (r) {
+        REP.msg = '✓ อัปเดตชีต <b>' + esc(r.sheet) + '</b> แล้ว · ' + r.rows + ' คน' + (r.addedRows ? ' (เพิ่มแถว ' + r.addedRows + ' แถว)' : '') + ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener noreferrer">เปิดไฟล์ ↗</a>';
+        return repLoad();
+      }, repFail).then(function () { REP.busy = false; repPaint(); });
+    }
+  };
+
   window.__dfExUp = {
     pick: function () {
       var inp = $('df-ex-upfile');
@@ -970,7 +1041,9 @@
     if (!R.sel || R.listIds.indexOf(String(R.sel)) < 0) { R.sel = R.listIds[0] || null; R.clip = 0; R.rejecting = false; }
 
     var head = D.header({ eyebrow: 'สำหรับ PM', title: 'อนุมัติออกกำลังกาย',
-      actions: '<label class="df-ex-lbl">รอบ' + selectHtml(opts.map(function (k) { return { v: k, l: cycleLong(k) }; }), mk, 'aria-label="เลือกรอบ" onchange="__dfExR.month(this.value)"') + '</label>' });
+      actions: '<button type="button" class="btn btn-ghost df-ex-export" onclick="__dfExReport.open(' + q(mk) + ',' + q(cycleLong(mk)) + ')">' +
+        '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg> ส่งข้อมูลไปไฟล์รายงาน</button>' +
+        '<label class="df-ex-lbl">รอบ' + selectHtml(opts.map(function (k) { return { v: k, l: cycleLong(k) }; }), mk, 'aria-label="เลือกรอบ" onchange="__dfExR.month(this.value)"') + '</label>' });
     var stat = function (cls, glyph, label, value) { return '<div class="df-ex-xstat"><span class="df-ex-xdot ' + cls + '" aria-hidden="true">' + glyph + '</span><div><span>' + label + '</span><b>' + value + '</b></div></div>'; };
     var stats = '<section class="df-ex-xstats">' + stat('p', '•', 'รออนุมัติ', pending.length + ' รายการ') + stat('ok', '✓', 'พร้อมอนุมัติ', ready.length + ' รายการ') +
       stat('w', '!', 'ต้องตรวจเพิ่ม', (pending.length - ready.length) + ' รายการ') + stat('m', '฿', allMode ? 'อนุมัติแล้ว (ทุกรอบ)' : 'อนุมัติแล้วรอบนี้', money(approvedMoney)) + '</section>';

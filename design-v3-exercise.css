@@ -682,3 +682,18 @@ html[data-theme="dark"] .df-ex-stabs .df-ex-xtab.on { background: var(--ds-text)
 .df-ex-upmain b { white-space: normal; overflow-wrap: anywhere; }
 .df-ex-upact { display: flex; gap: 16px; margin-left: 44px; flex-basis: 100%; }
 .df-ex-upact .df-ex-link { white-space: nowrap; }
+
+/* ---------- PM: send to report file ---------- */
+.df-ex-export { display: inline-flex; align-items: center; gap: 8px; }
+.df-ex-alert.ok { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-ex-alert.ok a { color: inherit; font-weight: 700; }
+.df-rep { width: 480px; text-align: left; align-items: stretch; gap: 12px; }
+.df-rep h2 { text-align: left; }
+.df-rep-file { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--ds-line); border-radius: 14px; background: var(--ds-surface2, var(--surface)); }
+.df-rep-file .ic { flex: none; width: 44px; height: 44px; border-radius: 10px; background: #E3F5EA; color: #1D7A45; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.df-rep-file > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.df-rep-file b { font-size: 14px; color: var(--ds-text); overflow-wrap: anywhere; }
+.df-rep-file small { font-size: 12px; color: var(--ds-muted); }
+.df-rep-rules { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: var(--ds-text2); }
+.df-confirm-go { border: 0; background: var(--ds-accent); color: #fff; }
+.df-confirm-go:disabled, .df-confirm-no:disabled { opacity: .6; cursor: default; }
