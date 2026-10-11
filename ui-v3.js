@@ -469,22 +469,26 @@
   /* ======================= GUIDED TOUR ("วิธีใช้งาน", design J) =======================
      UI only. Shown once on the first visit to the dashboard (remembered in localStorage df-tour-done),
      and any time from the "วิธีใช้งาน" button. */
-  var TOUR = [
+  var TOUR_ALL = [
     null,
     ['nav', 'เมนูหลัก', 'ทุกอย่างอยู่ในเมนูนี้ — การลา, ออกกำลังกาย, Leaderboard และสมาชิกทีม บนมือถือจะอยู่แถบด้านล่าง'],
     ['leave', 'ยื่นใบลา', 'กดที่นี่เพื่อยื่นใบลา ระบบบอกวันคงเหลือ และเช็กให้ว่าลาล่วงหน้าครบ 7 วันหรือยัง ก่อนส่ง'],
+    ['exercise', 'ยื่นเบิกออกกำลังกาย', 'ออกกำลังกายแล้วกดที่นี่เพื่อเบิกเงิน เลือกประเภท วันที่ แล้วแนบวิดีโอหรือรูปหลักฐาน ระบบเช็กโควต้าให้ก่อนส่ง'],
+    ['approve', 'งานอนุมัติของคุณ', 'ใบลาและการเบิกออกกำลังกายที่รอคุณอนุมัติอยู่ในเมนูนี้ ตัวเลขสีแดงคือจำนวนรายการที่รออยู่'],
     ['cards', 'ตัวเลขสำคัญของคุณ', 'วันลาคงเหลือ ใบลารออนุมัติ เงินออกกำลังกาย และวันหยุดถัดไป ดูได้ทันทีที่เข้าระบบ'],
     ['cal', 'ปฏิทินทีม', 'เห็นว่าใครลาวันไหน และวันหยุดธนาคาร ช่วยให้วางแผนลาไม่ชนกับเพื่อน'],
     ['bell', 'การแจ้งเตือน', 'ผลอนุมัติใบลา ตัดรอบเบิก และวันเกิดเพื่อน จะแจ้งที่กระดิ่งนี้'],
     ['display', 'ปรับการแสดงผล', 'เลือกโหมดสว่าง/มืด และขนาดตัวอักษร (เล็กลง · ปกติ · ใหญ่ขึ้น) ได้ที่ปุ่ม "การแสดงผล" ใต้ชื่อของคุณ — บนมือถือกดรูปโปรไฟล์มุมบนขวา แล้วเลือกแท็บ "การแสดงผล"'],
     [null, 'พร้อมใช้งานแล้ว', 'เคล็ดลับ: ตั้งรูปโปรไฟล์และกรอบรูปได้ที่ปุ่ม "โปรไฟล์" ใต้ชื่อของคุณ · เปิดทัวร์นี้อีกครั้งที่ปุ่ม "วิธีใช้งาน"']
   ];
-  var tourStep = -1, tourEl = null, holeEl = null;
+  var TOUR = TOUR_ALL, tourStep = -1, tourEl = null, holeEl = null;
   function visible(el) { if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > 0 && r.left < window.innerWidth && getComputedStyle(el).visibility !== 'hidden'; }
   function tourTarget(k) {
     var q = function (sel) { return document.querySelector(sel); };
     if (k === 'nav') { var tb = q('#df-tabbar'); return visible(tb) ? tb : q('.df-sidebar .nav-section:nth-of-type(2)') ? q('.df-sidebar') : null; }
     if (k === 'leave') return q('#page-dashboard .dashboard-head-actions .btn-primary');
+    if (k === 'exercise') return q('#page-dashboard .dashboard-head-actions [onclick^="openExModal"]');
+    if (k === 'approve') { var a = ['#nav-leave-review', '#nav-leave-pm', '#nav-ex-review'].map(q).filter(function (n) { return n && n.style.display !== 'none' && visible(n); }); return a[0] ? a[0].parentNode : null; }
     if (k === 'cards') return q('#page-dashboard .dashboard-stats');
     if (k === 'cal') { var d = q('#dashboard-calendar-days'); return d && d.closest('.dashboard-panel'); }
     if (k === 'bell') return q('#notif-bell');
@@ -547,15 +551,18 @@
     setTimeout(placeHole, 350);
     var n = tourEl.querySelector('[data-t-next]'); if (n) n.focus();
   }
+  function buildTour() {
+    TOUR = TOUR_ALL.filter(function (st) { return !st || !st[0] || visible(tourTarget(st[0])); });
+  }
   DFV3.startTour = function () {
     if (typeof showPage === 'function' && !(document.getElementById('page-dashboard') || {}).classList.contains('active')) showPage('dashboard');
-    tourStep = 0; setTimeout(paintTour, 50);
+    tourStep = 0; setTimeout(function () { buildTour(); paintTour(); }, 50);
   };
   function maybeAutoTour() {
     var seen = false; try { seen = localStorage.getItem('df-tour-done') === '1'; } catch (e) { seen = true; }
     if (seen || tourStep >= 0) return;
     var dash = document.getElementById('page-dashboard');
-    if (dash && dash.classList.contains('active')) { tourStep = 0; paintTour(); }
+    if (dash && dash.classList.contains('active')) { buildTour(); tourStep = 0; paintTour(); }
   }
 
   /* logout confirmation (calls the legacy doLogout only after the user confirms) */
