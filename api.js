@@ -213,7 +213,9 @@ async function api(action, payload = {}) {
       return result;
     }
 
-    if (DESIGN_FLOW_PUBLIC_ACTIONS.has(action) && !designFlowSessionToken()) {
+    // action สาธารณะ (ฟอร์มลงทะเบียน/รายชื่อแผนก) ต้องไป /public เสมอ
+    // — ก่อนหน้านี้ถ้า browser มี session เก่าค้างอยู่ จะยิงไป /action แล้วโดน ACTION_NOT_ALLOWED
+    if (DESIGN_FLOW_PUBLIC_ACTIONS.has(action)) {
       return callDesignFlowGateway('/public', { action, payload });
     }
 
