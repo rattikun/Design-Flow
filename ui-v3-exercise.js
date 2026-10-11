@@ -540,101 +540,238 @@
       '<span class="df-ex-lbfoot">แสดง ' + shown.length + ' จาก ' + stats.length + ' คน · ตัวเลข = ครั้ง · ยอดเงิน · กดหัวคอลัมน์เพื่อเรียง</span></section></div>');
   }
 
-  /* ======================= อนุมัติออกกำลังกาย (exercise-review, PM) ======================= */
+  /* ======================= อนุมัติออกกำลังกาย (exercise-review, PM) — board X5B: list + detail =======================
+     Writes only through legacy apprEx / rejEx (+ its own reason dialog) / revertExToPending.
+     Rule checks reproduce the legacy quota/validation logic (submitEx, apprEx, getSoloWeeklyLimit, getSoloMonthlyLimit). */
+  var R = { tab: 'pending', flt: 'all', sel: null, clip: 0, checked: {}, rejecting: false, reason: '', listIds: [] };
+  var QUICK = ['วิดีโอไม่เห็นสมาชิกครบ 3 คน', 'ไม่มีวิดีโอหลักฐาน', 'เกินโควตากลุ่มสัปดาห์นี้', 'วันที่ไม่อยู่ในรอบ'];
+  function rr() { D.renderPage('exercise-review'); }
+  function nextAfter(id) {
+    var ids = R.listIds, i = ids.indexOf(String(id)); if (i < 0) return null;
+    var rest = ids.filter(function (x, k) { return k !== i; });
+    return rest.length ? (rest[i] || rest[rest.length - 1]) : null;
+  }
+  function statusOf(id) { var e = getExs().find(function (x) { return String(x.id) === String(id); }); return e ? e.status : null; }
   window.__dfExR = {
-    tab: function (t) { setExReviewTab(t); },
-    month: function (mk) { setExReviewMonth(mk); },
+    month: function (mk) { R.sel = null; R.checked = {}; setExReviewMonth(mk); },
     search: function (v) { setExReviewSearch(v); },
-    dept: function (d) { setExReviewDeptTab(d); }
+    tab: function (t) { R.tab = t; R.sel = null; R.checked = {}; R.rejecting = false; R.reason = ''; R.flt = 'all'; rr(); },
+    flt: function (f) { R.flt = f; rr(); },
+    pick: function (id) { if (R.sel !== id) { R.sel = id; R.clip = 0; R.rejecting = false; R.reason = ''; } rr(); },
+    clip: function (k) { R.clip = k; rr(); },
+    check: function (id, on) { if (on) R.checked[id] = true; else delete R.checked[id]; rr(); },
+    checkAll: function (on) { R.checked = {}; if (on) (R.readyIds || []).forEach(function (id) { R.checked[id] = true; }); rr(); },
+    approve: function (id) {
+      var next = nextAfter(id);
+      apprEx(id);                                   // exactly what the legacy อนุมัติ button calls
+      if (statusOf(id) === 'approved') R.sel = next;
+      rr();
+    },
+    bulk: function () {                             // N sequential legacy approvals, same as N single clicks
+      var ids = R.listIds.filter(function (id) { return R.checked[id] && (R.readyIds || []).indexOf(id) >= 0; });
+      ids.forEach(function (id) { if (statusOf(id) === 'pending') apprEx(id); });
+      R.checked = {}; R.sel = null; rr();
+    },
+    startReject: function () { R.rejecting = true; R.reason = R.suggest || ''; rr(); },
+    cancelReject: function () { R.rejecting = false; R.reason = ''; rr(); },
+    quick: function (t) { R.reason = t; rr(); },
+    reason: function (v) { R.reason = v; var b = document.querySelector('.df-ex-xconfirm'); if (b) b.disabled = !v.trim(); },
+    confirmReject: function (id) {
+      var reason = (R.reason || '').trim(); if (!reason) return;
+      var next = nextAfter(id);
+      rejEx(id);                                    // opens the legacy reason dialog …
+      var inp = $('reject-reason-input'), ok = $('conf-ok');
+      if (!inp || !ok) return;
+      inp.value = reason;                           // … fill it with the PM's reason and confirm it, as the legacy dialog does
+      ok.click();
+      if (statusOf(id) === 'rejected') { R.sel = next; R.rejecting = false; R.reason = ''; }
+      rr();
+    },
+    revert: function (id) { revertExToPending(id); rr(); }
   };
+
+  function proofLinks(e) {
+    var out = [], p = e.proofLink || (String(e.proofDoc || '').indexOf('http') === 0 ? e.proofDoc : '');
+    if (p) out.push(p);
+    (e.proofLinks || []).forEach(function (x) { if (x && x.url) out.push(x.url); });
+    return out;
+  }
+  /* rule checklist — every rule mirrors a legacy check:
+     - group ≥ 3 people           : submitEx + apprEx (1 + members.length)
+     - group 1/week · 4/cycle      : submitEx (submitter) + updateExSysMemberSelect / joinExGroup (members) — non-rejected, involvement-based
+     - no approved group same week : apprEx conflict confirm
+     - solo n/week · m/cycle       : submitEx with getSoloWeeklyLimit / getSoloMonthlyLimit by the submitter's location
+     - one claim per date          : submitEx duplicate-date check
+     - proof link                  : submitEx (link required)
+     Ordering for "ครั้งที่ k": by submittedAt (then id) — the item submitted earlier keeps the quota. */
+  function rulesFor(e) {
+    var es = getExs(), et = getExType(e), grp = isGroupEx(et), out = [];
+    var key = function (x) { return String(x.submittedAt || x.date || '') + '|' + String(x.id); };
+    var pos = function (email, pred) {
+      var l = es.filter(function (x) { return (x.status !== 'rejected' || String(x.id) === String(e.id)) && isUserInvolved(x, email) && pred(x); });
+      l.sort(function (a, b) { return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0; });
+      return l.findIndex(function (x) { return String(x.id) === String(e.id); }) + 1;
+    };
+    var wk = wkKey(e.date), mk = monthKey(e.date), wn = getWkNum(e.date);
+    if (grp) {
+      var n = 1 + (e.members || []).length;
+      out.push(['สมาชิกอย่างน้อย 3 คน', n + ' คน', n >= 3]);
+      var parts = [e.email]; (e.members || []).forEach(function (m) { if (m.type === 'sys' && m.email && parts.indexOf(m.email) < 0) parts.push(m.email); });
+      var isG = function (x) { return isGroupEx(getExType(x)); };
+      var wkOver = parts.filter(function (em) { return pos(em, function (x) { return isG(x) && wkKey(x.date) === wk; }) > 1; });
+      var moOver = parts.filter(function (em) { return pos(em, function (x) { return isG(x) && monthKey(x.date) === mk; }) > 4; });
+      var names = function (l) { return l.map(function (em) { return nickOf(em); }).join(', '); };
+      out.push(['กลุ่มไม่เกิน 1 ครั้ง/สัปดาห์', wkOver.length ? 'เกิน: ' + names(wkOver) : 'ครั้งที่ ' + pos(e.email, function (x) { return isG(x) && wkKey(x.date) === wk; }) + ' ของ W' + wn, !wkOver.length]);
+      out.push(['กลุ่มไม่เกิน 4 ครั้ง/รอบ', moOver.length ? 'เกิน: ' + names(moOver) : 'ครั้งที่ ' + pos(e.email, function (x) { return isG(x) && monthKey(x.date) === mk; }) + '/4', !moOver.length]);
+      var conf = parts.filter(function (em) { return es.some(function (x) { return x.id !== e.id && isG(x) && x.status === 'approved' && wkKey(x.date) === wk && isUserInvolved(x, em); }); });
+      out.push(['ไม่มีใครมีกลุ่มที่อนุมัติแล้วใน W' + wn, conf.length ? names(conf) : 'ไม่มี', !conf.length]);
+    } else {
+      var su = uByEmail(e.email) || {}, loc = su.locationType || 'bkk', locL = loc === 'bkk' ? 'กทม.' : 'ตจว.';
+      var wl = getSoloWeeklyLimit(e.date, loc), ml = getSoloMonthlyLimit(e.date, loc);
+      var isS = function (x) { return getExType(x) === 'solo'; };
+      var pw = pos(e.email, function (x) { return isS(x) && wkKey(x.date) === wk; }), pm = pos(e.email, function (x) { return isS(x) && monthKey(x.date) === mk; });
+      if (wl !== null) out.push(['เดี่ยวไม่เกิน ' + wl + ' ครั้ง/สัปดาห์ (' + locL + ')', 'ครั้งที่ ' + pw + ' ของ W' + wn, pw <= wl]);
+      out.push(['เดี่ยวไม่เกิน ' + ml + ' ครั้ง/รอบ (' + locL + ')', 'ครั้งที่ ' + pm + '/' + ml, pm <= ml]);
+    }
+    var pd1 = pos(e.email, function (x) { return x.date === e.date; });
+    out.push(['ไม่ยื่นซ้ำวันเดียวกัน', pd1 > 1 ? 'ซ้ำกับรายการก่อนหน้า' : 'ไม่ซ้ำ', pd1 <= 1]);
+    var nl = proofLinks(e).length;
+    out.push(['มีวิดีโอหลักฐาน', nl ? nl + ' ลิงก์' : 'ไม่มี', nl > 0]);
+    return out;
+  }
+  function amountOf(e) { return getExerciseReward(e) * (isGroupEx(getExType(e)) ? 1 + (e.members || []).length : 1); } // = legacy renderExR money formula
+  function sentTxt(e) {
+    if (!e.submittedAt) return '—';
+    var d = new Date(e.submittedAt); if (isNaN(d)) return '—';
+    return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
   function renderReview(view) {
     if (cu.role !== 'pm') { // same gate as legacy renderExR
       paint(view, '<div class="df-ex">' + D.header({ eyebrow: 'สำหรับ PM', title: 'อนุมัติออกกำลังกาย' }) + '<section class="df-card df-ex-blank"><h2>เฉพาะ PM เท่านั้น</h2></section></div>');
       return;
     }
+    // pool + search: identical to legacy renderExR
     var active = new Set(getUsers().filter(function (u) { return u.active !== false; }).map(function (u) { return u.email; }));
     var all = getExs().filter(function (e) { return active.has(e.email); });
     var t = today(), now = new Date(), opts = [];
     for (var i = -6; i <= 1; i++) { var k = monthKey(new Date(now.getFullYear(), now.getMonth() + i, 20)); if (opts.indexOf(k) < 0) opts.push(k); }
     var mk = g('_exReviewMonth'); if (!mk || opts.indexOf(mk) < 0) mk = monthKey(t);
-    var search = g('_exReviewSearch') || '', tab = g('_exReviewTab') || 'pending', deptTab = g('_exReviewDeptTab') || 'ทั้งหมด';
+    var search = g('_exReviewSearch') || '';
     var raw = search.trimStart(), allMode = /^all\s/i.test(raw), qq = allMode ? raw.slice(4).toLowerCase().trim() : raw.toLowerCase();
     var pool = allMode ? all : all.filter(function (e) { return monthKey(e.date) === mk; });
     var nickMap = {}; getUsers().forEach(function (u) { nickMap[u.email] = (u.nickname || '').toLowerCase(); });
-    var filtered = pool.filter(function (e) {
+    var hit = function (e) {
       if (!qq) return true;
       var n = nickMap[e.email] || '';
       if ((e.name || '').toLowerCase().indexOf(qq) >= 0 || n.indexOf(qq) >= 0 || (e.email || '').toLowerCase().indexOf(qq) >= 0 ||
         (e.activity || '').toLowerCase().indexOf(qq) >= 0 || String(e.id || '').toLowerCase().indexOf(qq) >= 0) return true;
       return (e.members || []).some(function (m) { return (m.name || '').toLowerCase().indexOf(qq) >= 0 || (m.email || '').toLowerCase().indexOf(qq) >= 0 || (nickMap[m.email] || '').indexOf(qq) >= 0; });
-    });
-    var sorted = filtered.slice().sort(function (a, b) { return new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date); });
-    var pending = sorted.filter(function (e) { return e.status === 'pending'; });
-    var approved = sorted.filter(function (e) { return e.status === 'approved'; });
-    var rejected = sorted.filter(function (e) { return e.status === 'rejected'; });
-    var totalMoney = approved.reduce(function (s, e) { return s + getExerciseReward(e) * (1 + (e.members || []).length); }, 0);
+    };
+    var bySent = function (a, b) { return new Date(b.submittedAt || b.date) - new Date(a.submittedAt || a.date); };
+    var failsOf = {}; pool.forEach(function (e) { if (e.status === 'pending') failsOf[e.id] = rulesFor(e).filter(function (c) { return !c[2]; }).length; });
+    var pending = pool.filter(function (e) { return e.status === 'pending'; });
+    var ready = pending.filter(function (e) { return !failsOf[e.id]; });
+    var approvedMoney = pool.filter(function (e) { return e.status === 'approved'; }).reduce(function (s, e) { return s + amountOf(e); }, 0);
+    var cnt = function (s) { return pool.filter(function (e) { return e.status === s && hit(e); }).length; };
+
+    var inTab = pool.filter(function (e) { return e.status === R.tab && hit(e); }).sort(bySent);
+    var isG = function (e) { return isGroupEx(getExType(e)); };
+    if (R.tab !== 'pending' && R.flt === 'check') R.flt = 'all';
+    var list = inTab.filter(function (e) { return R.flt === 'all' || (R.flt === 'group' && isG(e)) || (R.flt === 'solo' && !isG(e)) || (R.flt === 'check' && failsOf[e.id]); });
+    R.listIds = list.map(function (e) { return String(e.id); });
+    R.readyIds = R.tab === 'pending' ? list.filter(function (e) { return !failsOf[e.id]; }).map(function (e) { return String(e.id); }) : [];
+    Object.keys(R.checked).forEach(function (id) { if (R.readyIds.indexOf(id) < 0) delete R.checked[id]; });
+    if (!R.sel || R.listIds.indexOf(String(R.sel)) < 0) { R.sel = R.listIds[0] || null; R.clip = 0; R.rejecting = false; }
 
     var head = D.header({ eyebrow: 'สำหรับ PM', title: 'อนุมัติออกกำลังกาย',
-      actions: '<label class="df-ex-lbl">รอบ' + selectHtml(opts.map(function (k) { return { v: k, l: cycleLabel(k) }; }), mk, 'aria-label="เลือกรอบ" onchange="__dfExR.month(this.value)"') + '</label>' });
-    var rules = '<div class="df-ex-rules"><span class="df-ex-rules-h">กติกาการอนุมัติ</span><span>กลุ่มต้องมีอย่างน้อย 3 คน</span><span>กลุ่ม 1 ครั้ง/สัปดาห์ · 4 ครั้ง/รอบ</span><span>ตรวจวิดีโอหลักฐานก่อนอนุมัติ</span></div>';
-    var tabBtn = function (id, label, n) {
-      var on = tab === id;
-      return '<button type="button" role="tab" aria-selected="' + on + '" class="df-ex-tab' + (on ? ' on' : '') + '" onclick="__dfExR.tab(\'' + id + '\')">' + label + ' <span>' + n + '</span></button>';
-    };
-    var tools = '<div class="df-ex-tabrow"><div class="df-ex-tabs" role="tablist" aria-label="สถานะ">' + tabBtn('pending', 'รออนุมัติ', pending.length) + tabBtn('approved', 'อนุมัติแล้ว', approved.length) + '</div>' +
-      '<div class="df-ex-rstats"><span>ไม่อนุมัติ <b>' + rejected.length + '</b></span><span>ยอดเงินที่อนุมัติ <b>' + money(totalMoney) + '</b></span></div></div>' +
-      '<div class="df-ex-search"><input data-k="exr-search" class="df-ex-input" type="search" placeholder="ค้นหาชื่อ, ชื่อเล่น, อีเมล, กิจกรรม หรือรหัส DS..." aria-label="ค้นหา" value="' + esc(search) + '" oninput="__dfExR.search(this.value)">' +
-      '<span class="df-ex-mut df-ex-sm">พิมพ์ <code>all คำค้นหา</code> เพื่อค้นหาจากข้อมูลทุกเดือน' + (allMode ? ' · กำลังค้นหาทุกเดือน' : '') + '</span></div>';
+      actions: '<label class="df-ex-lbl">รอบ' + selectHtml(opts.map(function (k) { return { v: k, l: cycleLong(k) }; }), mk, 'aria-label="เลือกรอบ" onchange="__dfExR.month(this.value)"') + '</label>' });
+    var stat = function (cls, glyph, label, value) { return '<div class="df-ex-xstat"><span class="df-ex-xdot ' + cls + '" aria-hidden="true">' + glyph + '</span><div><span>' + label + '</span><b>' + value + '</b></div></div>'; };
+    var stats = '<section class="df-ex-xstats">' + stat('p', '•', 'รออนุมัติ', pending.length + ' รายการ') + stat('ok', '✓', 'พร้อมอนุมัติ', ready.length + ' รายการ') +
+      stat('w', '!', 'ต้องตรวจเพิ่ม', (pending.length - ready.length) + ' รายการ') + stat('m', '฿', allMode ? 'อนุมัติแล้ว (ทุกรอบ)' : 'อนุมัติแล้วรอบนี้', money(approvedMoney)) + '</section>';
 
-    var listFor = tab === 'pending' ? pending : approved;
-    var grp = listFor.filter(function (e) { return isGroupEx(getExType(e)); }), solo = listFor.filter(function (e) { return !isGroupEx(getExType(e)); });
-    var deptOf = function (e) { if (e.dept) return e.dept; var u = uByEmail(e.email); return (u && u.dept) ? u.dept : 'ไม่ระบุ'; };
-    var body;
-    if (!listFor.length) {
-      body = '<section class="df-card df-ex-blank"><span class="df-ex-blank-ic" aria-hidden="true">' + icoSvg('<path d="M20 6L9 17l-5-5"></path>', 30) + '</span><h2>' +
-        (tab === 'pending' ? 'ไม่มีคำขอรออนุมัติ' : 'ยังไม่มีรายการที่อนุมัติ') + '</h2><p>' + (tab === 'pending' ? 'เมื่อมีคนยื่นเบิก จะแจ้งเตือนคุณทันที และแสดงที่นี่' : 'รายการที่อนุมัติในรอบนี้จะแสดงที่นี่') + '</p></section>';
-    } else {
-      var section = function (title, items, withDept) {
-        if (!items.length) return '<div class="df-ex-rsec"><h2>' + title + ' <span>0</span></h2><div class="df-ex-rnone">— ไม่มีรายการ —</div></div>';
-        var dtabs = '', shownItems = items;
-        if (withDept) {
-          var depts = ['ทั้งหมด']; items.forEach(function (e) { var d = deptOf(e); if (depts.indexOf(d) < 0) depts.push(d); });
-          depts.sort(function (a, b) { return a === 'ทั้งหมด' ? -1 : b === 'ทั้งหมด' ? 1 : a === 'ไม่ระบุ' ? 1 : b === 'ไม่ระบุ' ? -1 : a.localeCompare(b, 'th'); });
-          var cur = depts.indexOf(deptTab) >= 0 ? deptTab : 'ทั้งหมด';
-          shownItems = cur === 'ทั้งหมด' ? items : items.filter(function (e) { return deptOf(e) === cur; });
-          dtabs = '<div class="df-ex-dchips">' + depts.map(function (d) {
-            var n = d === 'ทั้งหมด' ? items.length : items.filter(function (e) { return deptOf(e) === d; }).length;
-            return '<button type="button" class="df-ex-dchip' + (d === cur ? ' on' : '') + '" onclick="__dfExR.dept(' + q(d) + ')">' + esc(d) + ' <span>' + n + '</span></button>';
-          }).join('') + '</div>';
-        }
-        return '<div class="df-ex-rsec"><h2>' + title + ' <span>' + items.length + '</span></h2>' + dtabs + '<div class="df-ex-rlist">' + shownItems.map(function (e) { return reviewCard(e, tab); }).join('') + '</div></div>';
-      };
-      body = section('แบบกลุ่ม', grp, false) + section('แบบเดี่ยว', solo, true);
-    }
-    paint(view, '<div class="df-ex df-ex-review">' + head + rules + tools + body + '</div>');
+    var tabs = [['pending', 'รออนุมัติ'], ['approved', 'อนุมัติแล้ว'], ['rejected', 'ไม่อนุมัติ']].map(function (x) {
+      var on = R.tab === x[0];
+      return '<button type="button" role="tab" aria-selected="' + on + '" class="df-ex-xtab' + (on ? ' on' : '') + '" onclick="__dfExR.tab(\'' + x[0] + '\')">' + x[1] + ' <span>' + cnt(x[0]) + '</span></button>';
+    }).join('');
+    var fl = [['all', 'ทั้งหมด ' + inTab.length], ['group', 'กลุ่ม ' + inTab.filter(isG).length], ['solo', 'เดี่ยว ' + inTab.filter(function (e) { return !isG(e); }).length]];
+    if (R.tab === 'pending') fl.push(['check', 'ต้องตรวจ ' + inTab.filter(function (e) { return failsOf[e.id]; }).length]);
+    var filters = fl.map(function (f) { return '<button type="button" aria-pressed="' + (R.flt === f[0]) + '" class="df-ex-xflt' + (R.flt === f[0] ? ' on' : '') + (f[0] === 'check' ? ' chk' : '') + '" onclick="__dfExR.flt(\'' + f[0] + '\')">' + f[1] + '</button>'; }).join('');
+    var nChecked = Object.keys(R.checked).length, allChecked = R.readyIds.length > 0 && nChecked === R.readyIds.length;
+    var bulk = R.tab === 'pending' && list.length ? '<div class="df-ex-xbulk"><label><input type="checkbox"' + (allChecked ? ' checked' : '') + (R.readyIds.length ? '' : ' disabled') + ' onchange="__dfExR.checkAll(this.checked)"><span>' +
+      (nChecked ? 'เลือกแล้ว ' + nChecked + ' รายการ · ' + money(list.filter(function (e) { return R.checked[String(e.id)]; }).reduce(function (s, e) { return s + amountOf(e); }, 0)) : 'เลือกทั้งหมดที่ผ่านเกณฑ์ (' + R.readyIds.length + ')') + '</span></label>' +
+      (nChecked ? '<button type="button" class="df-ex-xbulkbtn" onclick="__dfExR.bulk()">อนุมัติที่เลือก</button>' : '') + '</div>' : '';
+    var rows = list.map(function (e) {
+      var id = String(e.id), sel = id === String(R.sel), f = failsOf[e.id] || 0, u = uByEmail(e.email) || {}, nick = u.nickname || String(e.name || '').split(' ')[0];
+      var flag = e.status === 'approved' ? ['อนุมัติแล้ว', 'ok'] : e.status === 'rejected' ? ['ไม่อนุมัติ', 'no'] : f ? ['ไม่ผ่าน ' + f + ' ข้อ', 'no'] : ['ผ่านเกณฑ์', 'ok'];
+      return '<div role="option" aria-selected="' + sel + '" class="df-ex-xrow' + (sel ? ' sel' : '') + '" onclick="__dfExR.pick(' + q(id) + ')">' +
+        (R.tab === 'pending' ? '<input type="checkbox" aria-label="เลือก ' + esc(nick) + '"' + (R.checked[id] ? ' checked' : '') + (f ? ' disabled title="ไม่ผ่านเกณฑ์ — ตรวจทีละรายการ"' : '') + ' onclick="event.stopPropagation()" onchange="__dfExR.check(' + q(id) + ',this.checked)">' : '') +
+        av(nick, e.email, 40) + '<div class="df-ex-xmain"><span class="df-ex-xname">' + esc(nick) + ' <span>· ' + esc(u.dept || e.dept || '—') + '</span></span>' +
+        '<span class="df-ex-xact">' + tile(TICON[getExType(e)], 20) + '<span>' + esc(e.activity || 'กิจกรรม') + '</span></span></div>' +
+        '<div class="df-ex-xside"><b>' + money(amountOf(e)) + '</b><span class="df-ex-xflag ' + flag[1] + '">' + flag[0] + '</span></div></div>';
+    }).join('');
+    var empty = !list.length ? '<div class="df-ex-xempty">' + tile('ic-run', 52) + '<strong>' + (R.tab === 'pending' ? 'ไม่มีคำขอรออนุมัติ' : R.tab === 'approved' ? 'ยังไม่มีรายการที่อนุมัติ' : 'ไม่มีรายการที่ไม่อนุมัติ') + '</strong><span>' +
+      (qq ? 'ไม่พบรายการที่ตรงกับคำค้นหา' : allMode ? 'ทุกรอบ' : 'รอบ ' + cycleLong(mk)) + '</span></div>' : '';
+    var listHtml = '<section class="df-ex-xlist" aria-label="รายการคำขอ"><div class="df-ex-xtools"><div class="df-ex-xtabs" role="tablist" aria-label="สถานะ">' + tabs + '</div>' +
+      '<label class="df-ex-xsearch">' + icoSvg('<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path>', 18) +
+      '<input data-k="exr-search" class="df-ex-xq" type="search" aria-label="ค้นหาคำขอ" placeholder="ค้นหาชื่อ กิจกรรม หรือรหัส DS · พิมพ์ all เพื่อค้นทุกรอบ" value="' + esc(search) + '" oninput="__dfExR.search(this.value)"></label>' +
+      '<div class="df-ex-xflts" role="group" aria-label="กรอง">' + filters + '</div></div>' + bulk + '<div role="listbox" aria-label="คำขอ" class="df-ex-xrows">' + rows + empty + '</div></section>';
+
+    var e = list.find(function (x) { return String(x.id) === String(R.sel); });
+    var detail = e ? reviewDetail(e) : '';
+    paint(view, '<div class="df-ex df-ex-review">' + head + stats + '<div class="df-ex-xgrid">' + listHtml + detail + '</div></div>');
   }
-  function reviewCard(e, tab) {
-    var et = getExType(e), u = uByEmail(e.email) || {};
-    var nick = u.nickname || String(e.name || '').split(' ')[0];
-    var people = [{ email: e.email, name: e.name, type: 'sys' }].concat(e.members || []);
-    var proof = e.proofLink || (String(e.proofDoc || '').indexOf('http') === 0 ? e.proofDoc : '') || ((e.proofLinks || [])[0] || {}).url || '';
-    var nLinks = (e.proofLink || (String(e.proofDoc || '').indexOf('http') === 0) ? 1 : 0) + (e.proofLinks || []).length;
-    var memberChips = isGroupEx(et) ? '<div class="df-ex-rmembers">' + people.map(function (m) {
-      var out = m.type === 'out', n = out ? m.name : nickOf(m.email, m.name);
-      return '<span class="df-ex-rmem' + (out ? ' out' : '') + '">' + esc(n) + (out ? ' <small>(นอก' + (m.dept ? ' · ' + esc(m.dept) : '') + ')</small>' : '') + '</span>';
-    }).join('') + '</div>' : '';
-    var acts = tab === 'pending'
-      ? '<button type="button" class="df-ex-approve" onclick="apprEx(' + q(e.id) + ')">อนุมัติ</button>' +
-        '<button type="button" class="df-ex-reject" onclick="rejEx(' + q(e.id) + ')">ปฏิเสธ (ต้องใส่เหตุผล)</button>'
-      : '<button type="button" class="df-ex-ghost" onclick="revertExToPending(' + q(e.id) + ')">ย้อนกลับเป็นรออนุมัติ</button>';
-    return '<article class="df-ex-rcard"><div class="df-ex-rleft">' +
-      '<div class="df-ex-rwho">' + av(nick, e.email, 48) + '<div class="df-ex-rname"><b>' + esc(nick) + (u.dept || e.dept ? ' · ' + esc(u.dept || e.dept) : '') + '</b><small>ยื่นเมื่อ ' + (e.submittedAt ? dsShort(toLocalDateString(new Date(e.submittedAt))) : '—') + ' · ' + esc(e.id) + '</small></div>' + tchip(et) + '</div>' +
-      '<div class="df-ex-rboxes"><div><small>วันที่ทำกิจกรรม</small><b>' + dsFull(e.date) + ' · W' + getWkNum(e.date) + '</b></div><div><small>เงินรางวัล</small><b>' + money(getExerciseReward(e)) + (isGroupEx(et) ? ' / คน' : '') + '</b></div>' +
-      '<div><small>' + (isGroupEx(et) ? 'สมาชิก' : 'ผู้ยื่น') + '</small><b>' + (isGroupEx(et) ? people.length + ' คน' : esc(nick)) + '</b></div></div>' +
-      '<div class="df-ex-ract"><span class="df-ex-mut">กิจกรรม:</span> ' + esc(e.activity || '—') + (e.note ? ' <span class="df-ex-mut">· ' + esc(e.note) + '</span>' : '') + '</div>' + memberChips +
-      '<div class="df-ex-rproof"><span class="df-ex-dot' + (proof ? '' : ' none') + '"></span>' + (proof ? 'หลักฐาน ' + nLinks + ' ลิงก์ · <a href="' + esc(proof) + '" target="_blank" rel="noopener">เปิดวิดีโอหลักฐาน ↗</a>' : 'ยังไม่มีลิงก์หลักฐาน') + '</div>' +
-      (e.rejectReason ? '<div class="df-ex-rej">เหตุผลเดิม: ' + esc(e.rejectReason) + '</div>' : '') + '</div>' +
-      '<div class="df-ex-rright">' + acts + '<button type="button" class="df-ex-link center" onclick="viewExDetail(' + q(e.id) + ')">ดูรายละเอียดและหลักฐาน ›</button></div></article>';
+
+  function reviewDetail(e) {
+    var et = getExType(e), grp = isGroupEx(et), u = uByEmail(e.email) || {}, nick = u.nickname || String(e.name || '').split(' ')[0], dept = u.dept || e.dept || '';
+    var checks = rulesFor(e), fails = checks.filter(function (c) { return !c[2]; });
+    var links = proofLinks(e), clip = Math.min(R.clip, Math.max(0, links.length - 1));
+    var n = 1 + (e.members || []).length, reward = getExerciseReward(e);
+    var dom = function (url) { try { return new URL(/^https?:/i.test(url) ? url : 'https://' + url).hostname.replace(/^www\./, ''); } catch (x) { return ''; } };
+    var safeUrl = function (url) { return /^https?:\/\//i.test(url) ? url : 'https://' + url; };
+    var proof = links.length
+      ? '<div class="df-ex-xproof"><a class="df-ex-xclip" href="' + esc(safeUrl(links[clip])) + '" target="_blank" rel="noopener noreferrer" aria-label="เปิดวิดีโอหลักฐาน คลิปที่ ' + (clip + 1) + ' ในแท็บใหม่">' +
+        '<span class="df-ex-xplay"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF"><path d="M8 5v14l11-7z"></path></svg></span>' +
+        '<span class="df-ex-xcliplbl">คลิปที่ ' + (clip + 1) + ' จาก ' + links.length + ' · เปิดในแท็บใหม่ ↗</span>' + (dom(links[clip]) ? '<span class="df-ex-xdom">' + esc(dom(links[clip])) + '</span>' : '') + '</a>' +
+        (links.length > 1 ? '<div class="df-ex-xclips">' + links.map(function (l, k) { return '<button type="button" aria-pressed="' + (k === clip) + '" class="' + (k === clip ? 'on' : '') + '" onclick="__dfExR.clip(' + k + ')">คลิป ' + (k + 1) + '</button>'; }).join('') + '</div>' : '') + '</div>'
+      : '<div class="df-ex-xnoproof">' + icoSvg('<rect x="3" y="5" width="13" height="14" rx="2"></rect><path d="M16 10l5-3v10l-5-3M3 3l18 18"></path>', 22) + 'ยังไม่มีวิดีโอหลักฐาน</div>';
+    var members = '';
+    if (grp) {
+      var people = [{ type: 'sys', email: e.email, name: e.name }].concat(e.members || []);
+      members = '<div class="df-ex-xmembers"><span class="df-ex-xsub">สมาชิก ' + n + ' คน</span><div>' + people.map(function (m) {
+        if (m.type === 'out') return '<span class="df-ex-xmem out">' + av(m.name, m.name, 24) + esc(m.name) + ' · นอกระบบ' + (m.dept ? ' (' + esc(m.dept) + ')' : '') + '</span>';
+        var mu = uByEmail(m.email) || {}, nn = nickOf(m.email, m.name), md = mu.dept || '';
+        var outDept = md && dept && md !== dept;
+        return '<span class="df-ex-xmem' + (outDept ? ' out' : '') + '">' + av(nn, m.email, 24) + esc(nn) + (outDept ? ' · นอกแผนก (' + esc(md) + ')' : '') + '</span>';
+      }).join('') + '</div></div>';
+    }
+    var checkHtml = '<div class="df-ex-xchecks"><span class="df-ex-xsub">ตรวจตามกติกา · ระบบเช็กให้อัตโนมัติ</span>' + checks.map(function (c) {
+      return '<div class="df-ex-xck"><span class="df-ex-xckdot' + (c[2] ? '' : ' no') + '" aria-hidden="true">' + (c[2] ? '✓' : '✕') + '</span><span class="df-ex-xcklbl">' + esc(c[0]) + '</span><span class="df-ex-xckval' + (c[2] ? '' : ' no') + '">' + esc(c[1]) + '</span></div>';
+    }).join('') + '</div>';
+    var id = String(e.id), foot;
+    if (e.status === 'pending' && !R.rejecting) {
+      R.suggest = fails.length ? (fails.some(function (c) { return c[0] === 'มีวิดีโอหลักฐาน'; }) ? 'ไม่มีวิดีโอหลักฐาน' : fails.some(function (c) { return c[0].indexOf('กลุ่มไม่เกิน 1') === 0; }) ? 'เกินโควตากลุ่มสัปดาห์นี้' : '') : '';
+      foot = (fails.length ? '<span class="df-ex-xwarn">ไม่ผ่านกติกา ' + fails.length + ' ข้อ · แนะนำให้ปฏิเสธพร้อมแจ้งเหตุผล</span>' : '') +
+        '<div class="df-ex-xbtns"><button type="button" class="df-ex-xrej' + (fails.length ? ' strong' : '') + '" onclick="__dfExR.startReject()">ปฏิเสธ</button>' +
+        '<button type="button" class="df-ex-xok' + (fails.length ? ' soft' : '') + '" onclick="__dfExR.approve(' + q(id) + ')">อนุมัติ · ไปรายการถัดไป</button></div>';
+    } else if (e.status === 'pending') {
+      foot = '<span class="df-ex-xwarn b">เลือกเหตุผล หรือพิมพ์เอง</span><div class="df-ex-xquick">' + QUICK.map(function (l) {
+        return '<button type="button" aria-pressed="' + (R.reason === l) + '" class="' + (R.reason === l ? 'on' : '') + '" onclick="__dfExR.quick(' + q(l) + ')">' + esc(l) + '</button>';
+      }).join('') + '</div><textarea data-k="exr-reason" class="df-ex-xreason" rows="2" aria-label="เหตุผลที่ไม่อนุมัติ" placeholder="เหตุผลจะส่งไปให้ผู้ยื่นทันที" oninput="__dfExR.reason(this.value)">' + esc(R.reason) + '</textarea>' +
+        '<div class="df-ex-xbtns"><button type="button" class="df-ex-xcancel" onclick="__dfExR.cancelReject()">ยกเลิก</button><button type="button" class="df-ex-xconfirm"' + (R.reason.trim() ? '' : ' disabled') + ' onclick="__dfExR.confirmReject(' + q(id) + ')">ยืนยันปฏิเสธ</button></div>';
+    } else if (e.status === 'approved') {
+      foot = '<div class="df-ex-xclosed"><span class="ok">✓ อนุมัติแล้ว' + (e.approvedBy ? ' · โดย ' + esc(e.approvedBy) : '') + '</span><button type="button" class="df-ex-xcancel" onclick="__dfExR.revert(' + q(id) + ')">ย้อนกลับเป็นรออนุมัติ</button></div>';
+    } else {
+      foot = '<div class="df-ex-xclosed"><span class="no">✕ ไม่อนุมัติ' + (e.rejectedBy ? ' · โดย ' + esc(e.rejectedBy) : '') + '</span></div>';
+    }
+    return '<section class="df-ex-xdetail" aria-label="รายละเอียดคำขอ"><div class="df-ex-xbody">' +
+      '<div class="df-ex-xwho">' + av(nick, e.email, 52) + '<div><b>' + esc(nick) + (dept ? ' · ' + esc(dept) : '') + '</b><span>ยื่นเมื่อ ' + sentTxt(e) + ' · ' + esc(id) + '</span></div>' + tchip(et) + '</div>' +
+      '<div class="df-ex-xtitle"><b>' + esc(e.activity || 'กิจกรรม') + '</b><span class="df-ex-xmeta"><span>' + dsWd(e.date) + ' · W' + getWkNum(e.date) + '</span><span><strong>' + money(amountOf(e)) + '</strong> <em>(' + (grp ? money(reward) + ' × ' + n + ' คน' : 'ต่อครั้ง') + ')</em></span></span>' +
+      (e.note ? '<span class="df-ex-xnote">“' + esc(e.note) + '”</span>' : '') + '</div>' +
+      proof + members + checkHtml +
+      (e.status === 'rejected' ? '<div class="df-ex-xrejbox"><strong>ไม่อนุมัติ:</strong> ' + esc(e.rejectReason || '—') + '</div>' : (e.rejectReason ? '<div class="df-ex-xprev"><strong>ยื่นใหม่ · ครั้งก่อนถูกปฏิเสธเพราะ:</strong> ' + esc(e.rejectReason) + '</div>' : '')) +
+      '<button type="button" class="df-ex-link" onclick="viewExDetail(' + q(id) + ')">ดูรายละเอียดเต็ม · แนบ/แก้ลิงก์ ›</button>' +
+      '</div><div class="df-ex-xfoot">' + foot + '</div></section>';
   }
 
   /* ======================= install ======================= */
