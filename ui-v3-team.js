@@ -190,7 +190,7 @@
     var eyebrow = cu.role === 'lead' ? (cu.dept ? 'ทีม ' + esc(cu.dept) : 'ทีมของฉัน') : (depts.size > 1 ? 'ทุกแผนก · ' + depts.size + ' แผนก' : depts.size ? 'ทีม ' + esc(Array.from(depts)[0]) : 'ทุกแผนก');
 
     var actions = (isPM ? '<button type="button" class="df-team-btn" onclick="openDepartmentManager()">จัดการแผนก</button>' +
-      '<button type="button" class="df-team-btn" onclick="generateRegistrationInvite()">สร้างลิงก์ลงทะเบียน</button>' : '') +
+      '<button type="button" class="df-team-btn" onclick="DFV3Invite.open()">สร้างลิงก์ลงทะเบียน</button>' : '') +
       '<button type="button" class="df-team-btn primary lg" onclick="openAddMember()">+ เพิ่มสมาชิก</button>';
 
     var rolesPresent = ROLE_ORDER.filter(function (r) { return pool.some(function (u) { return u.role === r; }); });
@@ -333,6 +333,118 @@
   }
   var REQ = '<span class="df-team-req" aria-hidden="true"> *</span>';
 
+  function inviteDept() {
+    try { var d = new URLSearchParams(location.search).get('dept'); return d ? d.trim().slice(0, 60) : ''; } catch (e) { return ''; }
+  }
+
+  /* ---------------- INVITE MODAL (M1) ----------------
+     Writes only through legacy generateRegistrationInvite() / copyRegistrationInvite().
+     The chosen department is appended to the legacy link as ?dept=... (read by the registration screen). */
+  var INV = { dept: '', link: '', copied: false, busy: false };
+  function deptList() {
+    var a = []; try { if (typeof _departments !== 'undefined' && Array.isArray(_departments)) a = _departments.slice(); } catch (e) {}
+    if (!a.length) a = ['UXUI', 'Media', 'Art', 'PM', 'AI Enablement'];
+    return a;
+  }
+  function invModal() {
+    var m = document.getElementById('df-inv');
+    if (m) return m;
+    m = el('div', 'df-inv-scrim');
+    m.id = 'df-inv';
+    m.hidden = true;
+    m.addEventListener('click', function (e) {
+      if (e.target === m || e.target.closest('[data-inv-close]')) { closeInv(); return; }
+      var d = e.target.closest('[data-inv-dept]');
+      if (d && !INV.link) { INV.dept = d.getAttribute('data-inv-dept'); paintInv(); return; }
+      if (e.target.closest('[data-inv-gen]')) { genInv(); return; }
+      if (e.target.closest('[data-inv-copy]')) { copyInv(); return; }
+      if (e.target.closest('[data-inv-regen]')) { INV.link = ''; INV.copied = false; paintInv(); return; }
+      if (e.target.closest('[data-inv-preview]')) { window.open(location.pathname + '?dept=' + encodeURIComponent(INV.dept || deptList()[0] || '') + '#register-preview', '_blank', 'noopener'); }
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !m.hidden) closeInv(); });
+    document.body.appendChild(m);
+    return m;
+  }
+  function closeInv() { var m = document.getElementById('df-inv'); if (m) m.hidden = true; }
+  function shortLink(l) { var t = l.replace(/^https?:\/\//, ''); var i = t.indexOf('#register='); return i < 0 ? t : t.slice(0, i) .replace(/\?.*$/, '') + '#register=' + t.slice(i + 10, i + 14) + '…' + t.slice(-6); }
+  function paintInv() {
+    var m = invModal(), canGen = !!INV.dept && !INV.busy;
+    var chips = deptList().map(function (d) {
+      var on = INV.dept === d;
+      return '<button type="button" role="radio" aria-checked="' + on + '" class="df-inv-chip' + (on ? ' on' : '') + (INV.link && !on ? ' off' : '') + '" data-inv-dept="' + esc(d) + '"' + (INV.link ? ' disabled' : '') + '>' + esc(d) + '</button>';
+    }).join('');
+    m.innerHTML = '<div class="df-inv" role="dialog" aria-modal="true" aria-labelledby="df-inv-title">' +
+      '<div class="df-inv-head"><div class="df-inv-ttl"><span class="df-inv-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></span>' +
+      '<div><h2 id="df-inv-title">ลิงก์ลงทะเบียนสมาชิกใหม่</h2><span>ใช้ได้ครั้งเดียว · หมดอายุทันทีเมื่อผู้สมัครส่งข้อมูล</span></div></div>' +
+      '<button type="button" class="df-inv-x" aria-label="ปิด" data-inv-close>×</button></div>' +
+      '<div class="df-inv-body">' +
+      '<div class="df-inv-step"><span class="lbl">1. เลือกแผนกของสมาชิกใหม่<span class="df-team-req" aria-hidden="true"> *</span></span>' +
+      '<div class="df-inv-chips" role="radiogroup" aria-label="แผนก">' + chips + '</div>' +
+      '<span class="note">แผนกจะถูกล็อกในฟอร์ม ผู้สมัครเปลี่ยนเองไม่ได้</span></div>' +
+      '<div class="df-inv-step"><span class="lbl">2. สร้างและส่งลิงก์</span>' +
+      (INV.link
+        ? '<div class="df-inv-linkrow"><span class="df-inv-link" title="' + esc(INV.link) + '">' + esc(shortLink(INV.link)) + '</span>' +
+          '<button type="button" class="df-inv-copy' + (INV.copied ? ' done' : '') + '" data-inv-copy>' + (INV.copied ? 'คัดลอกแล้ว ✓' : 'คัดลอกลิงก์') + '</button></div>' +
+          '<span class="note">ลิงก์สำหรับแผนก <strong>' + esc(INV.dept) + '</strong> · <button type="button" class="df-inv-regen" data-inv-regen>เปลี่ยนแผนก / สร้างใหม่</button></span>'
+        : '<button type="button" class="df-inv-gen' + (canGen ? ' on' : '') + '" data-inv-gen' + (canGen ? '' : ' aria-disabled="true"') + '>' +
+          (INV.busy ? 'กำลังสร้างลิงก์…' : INV.dept ? 'สร้างลิงก์สำหรับแผนก ' + esc(INV.dept) : 'เลือกแผนกก่อน') + '</button>') +
+      '</div>' +
+      '<div class="df-inv-warn">ผู้สมัครกรอกข้อมูลแล้ว PM ต้องอนุมัติก่อนจึงจะเข้าใช้งานได้ · อย่าโพสต์ลิงก์ในที่สาธารณะ</div>' +
+      '</div>' +
+      '<div class="df-inv-foot"><button type="button" class="df-inv-prev" data-inv-preview>ดูหน้าที่ผู้สมัครจะเห็น →</button>' +
+      '<button type="button" class="df-inv-done" data-inv-close>เสร็จแล้ว</button></div></div>';
+  }
+  function withDept(link, dept) {
+    var i = link.indexOf('#'); if (i < 0) return link;
+    var base = link.slice(0, i).replace(/\?.*$/, '');
+    return base + '?dept=' + encodeURIComponent(dept) + link.slice(i);
+  }
+  function genInv() {
+    if (!INV.dept || INV.busy || typeof window.generateRegistrationInvite !== 'function') return;
+    var out = document.getElementById('invite-link-output');
+    if (out) out.value = '';
+    INV.busy = true; paintInv();
+    document.documentElement.classList.add('df-inv-gen');   // keeps the legacy link modal hidden while it opens
+    Promise.resolve(window.generateRegistrationInvite()).then(function () {
+      var link = out && out.value;
+      if (link) {
+        INV.link = withDept(link, INV.dept);
+        out.value = INV.link;                                   // legacy copy button / textarea now hold the dept link
+        if (typeof window.closeModal === 'function') window.closeModal('modal-invite-link');
+      }
+    }).catch(function (e) { console.warn('[ui-v3-team] invite', e); }).then(function () {
+      INV.busy = false; document.documentElement.classList.remove('df-inv-gen'); paintInv();
+    });
+  }
+  function copyInv() {
+    if (!INV.link) return;
+    var out = document.getElementById('invite-link-output');
+    if (out) out.value = INV.link;
+    if (typeof window.copyRegistrationInvite === 'function') window.copyRegistrationInvite();
+    INV.copied = true; paintInv();
+  }
+  window.DFV3Invite = {
+    open: function () {
+      if (typeof cu === 'undefined' || !cu || cu.role !== 'pm') { if (typeof window.toast === 'function') window.toast('⛔ เฉพาะ PM เท่านั้น'); return; }
+      INV.dept = ''; INV.link = ''; INV.copied = false; INV.busy = false;
+      paintInv(); invModal().hidden = false;
+      // read-only refresh of the department list through the legacy loader
+      if (typeof window.loadDepartments === 'function') Promise.resolve(window.loadDepartments()).then(function () { if (!invModal().hidden && !INV.link) paintInv(); }).catch(function () {});
+    }
+  };
+
+  /* applicant preview: ?dept=X#register-preview — shows the registration screen with submit disabled (no API call) */
+  function regPreview() {
+    if (location.hash !== '#register-preview') return;
+    var H = document.documentElement;
+    H.classList.add('df-reg-preview');
+    var show = function (id, on) { var n = document.getElementById(id); if (n) n.style.display = on ? '' : 'none'; };
+    show('registration-loading', false); show('registration-invalid', false); show('registration-success', false);
+    var f = document.getElementById('registration-form'); if (f) f.style.display = 'block';
+    var b = document.getElementById('registration-submit'); if (b) { b.disabled = true; b.textContent = 'ตัวอย่างเท่านั้น · ส่งข้อมูลไม่ได้'; }
+    var pill = document.querySelector('.df-team-okpill'); if (pill) pill.innerHTML = '<i></i>ตัวอย่างหน้าผู้สมัคร';
+  }
+
   function buildRegistration() {
     var screen = document.getElementById('registration-screen');
     if (!screen || screen.__dfTeam) return;
@@ -407,16 +519,49 @@
 
     form.innerHTML = '';
     form.classList.add('df-team-regform');
-    [head, g1, hint, g2, gLoc, err, submit, loginHint].forEach(function (n) { if (n) form.appendChild(n); });
+    var sec = function (n, t) { return el('div', 'df-team-sec', '<span>' + n + '</span><h2>' + t + '</h2>'); };
+    var mailErr = el('span', 'df-team-mailerr', 'ต้องเป็นอีเมล @gmail.com เพื่อใช้เข้าสู่ระบบด้วย Google');
+    mailErr.setAttribute('role', 'alert'); mailErr.hidden = true;
+    [head, sec(1, 'ข้อมูลติดต่อ'), g1, mailErr, hint, el('div', 'df-team-divider'), sec(2, 'ข้อมูลการทำงาน'), g2, gLoc, err, submit, loginHint].forEach(function (n) { if (n) form.appendChild(n); });
+    // department locked by the invite link (?dept=...): shows a locked chip, writes the legacy #reg-dept select
+    var deptSel = get('reg-dept');
+    var lock = el('span', 'df-team-deptlock');
+    lock.hidden = true;
+    if (gDept) gDept.appendChild(lock);
+    var applyDept = function () {
+      var d = inviteDept();
+      if (!d || !deptSel) return;
+      if (!Array.prototype.some.call(deptSel.options, function (o) { return o.value === d; })) {
+        var o = document.createElement('option'); o.value = d; o.textContent = d; deptSel.appendChild(o);
+      }
+      deptSel.value = d;
+      deptSel.classList.add('df-team-hidden');
+      lock.innerHTML = esc(d) + ' <span><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>กำหนดจากลิงก์เชิญ</span>';
+      lock.hidden = false;
+      var k = screen.querySelector('.df-team-brand .kicker'); if (k) k.textContent = 'คุณได้รับเชิญเข้าแผนก ' + d;
+    };
+    applyDept();
+    new MutationObserver(applyDept).observe(form, { attributes: true, attributeFilter: ['style'] });
+    if (deptSel) new MutationObserver(function () { if (inviteDept() && deptSel.value !== inviteDept()) applyDept(); }).observe(deptSel, { childList: true });
     if (submit) submit.className = 'df-team-submit';
     if (loginHint) loginHint.className = 'df-team-foothint';
     if (grid && grid.parentNode) grid.parentNode.removeChild(grid);
 
     // visual "ready" state only — legacy submitInviteRegistration() still does all validation
+    var mailOk = function () { return /^[^\s@]+@gmail\.com$/.test(get('reg-email').value.trim().toLowerCase()); };
     var ready = function () {
-      var r = get('reg-name').value.trim() && get('reg-email').value.trim();
-      form.classList.toggle('is-ready', !!r);
+      var m = get('reg-email').value.trim();
+      var bad = m.length > 0 && !mailOk();
+      mailErr.hidden = !bad;
+      get('reg-email').classList.toggle('df-team-bad', bad);
+      form.classList.toggle('is-ready', !!(get('reg-name').value.trim() && mailOk()));
     };
+    // UI guard only: stops the click before legacy submit when the email is not Gmail (no data written)
+    if (submit) submit.addEventListener('click', function (e) {
+      if (document.documentElement.classList.contains('df-reg-preview') || !mailOk()) {
+        e.preventDefault(); e.stopImmediatePropagation(); ready(); if (!mailOk() && get('reg-email').value.trim()) get('reg-email').focus();
+      }
+    }, true);
     ['reg-name', 'reg-email'].forEach(function (id) { get(id).addEventListener('input', ready); });
     ready();
   }
@@ -454,6 +599,7 @@
   function buildAuth() {
     try { buildRegistration(); } catch (e) { console.warn('[ui-v3-team] registration', e); }
     try { buildLogin(); } catch (e) { console.warn('[ui-v3-team] login', e); }
+    try { regPreview(); } catch (e) { console.warn('[ui-v3-team] preview', e); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildAuth); else buildAuth();
 })();

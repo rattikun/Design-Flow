@@ -244,3 +244,53 @@ html[data-theme="dark"] .df-team-areaseg button.on { background: var(--ds-line-s
 :is(#modal-add, #modal-edit, #registration-screen) .date-part[data-part="d"],
 :is(#modal-add, #modal-edit, #registration-screen) .date-part[data-part="m"] { width: 2.6ch !important; min-width: 24px !important; text-align: center; }
 :is(#modal-add, #modal-edit, #registration-screen) .date-part[data-part="y"] { width: 4.6ch !important; min-width: 42px !important; }
+
+/* ---------- registration: numbered sections, gmail check, locked department ---------- */
+.df-team-sec { display: flex; align-items: center; gap: 10px; }
+.df-team-sec span { width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--ds-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.df-team-sec h2 { margin: 0; font-size: 17px; font-weight: 600; color: var(--ds-text); }
+.df-team-divider { height: 1px; background: var(--ds-line2, var(--ds-line)); }
+.df-team-mailerr { font-size: 13px; font-weight: 600; color: var(--ds-warn); margin-top: -6px; }
+.df-team-mailerr[hidden] { display: none !important; }
+#reg-email.df-team-bad { border-color: var(--ds-warn-mid, var(--ds-warn)) !important; }
+.df-team-hidden { display: none !important; }
+.df-team-deptlock { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--ds-tint); color: var(--ds-leave-fg); font-size: 15px; font-weight: 600; box-sizing: border-box; }
+.df-team-deptlock[hidden] { display: none !important; }
+.df-team-deptlock span { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 400; }
+html.df-reg-preview #main-app, html.df-reg-preview #login-screen { display: none !important; }
+html.df-reg-preview #registration-screen { display: flex !important; }
+html.df-reg-preview #registration-submit { background: var(--ds-line-strong) !important; color: var(--ds-muted) !important; box-shadow: none !important; cursor: not-allowed; }
+
+/* ---------- invite-link modal (M1) ---------- */
+html.df-inv-gen #modal-invite-link { display: none !important; }
+.df-inv-scrim { position: fixed; inset: 0; z-index: 1200; background: rgba(20, 20, 50, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+html[data-theme="dark"] .df-inv-scrim { background: rgba(0, 0, 0, .6); }
+.df-inv-scrim[hidden] { display: none !important; }
+.df-inv { width: 560px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; background: var(--ds-surface); color: var(--ds-text); border-radius: 22px; box-shadow: 0 24px 60px rgba(10, 10, 40, .3); display: flex; flex-direction: column; font-family: inherit; }
+.df-inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 24px 24px 0; }
+.df-inv-ttl { display: flex; gap: 14px; align-items: center; }
+.df-inv-ic { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--ds-tint); color: var(--ds-accent); display: flex; align-items: center; justify-content: center; }
+.df-inv-ttl h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ds-text); }
+.df-inv-ttl span { font-size: 14px; color: var(--ds-muted); }
+.df-inv-x { width: 44px; height: 44px; flex: none; border-radius: 12px; border: 0; background: var(--ds-bg); color: var(--ds-text2); font-size: 20px; cursor: pointer; font-family: inherit; }
+.df-inv-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+.df-inv-step { display: flex; flex-direction: column; gap: 8px; }
+.df-inv-step .lbl { font-size: 14px; font-weight: 600; }
+.df-inv-step .note { font-size: 13px; color: var(--ds-muted); }
+.df-inv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-inv-chip { font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer; background: var(--ds-surface); color: var(--ds-text2); border: 2px solid var(--ds-line); }
+.df-inv-chip.on { background: var(--ds-tint); color: var(--ds-leave-fg); border-color: var(--ds-accent); }
+.df-inv-chip.off { opacity: .5; }
+.df-inv-chip[disabled] { cursor: default; }
+.df-inv-gen { font-family: inherit; font-size: 15px; font-weight: 600; min-height: 48px; border-radius: 12px; border: 0; background: var(--ds-line-strong); color: var(--ds-muted); cursor: not-allowed; }
+.df-inv-gen.on { background: var(--ds-accent); color: #fff; cursor: pointer; }
+.df-inv-linkrow { display: flex; gap: 8px; align-items: stretch; }
+.df-inv-link { flex: 1; min-width: 0; display: flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--ds-bg); font-size: 14px; color: var(--ds-text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.df-inv-copy { font-family: inherit; font-size: 14px; font-weight: 600; min-height: 48px; padding: 0 18px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; background: var(--ds-accent); color: #fff; }
+.df-inv-copy.done { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-inv-regen { font-family: inherit; font-size: 13px; border: 0; background: transparent; color: var(--ds-accent-ink); text-decoration: underline; cursor: pointer; padding: 0; min-height: 32px; }
+.df-inv-warn { background: var(--ds-hol-bg); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--ds-hol-fg); line-height: 1.6; }
+.df-inv-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 24px 24px; border-top: 1px solid var(--ds-line2, var(--ds-line)); }
+.df-inv-prev { font-family: inherit; display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; color: var(--ds-accent-ink); background: transparent; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.df-inv-done { font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--ds-surface); color: var(--ds-text2); cursor: pointer; }
+@media (max-width: 760px) { .df-inv-linkrow { flex-direction: column; } }
