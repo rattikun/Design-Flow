@@ -2278,7 +2278,7 @@
 
   <div id="login-screen">
     <div class="login-box">
-      <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="app-icon.png?v=20260902a" alt="">Design Flow</div>
+      <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="brand-v3.png?v=20261011" alt="">Design Flow</div>
       <div class="login-sub">ระบบจัดการทีม — กรุณาเข้าสู่ระบบ</div>
       <div class="login-err" id="login-err">อีเมลหรือรหัสผ่านไม่ถูกต้อง</div>
       <div class="form-group" style="margin-bottom:14px;">
@@ -2305,7 +2305,7 @@
 
   <div id="registration-screen" style="display:none;min-height:100vh;">
     <div class="login-box registration-card">
-      <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="app-icon.png?v=20260902a" alt="">ลงทะเบียน Design Flow</div>
+      <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="brand-v3.png?v=20261011" alt="">ลงทะเบียน Design Flow</div>
       <div class="login-sub">แบบฟอร์มสำหรับผู้ได้รับลิงก์เชิญเท่านั้น</div>
       <div id="registration-loading" style="color:var(--text3);padding:20px 0;">กำลังตรวจสอบลิงก์...</div>
       <div id="registration-invalid" class="login-err" style="display:none;"></div>
@@ -2352,8 +2352,8 @@
 
     <aside class="sidebar">
       <div class="logo">
-        <div class="logo-title"><img class="app-brand-icon app-brand-icon-sidebar" src="app-icon.png?v=20260902a" alt="">Design Flow</div>
-        <div class="logo-sub">v2.5 — ระบบจัดการทีม</div>
+        <div class="logo-title"><img class="app-brand-icon app-brand-icon-sidebar" src="brand-v3.png?v=20261011" alt="">Design Flow</div>
+        <div class="logo-sub">ระบบจัดการทีม · v3.0</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ภาพรวม</div>
@@ -2440,9 +2440,8 @@
       <div class="mobile-nav-bar">
         <button class="mobile-menu-btn" onclick="toggleSidebar()">
           <i class="fa-solid fa-bars"></i>
-          <span style="font-size:20px; font-weight: 700; color: var(--accent);">Design Flow</span>
+          <img class="app-brand-icon" src="brand-v3.png?v=20261011" alt="" width="34" height="34"><span class="df-mtitle">Design Flow</span>
         </button>
-        <div style="font-family: var(--mono); font-size:15px; color: var(--text3);">v2.5</div>
       </div>
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page active">
@@ -2452,23 +2451,32 @@
             <div class="page-sub" id="week-label"></div>
           </div>
           <div class="dashboard-head-actions">
-            <button class="btn btn-ghost" onclick="openLeaveModal()"><i class="fa-solid fa-calendar-plus"></i> ยื่นวันลา</button>
-            <button class="btn btn-primary" onclick="openExModal()"><i class="fa-solid fa-person-running"></i> ยื่นออกกำลังกาย</button>
+            <button class="btn btn-ghost" onclick="openExModal()"><i class="fa-solid fa-person-running"></i> ยื่นเบิกออกกำลังกาย</button>
+            <button class="btn btn-primary" onclick="openLeaveModal()"><i class="fa-solid fa-plus"></i> ยื่นใบลา</button>
           </div>
         </div>
         <div class="dashboard-stats">
-          <div class="dashboard-stat"><div class="dashboard-stat-label">ใบลาที่ต้องติดตาม</div><div class="dashboard-stat-value stat-yellow" id="d-pending">0</div><div class="dashboard-stat-note">รออนุมัติหรือรอเอกสาร</div></div>
-          <div class="dashboard-stat"><div class="dashboard-stat-label">ออกกำลังกายรอบนี้</div><div class="dashboard-stat-value stat-accent" id="d-excycle">0</div><div class="dashboard-stat-note" id="d-excycle-label">รอบ 19–18</div></div>
-          <div class="dashboard-stat"><div class="dashboard-stat-label">วันหยุดถัดไป</div><div class="dashboard-stat-value stat-green" id="d-next-holiday">—</div><div class="dashboard-stat-note" id="d-next-holiday-name">กำลังโหลด...</div></div>
+          <div class="dashboard-stat df-hero"><span class="df-tile ic-vac" aria-hidden="true"><span class="ic"></span></span><div class="dashboard-stat-label">ลาพักร้อนคงเหลือ</div><div class="dashboard-stat-value"><span id="df-vac-left">—</span> <small id="df-vac-quota"></small></div><div class="dashboard-stat-note" id="df-vac-note"></div></div>
+          <div class="dashboard-stat"><span class="df-tile ic-biz" aria-hidden="true"><span class="ic"></span></span><div class="dashboard-stat-label">ใบลาที่ต้องติดตาม</div><div class="dashboard-stat-value"><span id="d-pending">0</span> <small>รายการ</small></div><div class="dashboard-stat-note">รออนุมัติหรือรอเอกสาร</div></div>
+          <div class="dashboard-stat"><span class="df-tile ic-solo" aria-hidden="true"><span class="ic"></span></span><div class="dashboard-stat-label">เงินออกกำลังกายรอบนี้</div><div class="dashboard-stat-value" id="df-ex-money">฿0</div><div class="dashboard-stat-note"><span id="d-excycle">0</span> กิจกรรม · <span id="d-excycle-label">รอบ 19–18</span></div></div>
+          <div class="dashboard-stat"><span class="df-tile ic-hol" aria-hidden="true"><span class="ic"></span></span><div class="dashboard-stat-label">วันหยุดถัดไป</div><div class="dashboard-stat-value" id="d-next-holiday">—</div><div class="dashboard-stat-note" id="d-next-holiday-name">กำลังโหลด...</div></div>
         </div>
         <div class="dashboard-layout">
           <section class="dashboard-panel">
-            <div class="dashboard-calendar-head"><button class="dashboard-calendar-nav" onclick="changeDashboardCalendarMonth(-1)" aria-label="เดือนก่อนหน้า">‹</button><strong id="dashboard-calendar-month"></strong><button class="dashboard-calendar-nav" onclick="changeDashboardCalendarMonth(1)" aria-label="เดือนถัดไป">›</button></div>
+            <div class="dashboard-calendar-head df-cal-head"><div><div class="dashboard-panel-title">ปฏิทิน</div><span class="df-cal-month" id="dashboard-calendar-month"></span></div><div class="df-cal-nav"><button class="dashboard-calendar-nav" onclick="changeDashboardCalendarMonth(-1)" aria-label="เดือนก่อนหน้า">‹</button><button class="dashboard-calendar-nav" onclick="changeDashboardCalendarMonth(1)" aria-label="เดือนถัดไป">›</button></div></div>
             <div class="dashboard-calendar-weekdays"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
             <div class="dashboard-calendar-days" id="dashboard-calendar-days"></div>
-            <div class="dashboard-calendar-legend"><span><i class="dashboard-legend-dot" style="background:var(--yellow);"></i>วันหยุดธนาคาร</span><span><i class="dashboard-legend-dot" style="background:var(--purple);"></i>วันลาของฉัน</span><span><i class="dashboard-legend-dot" style="background:var(--accent);"></i>วันนี้</span></div>
+            <div class="dashboard-calendar-legend"><span><i class="dashboard-legend-dot df-dot-leave"></i>วันลา</span><span><i class="dashboard-legend-dot df-dot-hol"></i>วันหยุด</span><span><i class="dashboard-legend-dot df-dot-today"></i>วันนี้</span></div>
           </section>
           <div class="dashboard-side">
+            <section class="dashboard-panel">
+              <div class="dashboard-panel-head"><div class="dashboard-panel-title">วันลาคงเหลือ</div><button class="dashboard-panel-link" onclick="showPage('leave-history')">ดูทั้งหมด</button></div>
+              <div id="df-dash-balance" class="df-bal-list"></div>
+            </section>
+            <section class="dashboard-panel">
+              <div class="dashboard-panel-head"><div class="dashboard-panel-title">กำลังจะมาถึง</div></div>
+              <div id="df-dash-upcoming"></div>
+            </section>
             <section class="dashboard-panel">
               <div class="dashboard-panel-head"><div class="dashboard-panel-title">ใบลาที่ต้องติดตาม</div><button class="dashboard-panel-link" onclick="showPage('leave-history')">ดูทั้งหมด</button></div>
               <div id="d-leave-actions" class="dashboard-list"></div>
@@ -3428,6 +3436,7 @@
   </script>
   <script src="api.js?v=20261011-public-invite"></script>
   <script src="team-manager.js?v=20261011-no-password"></script>
+  <script src="ui-v3.js?v=20261011-v3"></script>
 </body>
 
 </html>
