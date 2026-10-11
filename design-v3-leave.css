@@ -1,0 +1,420 @@
+/* ==========================================================================
+   Design Flow v3 — LEAVE area styles (L1–L6). Only tokens, so dark works.
+   ========================================================================== */
+:root {
+  --df-leave-warn-mid: #EFA27E;
+  --df-leave-warn-fg: #9A3B14;
+  --df-leave-warn-line: #F4D3C6;
+}
+html[data-theme="dark"] {
+  --df-leave-warn-mid: #C8693F;
+  --df-leave-warn-fg: #F5A585;
+  --df-leave-warn-line: #5A2E1E;
+}
+
+.df-leave { display: flex; flex-direction: column; gap: 22px; min-width: 0; color: var(--ds-text); font-family: var(--df-font); }
+.df-leave .df-h1 { font-size: 30px; }
+.df-leave .df-eyebrow a { color: var(--ds-muted); text-decoration: underline; text-underline-offset: 2px; }
+.df-leave .df-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.df-leave button { font-family: inherit; }
+.df-leave .df-card { padding: 22px; }
+.df-leave .df-ph-actions .btn { font-size: 14px; padding: 0 16px; }
+.df-leave .df-ph-actions .btn-primary { font-size: 15px; padding: 0 20px; }
+.df-leave .df-chip { font-size: 12px; font-weight: 500; padding: 4px 10px; }
+.df-leave .df-chip.ok { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-leave-chip-big { font-size: 13px !important; font-weight: 600 !important; padding: 5px 12px !important; }
+.df-leave .df-muted { font-size: 13px; color: var(--ds-muted); line-height: 1.6; }
+
+/* two-column layout */
+.df-leave-cols { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.df-leave-main { flex: 2 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.df-leave-cols.wide { gap: 16px; }
+
+/* shared inputs */
+.df-leave-input { width: 100%; box-sizing: border-box; font: 400 15px var(--df-font); padding: 10px 14px; min-height: 44px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--ds-surface2); color: var(--ds-text); }
+.df-leave-input:focus { outline: none; border-color: var(--ds-accent); box-shadow: var(--focus-ring); }
+.df-leave-textarea { padding: 12px 14px; resize: vertical; min-height: 84px; line-height: 1.5; }
+.df-leave-label { font-size: 13px; color: var(--ds-muted); margin-bottom: -6px; }
+.df-leave-label.strong { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ds-text); padding-top: 6px; margin: 0; }
+.df-leave select.df-leave-select:not([multiple]) { width: auto !important; max-width: 100%; font: 400 14px var(--df-font) !important; min-height: 44px !important; height: 44px; padding: 0 36px 0 12px !important; border-radius: 12px !important; border: 1px solid var(--ds-line-strong) !important; background-color: var(--surface) !important; color: var(--ds-text) !important; background-position: right 12px center !important; }
+.df-leave select.df-leave-select.sm:not([multiple]) { min-height: 36px !important; height: 36px; font-size: 13px !important; font-weight: 600 !important; border-radius: 10px !important; color: var(--ds-text2) !important; }
+.df-leave textarea.df-leave-input { font-size: 15px !important; padding: 12px 14px !important; min-height: 84px !important; background-color: var(--ds-surface2) !important; }
+.df-leave .df-leave-actcard textarea.df-leave-input { font-size: 14px !important; padding: 10px 12px !important; }
+#df-leave-thq { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; min-height: 40px !important; font-size: 14px !important; }
+.df-leave-send { font: 600 16px var(--df-font); min-height: 52px; border-radius: 14px; border: 0; background: var(--ds-accent); color: #fff; box-shadow: 0 8px 18px var(--ds-shadow); cursor: pointer; width: 100%; }
+.df-leave-send:hover { background: var(--ds-accent-hover); }
+.df-leave-cancel { font: 600 14px var(--df-font); min-height: 44px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text2); cursor: pointer; width: 100%; }
+.df-leave-cancel:hover { background: var(--ds-surface2); }
+.df-leave-danger { font: 600 15px var(--df-font); min-height: 44px; border-radius: 12px; border: 1px solid var(--df-leave-warn-line); background: var(--surface); color: var(--ds-warn); cursor: pointer; width: 100%; }
+.df-leave-danger:hover { background: var(--ds-warn-bg); }
+.df-leave-warnbtn { border-color: var(--df-leave-warn-line) !important; color: var(--ds-warn) !important; }
+.df-leave-mini { font: 600 12px var(--df-font); min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text2); cursor: pointer; white-space: nowrap; }
+.df-leave-mini:hover { background: var(--ds-surface2); }
+.df-leave-mini.danger { color: var(--ds-warn); border-color: var(--df-leave-warn-line); }
+.df-leave-mini.ok { color: var(--ds-ok); }
+.df-leave-icon { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 0; background: transparent; color: var(--ds-muted); cursor: pointer; }
+.df-leave-icon.danger:hover { background: var(--ds-warn-bg); color: var(--ds-warn); }
+.df-leave-ref { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0; border: 0; background: transparent; cursor: pointer; font: 600 12px var(--df-font); color: var(--ds-accent-ink); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.df-leave-ref:hover { color: var(--ds-accent-hover); }
+.df-leave-doclink { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--ds-ok-bg); color: var(--ds-ok); font: 600 12px var(--df-font); cursor: pointer; vertical-align: middle; }
+.df-leave-doclink.is-static { cursor: default; }
+.df-leave-linkbtn { align-self: flex-start; font: 600 14px var(--df-font); min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--ds-accent); cursor: pointer; }
+.df-leave-none { padding: 24px 12px; text-align: center; color: var(--ds-muted); font-size: 14px; }
+
+/* tabs (L2 / L5) */
+.df-leave-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-leave-tabs button { font: 600 14px var(--df-font); min-height: 44px; padding: 0 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--surface); color: var(--ds-text2); border: 1px solid var(--ds-line-strong); }
+.df-leave-tabs button span { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--ds-line2); }
+.df-leave-tabs button.on { background: var(--ds-text); color: var(--surface); border-color: var(--ds-text); }
+.df-leave-tabs button.on span { background: rgba(255, 255, 255, .2); }
+html[data-theme="dark"] .df-leave-tabs button.on span { background: rgba(0, 0, 0, .15); }
+.df-leave-ftabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-leave-ftabs button { font: 600 13px var(--df-font); min-height: 36px; padding: 0 12px; border-radius: 10px; cursor: pointer; background: var(--surface); color: var(--ds-text2); border: 1px solid var(--ds-line-strong); }
+.df-leave-ftabs button.on { background: var(--ds-text); color: var(--surface); border-color: var(--ds-text); }
+
+/* shared calendar legend */
+.df-leave-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; font-size: 13px; color: var(--ds-muted); }
+.df-leave-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.df-leave-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-sizing: border-box; }
+.df-leave-legend i.sel { background: var(--ds-accent); }
+.df-leave-legend i.team { background: var(--ds-leave); }
+.df-leave-legend i.hol { background: var(--ds-hol); }
+.df-leave-legend i.pend { border: 2px dashed var(--ds-hol); }
+.df-leave-legend-hint { margin-left: auto; color: var(--ds-text2); }
+.df-leave-nav { display: flex; align-items: center; gap: 8px; }
+.df-leave-nav > button[aria-label] { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text2); font-size: 18px; cursor: pointer; }
+.df-leave-nav > button[aria-label]:hover { background: var(--ds-surface2); }
+
+/* empty state */
+.df-leave-empty { align-items: center; text-align: center; gap: 10px; padding: 48px 24px !important; }
+.df-leave-empty-ic { width: 64px; height: 64px; border-radius: 20px; background: var(--ds-tint); color: var(--ds-accent); display: flex; align-items: center; justify-content: center; }
+.df-leave-empty h2 { font-size: 20px !important; }
+.df-leave-empty p { margin: 0; font-size: 15px; color: var(--ds-muted); }
+
+/* facts tiles */
+.df-leave-facts { display: grid; gap: 10px; }
+.df-leave-facts.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.df-leave-facts.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.df-leave-facts > div { background: var(--ds-bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.df-leave-facts.g4 > div { border-radius: 14px; padding: 12px 14px; }
+.df-leave-facts span { font-size: 12px; color: var(--ds-muted); }
+.df-leave-facts b { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* flags / notices */
+.df-leave-flag { display: flex; gap: 10px; align-items: center; font-size: 14px; background: var(--ds-bg); border-radius: 12px; padding: 10px 12px; }
+.df-leave-flag i { width: 10px; height: 10px; flex: none; border-radius: 50%; background: var(--ds-leave); }
+.df-leave-flag.hol i { background: var(--ds-hol); }
+.df-leave-flag.pm i { background: var(--ds-accent); }
+.df-leave-flag.warn { background: var(--ds-warn-bg); color: var(--df-leave-warn-fg); }
+.df-leave-flag.warn i { background: var(--df-leave-warn-mid); }
+.df-leave-notice { display: flex; gap: 10px; align-items: flex-start; background: var(--ds-hol-bg); color: var(--ds-hol-fg); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; }
+.df-leave-notice svg { flex: none; margin-top: 3px; }
+.df-leave-notice.no { background: var(--ds-warn-bg); color: var(--df-leave-warn-fg); }
+
+/* ---------------- L1 ยื่นใบลา ---------------- */
+.df-leave-sec { gap: 14px; padding: 24px !important; }
+.df-leave-sec-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.df-leave-sec-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.df-leave-step { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--ds-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+.df-leave-hint, .df-leave-req { font-size: 13px; color: var(--ds-muted); }
+.df-leave-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.df-leave-type { text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 72px; padding: 12px 14px; border-radius: 14px; cursor: pointer; color: var(--ds-text); background: var(--surface); border: 2px solid var(--ds-line); }
+.df-leave-type:hover { border-color: var(--ds-tint-line); }
+.df-leave-type .df-tile { margin-bottom: 4px; }
+.df-leave-type.on { background: var(--ds-tint); border-color: var(--ds-accent); }
+.df-leave-type.off { background: var(--ds-surface2); border-color: var(--ds-line2); opacity: .6; cursor: not-allowed; }
+.df-leave-type-name { font-size: 15px; font-weight: 600; }
+.df-leave-type-sub { font-size: 13px; color: var(--ds-muted); }
+.df-leave-type-sub.warn { color: var(--ds-warn); font-weight: 600; }
+.df-leave-type.off .df-leave-type-sub { color: var(--ds-faint); }
+.df-leave-seg { display: inline-flex; align-self: flex-start; background: var(--ds-surface2); border-radius: 12px; padding: 4px; gap: 4px; }
+.df-leave-seg button { font: 600 14px var(--df-font); min-height: 40px; padding: 0 16px; border-radius: 9px; border: 0; cursor: pointer; background: transparent; color: var(--ds-muted); }
+.df-leave-seg button.on { background: var(--surface); color: var(--ds-accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+html[data-theme="dark"] .df-leave-seg button.on { color: var(--ds-accent-ink); }
+.df-leave-calhead { display: flex; justify-content: space-between; align-items: center; }
+.df-leave-calmonth { font-size: 16px; font-weight: 600; }
+.df-leave-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.df-leave-cal > span { text-align: center; font-size: 13px; color: var(--ds-muted); padding-bottom: 4px; }
+.df-leave-day { font: 600 15px var(--df-font); min-height: 52px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 2px solid transparent; background: var(--ds-bg); color: var(--ds-text); cursor: pointer; padding: 2px; min-width: 0; }
+.df-leave-day small { font-size: 11px; font-weight: 600; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-leave-day small:empty { display: none; }
+.df-leave-day:hover { border-color: var(--ds-tint-line); }
+.df-leave-day.is-we, .df-leave-day.is-other { background: transparent; color: var(--ds-faint); }
+.df-leave-day.is-team { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-leave-day.is-hol { background: var(--ds-hol-bg); color: var(--ds-hol-fg); }
+.df-leave-day.is-range { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-leave-day.is-range.is-skip { background: transparent; color: var(--ds-faint); border: 2px dashed var(--ds-tint-line); }
+.df-leave-day.is-sel { background: var(--ds-accent); color: #fff; }
+.df-leave-day.is-today:not(.is-sel) { border-color: var(--ds-line-strong); }
+.df-leave-day.is-today small { font-weight: 500; }
+.df-leave-quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-leave-quick button { font: 400 13px var(--df-font); min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text2); cursor: pointer; }
+.df-leave-quick button:hover { background: var(--ds-surface2); }
+.df-leave-drop { border: 2px dashed var(--ds-line-strong); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; color: var(--ds-muted); font-size: 13px; cursor: pointer; }
+.df-leave-drop:hover, .df-leave-drop:focus { border-color: var(--ds-accent); outline: none; }
+.df-leave-drop strong { color: var(--ds-text2); font-size: 14px; }
+.df-leave-aside { flex: 1 1 300px; min-width: 0; gap: 16px !important; padding: 24px !important; }
+.df-leave-aside h2 { margin: 0; }
+.df-leave-sumbox { background: var(--ds-tint); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.df-leave-sum-k { font-size: 13px; color: var(--ds-muted); }
+.df-leave-sum-v { font-size: 24px; font-weight: 700; line-height: 1.3; }
+.df-leave-sum-n { font-size: 14px; }
+.df-leave-neg { color: var(--ds-warn); }
+.df-leave-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.df-leave-checks li { display: flex; gap: 10px; align-items: flex-start; }
+.df-leave-checks i { width: 18px; height: 18px; flex: none; border-radius: 50%; margin-top: 2px; background: var(--ds-leave); }
+.df-leave-checks li.warn i { background: var(--df-leave-warn-mid); }
+.df-leave-checks li.warn span { color: var(--df-leave-warn-fg); }
+.df-leave-checks li.hol i { background: var(--ds-hol); }
+.df-leave-checks li.info i { background: var(--ds-leave-bg); }
+.df-leave-foot { margin: 0 !important; }
+
+/* ---------------- L2 อนุมัติการลา ---------------- */
+.df-leave-rules { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: var(--ds-tint); border: 1px solid var(--ds-tint-line); border-radius: 16px; padding: 14px 18px; font-size: 14px; }
+.df-leave-rules b { font-weight: 600; color: var(--ds-accent); }
+html[data-theme="dark"] .df-leave-rules b { color: var(--ds-accent-ink); }
+.df-leave-rules span { padding: 4px 12px; border-radius: 999px; background: var(--surface); }
+.df-leave-rcard { flex-direction: row !important; flex-wrap: wrap; gap: 22px !important; }
+.df-leave-rmain { flex: 2 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.df-leave-rwho { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.df-leave-rwho .df-tchip { margin-left: auto; }
+.df-leave-rname { display: flex; flex-direction: column; min-width: 0; }
+.df-leave-rname b { font-size: 16px; font-weight: 600; }
+.df-leave-rname span { font-size: 13px; color: var(--ds-muted); }
+.df-leave-reason { font-size: 14px; }
+.df-leave-reason > span:first-child { color: var(--ds-muted); }
+.df-leave-ractions { flex: 1 1 200px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.df-leave-ractions .df-leave-send { font-size: 15px; min-height: 48px; border-radius: 12px; box-shadow: none; }
+.df-leave-more { text-align: center; font: 600 14px var(--df-font); min-height: 40px; border: 0; background: transparent; color: var(--ds-accent-ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.df-leave-list { padding: 6px 22px !important; gap: 0 !important; }
+.df-leave-lrow { display: grid; grid-template-columns: minmax(140px, 1.3fr) minmax(0, 1.2fr) 110px 70px 150px 120px; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--ds-line2); font-size: 14px; }
+.df-leave-lrow:first-child { border-top: 0; }
+.df-leave-lfoot { padding: 12px 0; border-top: 1px solid var(--ds-line2); font-size: 13px; color: var(--ds-muted); }
+.df-leave-lfoot a { color: var(--ds-accent-ink); }
+.df-leave-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.df-leave-who > span { display: flex; flex-direction: column; min-width: 0; }
+.df-leave-who b { font-weight: 600; }
+.df-leave-who small { font-size: 12px; font-weight: 400; color: var(--ds-muted); }
+.df-leave-date { font-weight: 600; white-space: nowrap; }
+
+/* ---------------- L3 วันลาของฉัน ---------------- */
+.df-leave-bals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.df-leave-bal { background: var(--surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.df-leave-bal.low { border-color: var(--df-leave-warn-line); }
+.df-leave-bal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.df-leave-bal-top > span { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+.df-leave-bal-top em { font-style: normal; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--ds-line2); color: var(--ds-muted); white-space: nowrap; }
+.df-leave-bal-top em.warn { background: var(--ds-warn-bg); color: var(--df-leave-warn-fg); }
+.df-leave-bal-top em.info { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-leave-bal-num b { font-size: 36px; font-weight: 700; line-height: 1.1; }
+.df-leave-bal-num span { font-size: 15px; font-weight: 500; color: var(--ds-muted); }
+.df-leave-bar { height: 8px; border-radius: 4px; background: var(--ds-line2); overflow: hidden; }
+.df-leave-bar i { display: block; height: 100%; border-radius: 4px; background: var(--ds-accent); }
+.df-leave-bal.low .df-leave-bar i { background: var(--df-leave-warn-mid); }
+.df-leave-bal-foot { font-size: 13px; color: var(--ds-muted); }
+.df-leave-hist { flex: 2 1 520px; gap: 6px !important; }
+.df-leave-hist-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-bottom: 8px; }
+.df-leave-hist-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.df-leave-hrow { display: grid; grid-template-columns: minmax(112px, 1fr) 118px 62px 138px 132px; gap: 14px; align-items: center; padding: 12px; border-top: 1px solid var(--ds-line2); font-size: 14px; }
+.df-leave-hrow.head { padding: 10px 12px; border-radius: 10px; border: 0; background: var(--ds-surface2); font-size: 13px; font-weight: 600; color: var(--ds-muted); }
+.df-leave-hrow.head + .df-leave-hrow { border-top: 0; }
+.df-leave-st { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.df-leave-why { font-size: 12px; color: var(--ds-warn); line-height: 1.4; }
+.df-leave-refcell { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.df-leave-hrow .df-leave-date { white-space: normal; }
+.df-leave-refcell .df-leave-doclink { margin-left: 0; }
+.df-leave-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.df-leave-others { flex: 1 1 300px; gap: 4px !important; }
+.df-leave-others h2 { margin: 0 0 8px !important; }
+.df-leave-orow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ds-line2); font-size: 14px; }
+.df-leave-orow small { font-size: 12px; color: var(--ds-muted); }
+.df-leave-orow b { font-weight: 600; white-space: nowrap; }
+.df-leave-orow em { font-style: normal; }
+
+/* ---------------- L4 ปฏิทินวันลาของทีม ---------------- */
+.df-leave-tcal { gap: 14px !important; }
+.df-leave-tcal-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.df-leave-tcal-head h2 { margin: 0; font-size: 18px; font-weight: 600; min-width: 140px; text-align: center; }
+.df-leave-todaybtn { font: 600 13px var(--df-font); min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-accent); cursor: pointer; }
+html[data-theme="dark"] .df-leave-todaybtn { color: var(--ds-accent-ink); }
+.df-leave-tgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.df-leave-tgrid > span { text-align: center; font-size: 13px; color: var(--ds-muted); }
+.df-leave-tday { min-height: 78px; border-radius: 12px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; font-size: 14px; background: var(--ds-bg); color: var(--ds-text); min-width: 0; }
+.df-leave-tday b { font-weight: 600; }
+.df-leave-tday.is-we { background: var(--ds-surface2); color: var(--ds-muted); }
+.df-leave-tday.is-other { background: var(--ds-surface2); color: var(--ds-faint); }
+.df-leave-tday.is-today { box-shadow: inset 0 0 0 2px var(--ds-accent); }
+.df-leave-tchip { display: flex; align-items: center; gap: 6px; font: 400 12px var(--df-font); background: var(--ds-leave-bg); color: var(--ds-leave-fg); border-radius: 8px; padding: 3px 6px; border: 1px solid transparent; cursor: pointer; text-align: left; min-width: 0; }
+.df-leave-tchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-leave-tchip .df-av { font-size: 8px !important; }
+.df-leave-tchip.pending { background: var(--ds-hol-bg); color: var(--ds-hol-fg); border: 1px dashed var(--ds-hol); }
+.df-leave-thol { font-size: 12px; background: var(--ds-hol-bg); color: var(--ds-hol-fg); border-radius: 8px; padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-leave-tmore { font-size: 12px; color: var(--ds-muted); padding: 0 4px; }
+.df-leave-heat { gap: 10px !important; }
+.df-leave-heat-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px; }
+.df-leave-heat-head h2 { margin: 0; }
+.df-leave-heat-head > .df-muted { margin-left: auto; }
+.df-leave-heat-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.df-leave-heat-tools:empty { display: none; }
+.df-leave-tablewrap { overflow-x: auto; }
+.df-leave-heattable { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
+.df-leave-heattable thead th { text-align: center; padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--ds-muted); white-space: nowrap; border: 0; background: transparent; }
+.df-leave-heattable thead th.l { text-align: left; }
+.df-leave-heattable thead button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.df-leave-heattable thead button span { font-size: 11px; opacity: .8; }
+.df-leave-heattable tbody th, .df-leave-heattable tbody td { padding: 10px 12px; border-top: 1px solid var(--ds-line2); border-bottom: 0; text-align: center; font-weight: 400; color: var(--ds-text); background: transparent; }
+.df-leave-heattable tbody th.l { text-align: left; font-weight: 600; }
+.df-leave-heattable tbody td.low { color: var(--df-leave-warn-fg); font-weight: 600; background: var(--ds-warn-bg); }
+.df-leave-heattable tbody td.none { color: var(--ds-faint); }
+.df-leave-heattable .r { text-align: right !important; }
+.df-leave-heattable tbody tr:hover td, .df-leave-heattable tbody tr:hover th { background: transparent; }
+.df-leave-heattable tbody tr:hover td.low { background: var(--ds-warn-bg); }
+
+/* generic table (L4 accu history, L5) */
+.df-leave-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.df-leave-table thead tr { background: var(--ds-surface2); }
+.df-leave-table th { text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--ds-muted); white-space: nowrap; border: 0; background: transparent; }
+.df-leave-table th button { display: inline-flex; align-items: center; gap: 2px; border: 0; background: transparent; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.df-leave-table th button span { font-size: 11px; opacity: .7; }
+.df-leave-table td { padding: 12px 16px; border-top: 1px solid var(--ds-line2); border-bottom: 0; color: var(--ds-text); vertical-align: middle; }
+.df-leave-table td.muted { color: var(--ds-muted); max-width: 240px; }
+.df-leave-table td.nw { white-space: nowrap; }
+.df-leave-table td.r { text-align: right; }
+.df-leave-table tbody tr:hover td { background: var(--ds-surface2); }
+
+/* ---------------- L5 ประวัติการลาทีม ---------------- */
+.df-leave-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.df-leave-search { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-muted); box-sizing: border-box; }
+.df-leave-search input { flex: 1; min-width: 0; border: 0 !important; outline: none; background: transparent !important; box-shadow: none !important; font: 400 14px var(--df-font); color: var(--ds-text); padding: 0; min-height: 40px; }
+.df-leave-flabel { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ds-muted); margin: 0; }
+.df-leave-thcard { padding: 0 !important; overflow-x: auto; gap: 0 !important; }
+.df-leave-thtable { min-width: 860px; }
+.df-leave-thcard .df-leave-refcell, .df-leave-thtable .df-leave-doclink { margin-left: 6px; }
+.df-leave-pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--ds-line2); font-size: 13px; color: var(--ds-muted); min-width: 860px; box-sizing: border-box; }
+.df-leave-pager div { display: flex; gap: 6px; }
+.df-leave-pager button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--ds-line-strong); background: var(--surface); color: var(--ds-text2); cursor: pointer; font-size: 16px; }
+.df-leave-pager button:disabled { opacity: .45; cursor: default; }
+
+/* ---------------- L6 รายละเอียดใบลา ---------------- */
+.df-leave-detail .df-h1.df-leave-dtitle { font-size: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.df-leave-detail .df-leave-cols { gap: 18px; }
+.df-leave-detail .df-leave-main { flex: 2 1 520px; gap: 18px; }
+.df-leave-side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.df-leave-dcard { gap: 18px !important; }
+.df-leave-dwho { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.df-leave-dwho > div { flex: 1; display: flex; flex-direction: column; min-width: 160px; }
+.df-leave-dwho b { font-size: 17px; font-weight: 700; }
+.df-leave-dwho span { font-size: 13px; color: var(--ds-muted); }
+.df-leave-kv { display: flex; flex-direction: column; gap: 4px; }
+.df-leave-kv span { font-size: 13px; color: var(--ds-muted); }
+.df-leave-kv b { font-size: 16px; font-weight: 400; overflow-wrap: anywhere; }
+.df-leave-docs { gap: 14px !important; }
+.df-leave-docs h2 small { font-size: 14px; font-weight: 500; color: var(--ds-muted); }
+.df-leave-upbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--ds-accent); color: #fff; font: 600 14px var(--df-font); cursor: pointer; }
+.df-leave-upbtn:hover { background: var(--ds-accent-hover); }
+.df-leave-files { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.df-leave-files > p { grid-column: 1 / -1; }
+.df-leave-file { border: 1px solid var(--ds-line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; background: var(--surface); min-width: 0; }
+.df-leave-file-prev { padding: 0; border: 0; background: var(--ds-bg); height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--ds-muted); cursor: zoom-in; }
+.df-leave-file-prev:disabled { cursor: default; }
+.df-leave-file-prev b { font-size: 12px; font-weight: 700; }
+.df-leave-file-meta { padding: 10px 12px; display: flex; flex-direction: column; min-width: 0; }
+.df-leave-file-meta b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.df-leave-file-meta span { font-size: 12px; color: var(--ds-muted); }
+.df-leave-file-add { min-height: 194px; border: 2px dashed var(--ds-line-strong); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 12px; color: var(--ds-muted); font: 400 13px var(--df-font); background: transparent; cursor: pointer; }
+.df-leave-file-add:hover { border-color: var(--ds-accent); }
+.df-leave-file-add strong { color: var(--ds-text2); font-size: 14px; }
+.df-leave-status { gap: 4px !important; }
+.df-leave-status h2 { margin: 0 0 10px !important; }
+.df-leave-tl { list-style: none; margin: 0; padding: 0; }
+.df-leave-tl li { display: flex; gap: 12px; position: relative; }
+.df-leave-tl li::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--ds-line2); }
+.df-leave-tl li.done::before { background: var(--ds-accent); }
+.df-leave-tl li:last-child::before { display: none; }
+.df-leave-dot { width: 28px; height: 28px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--ds-line2); color: var(--ds-faint); position: relative; z-index: 1; }
+.df-leave-tl li.done .df-leave-dot { background: var(--ds-accent); color: #fff; }
+.df-leave-tl li.now .df-leave-dot { background: var(--ds-tint); color: var(--ds-accent-ink); box-shadow: inset 0 0 0 2px var(--ds-accent); }
+.df-leave-tl li.no .df-leave-dot { background: var(--ds-warn-bg); color: var(--ds-warn); box-shadow: inset 0 0 0 2px var(--ds-warn); }
+.df-leave-tl li > div { display: flex; flex-direction: column; padding-bottom: 16px; min-width: 0; }
+.df-leave-tl b { font-size: 15px; font-weight: 600; }
+.df-leave-tl span { font-size: 13px; color: var(--ds-muted); overflow-wrap: anywhere; }
+.df-leave-actcard { gap: 10px !important; }
+.df-leave-actcard .df-leave-send { font-size: 15px; min-height: 48px; border-radius: 12px; box-shadow: none; }
+.df-leave-actcard .df-leave-danger { font-size: 14px; }
+.df-leave-actcard .df-leave-textarea { font-size: 14px; font-weight: 400; padding: 10px 12px; }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 1100px) {
+  .df-leave-bals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .df-leave-lrow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+}
+@media (max-width: 760px) {
+  .df-leave { gap: 16px; }
+  .df-leave .df-h1, .df-leave-detail .df-h1.df-leave-dtitle { font-size: 24px; }
+  .df-leave .df-ph { padding-right: 0; }
+  .df-leave .df-card, .df-leave-sec, .df-leave-aside { padding: 16px !important; }
+  .df-leave-main, .df-leave-aside, .df-leave-hist, .df-leave-others, .df-leave-side { flex-basis: 100%; }
+  .df-leave-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .df-leave-cal, .df-leave-tgrid { gap: 3px; }
+  .df-leave-day { min-height: 44px; padding: 4px; font-size: 12px; border-radius: 8px; }
+  .df-leave-day small { font-size: 9px; }
+  .df-leave-legend-hint { margin-left: 0; width: 100%; }
+  .df-leave-tday { min-height: 56px; padding: 4px; border-radius: 8px; font-size: 12px; gap: 3px; }
+  .df-leave-tchip { padding: 2px 3px; gap: 3px; font-size: 10px; }
+  .df-leave-tchip .df-av { display: none; }
+  .df-leave-thol { font-size: 9px; padding: 2px 3px; }
+  .df-leave-nav > button[aria-label] { width: 40px; height: 40px; }
+  .df-leave-tcal-head h2 { min-width: 110px; font-size: 16px; }
+  .df-leave-bals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .df-leave-bal { padding: 14px; }
+  .df-leave-bal-num b { font-size: 28px; }
+  .df-leave-bal-top > span { font-size: 14px; gap: 8px; }
+  .df-leave-bal-top { flex-wrap: wrap; }
+  .df-leave-hrow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; padding: 12px 4px; }
+  .df-leave-hrow.head { display: none; }
+  .df-leave-hrow > :nth-child(2) { text-align: right; }
+  .df-leave-hrow > :nth-child(3) { color: var(--ds-muted); }
+  .df-leave-hrow > :nth-child(4) { align-items: flex-end; }
+  .df-leave-hrow > :nth-child(5) { grid-column: 1 / -1; }
+  .df-leave-facts.g3 { grid-template-columns: minmax(0, 1fr); }
+  .df-leave-facts.g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .df-leave-files { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .df-leave-rwho .df-tchip { margin-left: 0; }
+  .df-leave-rules { padding: 12px 14px; gap: 8px; }
+  .df-leave-filters .df-leave-flabel { flex: 1 1 140px; }
+  .df-leave-filters .df-leave-select { flex: 1; min-width: 0; }
+  .df-leave-tabs button { min-height: 40px; padding: 0 12px; font-size: 13px; }
+  .df-leave-lrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .df-leave-ph-actions { width: 100%; }
+}
+
+/* ---------------- legacy leave modals → v3 look ---------------- */
+#modal-confirm .modal, #modal-quota .modal, #modal-team-quota .modal, #modal-doc-preview .modal { font-family: var(--df-font); }
+#modal-confirm #conf-body { font-size: 15px !important; color: var(--ds-text2) !important; line-height: 1.6; }
+#modal-confirm #conf-body strong { color: var(--ds-text) !important; }
+#modal-confirm #conf-body span[style*="var(--mono)"] { font-family: var(--df-font) !important; color: var(--ds-muted) !important; }
+#modal-confirm textarea#reject-reason-input, #modal-confirm #dental-doc-link-input {
+  background: var(--ds-surface2) !important; border: 1px solid var(--ds-line-strong) !important; border-radius: 12px !important; color: var(--ds-text) !important; font-size: 15px !important;
+}
+#modal-confirm textarea#reject-reason-input:focus, #modal-confirm #dental-doc-link-input:focus { border-color: var(--ds-accent) !important; box-shadow: var(--focus-ring); }
+#modal-confirm #dental-doc-box { border: 2px dashed var(--ds-line-strong) !important; border-radius: 16px !important; background: transparent; }
+#modal-confirm #dental-doc-text { color: var(--ds-text2) !important; }
+#modal-confirm .btn-red { background: var(--ds-warn); color: #fff; }
+#modal-confirm .btn-red:hover { background: var(--df-leave-warn-fg); color: #fff; }
+#modal-quota [style*="color:#fff"], #modal-quota [style*="color: #fff"], #modal-team-quota [style*="color:#fff"], #modal-team-quota [style*="color: #fff"] { color: var(--ds-text) !important; }
+#modal-quota .quota-grid-row, #modal-quota [style*="rgba(255,255,255,0.02)"], #modal-team-quota .team-quota-row {
+  background: var(--ds-surface2) !important; border: 1px solid var(--ds-line2) !important; border-radius: 14px !important;
+}
+#modal-quota input[type="number"], #modal-quota input[type="text"], #modal-team-quota input[type="number"] {
+  background: var(--surface) !important; border: 1px solid var(--ds-line-strong) !important; border-radius: 10px !important; color: var(--ds-text) !important; font-family: var(--df-font) !important;
+}
+#modal-quota input.quota-rem-input { background: var(--ds-ok-bg) !important; border-color: transparent !important; color: var(--ds-ok) !important; }
+#modal-quota .accu-history-row { background: var(--surface) !important; border: 1px solid var(--ds-line2); }
+#modal-quota [style*="var(--mono)"], #modal-team-quota [style*="var(--mono)"] { font-family: var(--df-font) !important; }
+#modal-quota button[onclick^="addAccuHistory"] { background: var(--ds-tint) !important; color: var(--ds-accent-ink) !important; border: 1px solid var(--ds-tint-line) !important; border-radius: 10px !important; font-family: var(--df-font) !important; min-height: 36px; }
+#modal-quota button[onclick^="removeAccuHistory"] { background: var(--ds-warn-bg) !important; color: var(--ds-warn) !important; }
+#modal-quota [style*="border-top:1px solid rgba(255,255,255,0.06)"] { border-top-color: var(--ds-line) !important; }
+#modal-quota #btn-save-quota, #modal-team-quota .modal-actions .btn-primary { background: var(--ds-accent) !important; color: #fff !important; border: 0 !important; box-shadow: 0 8px 18px var(--ds-shadow) !important; }
+#modal-quota .modal-title i, #modal-team-quota .modal-title i { color: var(--ds-accent) !important; }
+#modal-quota .modal-actions, #modal-team-quota .modal-actions { background: var(--surface) !important; border-top: 1px solid var(--ds-line) !important; }
+#modal-quota .modal-actions .btn-ghost, #modal-team-quota .modal-actions .btn-ghost { background: var(--surface) !important; color: var(--ds-text2) !important; border: 1px solid var(--ds-line-strong) !important; }

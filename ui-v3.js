@@ -31,16 +31,21 @@
   }
   function safe(fn) { return function () { try { return fn.apply(this, arguments); } catch (err) { console.warn('[ui-v3]', err); } }; }
   function hook(name, after) {
-    var orig = window[name];
-    if (typeof orig !== 'function' || orig.__dfv3) return;
+    var cur = window[name];
+    if (typeof cur !== 'function') return;
+    if (cur.__dfv3) { cur.__afters.push(after); return; }
+    var orig = cur;
     var wrapped = function () {
       var r = orig.apply(this, arguments);
-      safe(after).apply(this, arguments);
+      var args = arguments, self = this;
+      wrapped.__afters.forEach(function (fn) { safe(fn).apply(self, args); });
       return r;
     };
     wrapped.__dfv3 = true;
+    wrapped.__afters = [after];
     window[name] = wrapped;
   }
+
   function holidays() {
     try { return typeof getCachedDashboardHolidays === 'function' ? getCachedDashboardHolidays() : []; } catch (e) { return []; }
   }
@@ -130,6 +135,9 @@
     }
 
     // keep "ใบลาที่ต้องติดตาม" panel only when there is something to follow up
+    var exPanel = document.getElementById('d-exercise-metrics');
+    exPanel = exPanel && exPanel.closest('.dashboard-panel');
+    if (exPanel) exPanel.hidden = true; // not part of the v3 dashboard design
     var att = document.getElementById('d-leave-actions');
     var attPanel = att && att.closest('.dashboard-panel');
     if (attPanel) attPanel.hidden = !att.querySelector('.dashboard-list-item');
@@ -202,8 +210,8 @@
   /* ======================= MOBILE TAB BAR ======================= */
   var TABS = [
     { id: 'dashboard', label: 'ภาพรวม', icon: 'fa-solid fa-table-cells-large', match: ['dashboard'] },
-    { id: 'leave-history', label: 'การลา', icon: 'fa-regular fa-calendar', match: ['leave-history', 'my-balance', 'leave-review', 'leave-pm', 'leave-balance', 'team-hist'] },
-    { id: 'exercise-log', label: 'ออกกำลังกาย', icon: 'fa-solid fa-person-running', match: ['exercise-log', 'exercise-share', 'exercise-review'] },
+    { id: 'leave-history', label: 'การลา', icon: 'fa-regular fa-calendar', match: ['leave-history', 'my-balance', 'leave-review', 'leave-pm', 'leave-balance', 'team-hist', 'leave-new', 'leave-detail'] },
+    { id: 'exercise-log', label: 'ออกกำลังกาย', icon: 'fa-solid fa-person-running', match: ['exercise-log', 'exercise-share', 'exercise-review', 'ex-new'] },
     { id: 'leaderboard', label: 'อันดับ', icon: 'fa-solid fa-trophy', match: ['leaderboard'], fallback: 'exercise-share', fallbackLabel: 'แชร์' },
     { id: 'members', label: 'ทีม', icon: 'fa-solid fa-user-group', match: ['members'], menu: true }
   ];
@@ -233,12 +241,159 @@
     }).join('');
   }
 
+
+  /* ======================= SHARED KIT (window.DFV3) ======================= */
+  var DFV3 = window.DFV3 = window.DFV3 || {};
+  DFV3.esc = esc; DFV3.plainType = function (t) { return plainType(t); }; DFV3.num = function (n) { return num(n); };
+  DFV3.nick = function (u) { return nick(u); }; DFV3.userByEmail = function (e) { return userByEmail(e); };
+  DFV3.balanceFor = function (t) { return balanceFor(t); }; DFV3.tile = function (i, s) { return tile(i, s); };
+  DFV3.TYPE_ICON = TYPE_ICON; DFV3.TH_MONTHS = TH_MONTHS; DFV3.TH_MON_S = TH_MON_S;
+  DFV3.fmtShort = function (ds) { return fmtShort(ds); };
+  DFV3.hook = hook; DFV3.safe = safe; DFV3.holidays = holidays; DFV3.visibleSet = visibleSet;
+  DFV3.ROLE_LABEL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'PM' };
+  var AV_TINTS = ['#DAD8FF', '#F8DFD3', '#D6E6FF', '#F6E7C4', '#E3DDF5', '#D8EEDF', '#FBE7F6'];
+  /* initial-letter avatar; colour is stable per email */
+  DFV3.avatar = function (u, size) {
+    size = size || 36;
+    var key = String((u && u.email) || ''), h = 0;
+    for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    var letter = (nick(u) || (u && u.name) || '?').trim().replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase() || '?';
+    return '<span class="df-av" aria-hidden="true" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px;background:' + AV_TINTS[h % AV_TINTS.length] + '">' + esc(letter) + '</span>';
+  };
+  DFV3.chip = function (status) {
+    var m = { pending_lead: ['รอหัวหน้า', 'pending'], pending_pm: ['รอ PM', 'pm'], approved: ['อนุมัติแล้ว', 'ok'], rejected: ['ไม่อนุมัติ', 'no'], pending: ['รออนุมัติ', 'pending'] }[status] || [status, 'pm'];
+    return '<span class="df-chip ' + m[1] + '">' + m[0] + '</span>';
+  };
+  DFV3.typeChip = function (type) {
+    return '<span class="df-tchip ' + (TYPE_ICON[type] || 'ic-acc') + '"><span class="ic"></span>' + esc(plainType(type)) + '</span>';
+  };
+  DFV3.thDate = function (ds, opts) {
+    if (!ds) return '—';
+    var d = new Date(ds + 'T00:00:00');
+    var s = d.getDate() + ' ' + TH_MON_S[d.getMonth()];
+    if (opts && opts.year) s += ' ' + (d.getFullYear() + 543);
+    return s;
+  };
+  DFV3.range = function (a, b) {
+    if (!a) return '—';
+    if (!b || a === b) return DFV3.thDate(a);
+    var da = new Date(a + 'T00:00:00'), db = new Date(b + 'T00:00:00');
+    if (da.getMonth() === db.getMonth() && da.getFullYear() === db.getFullYear()) return da.getDate() + '–' + db.getDate() + ' ' + TH_MON_S[db.getMonth()];
+    return DFV3.thDate(a) + ' – ' + DFV3.thDate(b);
+  };
+  DFV3.header = function (o) {
+    /* o: {eyebrow, title, actions(html)} — standard v3 page header */
+    return '<header class="df-ph"><div class="df-ph-text">' + (o.eyebrow ? '<span class="df-eyebrow">' + o.eyebrow + '</span>' : '') +
+      '<h1 class="df-h1">' + o.title + '</h1></div>' + (o.actions ? '<div class="df-ph-actions">' + o.actions + '</div>' : '') + '</header>';
+  };
+
+  /* ---- page registry: v3 views live next to the (hidden) legacy markup ----
+     DFV3.registerPage(id, { render: fn(viewEl), refreshOn: ['renderLR', ...], create: bool })
+     - existing page: legacy children are moved into a hidden .df-legacy box, so the
+       original render functions keep working (they still find their element ids).
+     - create:true makes a brand-new page element. */
+  var PAGES = {};
+  DFV3.registerPage = function (id, def) {
+    PAGES[id] = def;
+    (def.refreshOn || []).forEach(function (fn) {
+      hook(fn, function () { if (isActive(id)) renderPage(id); });
+    });
+    try { if (typeof VALID_PAGES !== 'undefined' && def.create) VALID_PAGES.add(id); } catch (e) {}
+  };
+  function isActive(id) { var p = document.getElementById('page-' + id); return !!(p && p.classList.contains('active')); }
+  function viewFor(id) {
+    var page = document.getElementById('page-' + id);
+    if (!page) {
+      if (!PAGES[id] || !PAGES[id].create) return null;
+      var main = document.querySelector('.main');
+      if (!main) return null;
+      page = document.createElement('div');
+      page.id = 'page-' + id; page.className = 'page';
+      main.appendChild(page);
+    }
+    var view = page.querySelector(':scope > .df-view');
+    if (!view) {
+      if (!PAGES[id].create) {
+        var legacy = document.createElement('div');
+        legacy.className = 'df-legacy'; legacy.hidden = true;
+        while (page.firstChild) legacy.appendChild(page.firstChild);
+        page.appendChild(legacy);
+      }
+      view = document.createElement('div');
+      view.className = 'df-view';
+      page.insertBefore(view, page.firstChild);
+    }
+    return view;
+  }
+  function renderPage(id) {
+    var def = PAGES[id]; if (!def || !cu) return;
+    var view = viewFor(id); if (!view) return;
+    try { def.render(view); } catch (err) { console.warn('[ui-v3] page ' + id, err); }
+  }
+  DFV3.renderPage = renderPage;
+  DFV3.go = function (id) { showPage(id); };
+  var _lastPage = null;
+  function onShowPage(id) {
+    if (PAGES[id]) {
+      var page = document.getElementById('page-' + id);
+      if (!page && PAGES[id].create) {
+        viewFor(id);
+        // original showPage could not activate a page that did not exist yet
+        document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+        document.getElementById('page-' + id).classList.add('active');
+        var nv = document.querySelector('[onclick="showPage(\'' + id + '\')"]'); if (nv) nv.classList.add('active');
+      }
+      renderPage(id);
+      if (_lastPage !== id) window.scrollTo(0, 0);
+    }
+    _lastPage = id;
+  }
+
+  /* ======================= SIDEBAR / PROFILE ======================= */
+  function decorateSidebar() {
+    if (!cu) return;
+    var role = document.getElementById('sb-role');
+    if (role) role.textContent = (DFV3.ROLE_LABEL[cu.role] || cu.role) + (cu.dept ? ' · ' + cu.dept : '');
+    var av = document.getElementById('sb-avatar');
+    if (av) { av.textContent = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase(); av.style.color = ''; }
+    var team = document.getElementById('df-sb-team');
+    if (team) team.textContent = cu.dept ? 'ทีม ' + cu.dept : 'ระบบจัดการทีม';
+  }
+
+  function serviceText(start) {
+    if (!start) return '—';
+    var s = new Date(start + 'T00:00:00'), n = new Date();
+    var months = (n.getFullYear() - s.getFullYear()) * 12 + (n.getMonth() - s.getMonth()) - (n.getDate() < s.getDate() ? 1 : 0);
+    if (months < 0) return '—';
+    var y = Math.floor(months / 12), m = months % 12;
+    return (y ? y + ' ปี ' : '') + m + ' เดือน';
+  }
+  DFV3.serviceText = serviceText;
+
+  function renderProfile(view) {
+    var u = userByEmail(cu.email) || cu;
+    var loc = u.locationType === 'province' ? 'ต่างจังหวัด' : 'กรุงเทพ';
+    var bday = u.birthday ? (function () { var d = new Date(u.birthday + 'T00:00:00'); return d.getDate() + ' ' + TH_MON_S[d.getMonth()]; })() : '—';
+    var field = function (k, v) { return '<div class="df-field"><span>' + k + '</span><b>' + esc(v || '—') + '</b></div>'; };
+    view.innerHTML = DFV3.header({ eyebrow: 'บัญชีของฉัน', title: 'โปรไฟล์ของฉัน' }) +
+      '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"></div>' +
+      '<div class="df-profile-row">' + DFV3.avatar(u, 120).replace('class="df-av"', 'class="df-av df-av-ring"') +
+      '<div class="df-profile-name"><h2>' + esc(nick(u)) + '</h2><span>' + esc(u.name) + ' · ' + esc(DFV3.ROLE_LABEL[u.role] || u.role) + (u.dept ? ' · ' + esc(u.dept) : '') + '</span></div>' +
+      '<div class="df-profile-actions"><button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></div></section>' +
+      '<section class="df-card"><div class="df-card-head"><h2>ข้อมูลส่วนตัวและการทำงาน</h2><span class="df-lock"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>แก้ไขได้โดยหัวหน้าทีม / PM เท่านั้น</span></div>' +
+      '<div class="df-fields">' + field('ชื่อ–นามสกุล', u.name) + field('ชื่อเล่น', u.nickname) + field('อีเมล', u.email) +
+      field('ตำแหน่ง', DFV3.ROLE_LABEL[u.role] || u.role) + field('ทีม', u.dept) + field('พื้นที่', loc) +
+      field('วันเริ่มงาน', u.startDate ? DFV3.thDate(u.startDate, { year: true }) : '—') + field('อายุงาน', serviceText(u.startDate)) + field('วันเกิด', bday) + '</div>' +
+      '<p class="df-muted">ข้อมูลไม่ถูกต้อง? แจ้งหัวหน้าทีมหรือ PM เพื่อแก้ไข</p></section>';
+  }
+
   /* ======================= INSTALL ======================= */
   function install() {
     if (typeof renderDashboardCalendar === 'function') window.renderDashboardCalendar = safe(renderCalendarV3);
     hook('updateDashboard', renderDashExtras);
-    hook('renderMyBal', renderMyBalCards);
-    hook('showPage', refreshTabBar);
+    hook('showPage', function (id) { onShowPage(id); refreshTabBar(); });
+    hook('setupSidebar', decorateSidebar);
+    DFV3.registerPage('profile', { create: true, render: renderProfile });
     hook('launchApp', function () { buildTabBar(); refreshTabBar(); });
     if (document.getElementById('main-app') && document.getElementById('main-app').style.display !== 'none') { buildTabBar(); }
   }

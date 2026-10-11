@@ -2272,6 +2272,9 @@
   </style>
   <link rel="stylesheet" href="ui-refresh.css?v=20260902a">
   <link rel="stylesheet" href="design-v3.css?v=20261011-v3">
+  <link rel="stylesheet" href="design-v3-leave.css?v=20261011-v3">
+  <link rel="stylesheet" href="design-v3-exercise.css?v=20261011-v3">
+  <link rel="stylesheet" href="design-v3-team.css?v=20261011-v3">
 </head>
 
 <body>
@@ -2350,88 +2353,52 @@
       <div id="notif-list"></div>
     </div>
 
-    <aside class="sidebar">
+    <aside class="sidebar df-sidebar">
       <div class="logo">
-        <div class="logo-title"><img class="app-brand-icon app-brand-icon-sidebar" src="brand-v3.png?v=20261011" alt="">Design Flow</div>
-        <div class="logo-sub">ระบบจัดการทีม · v3.0</div>
+        <div class="logo-title"><img class="app-brand-icon app-brand-icon-sidebar" src="brand-v3.png?v=20261011" alt="">
+          <span class="df-logo-text"><span>Design Flow</span><span class="logo-sub" id="df-sb-team">ระบบจัดการทีม</span></span></div>
       </div>
       <div class="nav-section">
-        <div class="nav-label">ภาพรวม</div>
-        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"><i
-              class="fa-solid fa-font-awesome"></i></span> แดชบอร์ด
-        </div>
+        <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect></svg></span>ภาพรวม</div>
       </div>
-
       <div class="nav-section">
-        <div class="nav-label">ระบบลา</div>
-        <div class="nav-item" onclick="openLeaveModal()"><span class="nav-icon"><i
-              class="fa-solid fa-circle-plus"></i></span> ยื่นใบลา</div>
-        <div class="nav-item" id="nav-leave-review" onclick="showPage('leave-review')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติการลา<span class="badge"
-            id="badge-review">0</span></div>
-        <div class="nav-item" id="nav-leave-pm" onclick="showPage('leave-pm')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติ (PM)<span class="badge"
-            id="badge-pm">0</span></div>
-        <div class="nav-item" onclick="showPage('leave-history')"><span class="nav-icon"><i
-              class="fa-solid fa-clock-rotate-left"></i></span> วันลาของฉัน
-        </div>
-        <div class="nav-item" id="nav-balance" onclick="showPage('leave-balance')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-people-line"></i></span> วันลาของทีม</div>
-        <div class="nav-item" id="nav-team-hist" onclick="showPage('team-hist')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-rectangle-list"></i></span> ประวัติการลาทีม</div>
+        <div class="nav-label">การลา</div>
+        <div class="nav-item" id="nav-balance" onclick="showPage('leave-balance')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span>ปฏิทินทีม</div>
+        <div class="nav-item" id="nav-leave-review" onclick="showPage('leave-review')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span>อนุมัติการลา<span class="badge" id="badge-review">0</span></div>
+        <div class="nav-item" id="nav-leave-pm" onclick="showPage('leave-pm')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span>อนุมัติการลา<span class="badge" id="badge-pm">0</span></div>
+        <div class="nav-item" onclick="showPage('leave-history')"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h9l4 4v14H6z"></path><path d="M9 12h7M9 16h5"></path></svg></span>วันลาของฉัน</div>
+        <div class="nav-item" id="nav-team-hist" onclick="showPage('team-hist')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></span>ประวัติการลาทีม</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ออกกำลังกาย</div>
-        <div class="nav-item" onclick="openExModal()"><span class="nav-icon"><i
-              class="fa-solid fa-circle-plus"></i></span> ยื่นเบิกใหม่</div>
-        <div class="nav-item" onclick="showPage('exercise-log')"><span class="nav-icon"><i
-              class="fa-solid fa-football"></i></span>
-          ข้อมูลของฉัน</div>
-        <div class="nav-item" onclick="showPage('exercise-share')"><span class="nav-icon"><i
-              class="fa-solid fa-people-pulling"></i></span> แชร์กิจกรรม
-        </div>
-        <div class="nav-item" id="nav-ex-review" onclick="showPage('exercise-review')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-signature"></i></span> อนุมัติออกกำลังกาย<span class="badge"
-            id="badge-ex">0</span></div>
-        <div class="nav-item" id="nav-leaderboard" onclick="showPage('leaderboard')" style="display:none;"><span
-            class="nav-icon"><i class="fa-solid fa-ranking-star"></i></span> Leaderboard</div>
+        <div class="nav-item" onclick="showPage('exercise-log')"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg></span>ข้อมูลของฉัน</div>
+        <div class="nav-item" onclick="showPage('exercise-share')"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M21 20c0-2-1.5-4-4-4.5"></path></svg></span>แชร์กิจกรรม</div>
+        <div class="nav-item" id="nav-ex-review" onclick="showPage('exercise-review')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"></path></svg></span>อนุมัติออกกำลังกาย<span class="badge" id="badge-ex">0</span></div>
+        <div class="nav-item" id="nav-leaderboard" onclick="showPage('leaderboard')" style="display:none;"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8"></path></svg></span>Leaderboard</div>
       </div>
       <div class="nav-section" id="nav-sec-members" style="display:none;">
-        <div class="nav-label">จัดการทีม</div>
-        <div class="nav-item" onclick="showPage('members')"><span class="nav-icon"><i
-              class="fa-solid fa-users"></i></span> สมาชิกทีม</div>
+        <div class="nav-label">ทีม</div>
+        <div class="nav-item" onclick="showPage('members')"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg></span>สมาชิกทีม</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">ขุนทอง</div>
-        <a class="nav-item" href="https://design-cz.web.app/badminton#sessions" target="_blank" rel="noopener"
-          style="text-decoration:none;"><span class="nav-icon"><i class="fa-solid fa-table-tennis-paddle-ball"></i></span>
-          นัดตีแบด <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;opacity:.5;margin-left:auto;"></i></a>
-        <a class="nav-item" href="https://design-cz.web.app/badminton#money" target="_blank" rel="noopener"
-          style="text-decoration:none;"><span class="nav-icon"><i class="fa-solid fa-sack-dollar"></i></span>
-          เรียกเก็บเงิน <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;opacity:.5;margin-left:auto;"></i></a>
+        <a class="nav-item" href="https://design-cz.web.app/badminton#sessions" target="_blank" rel="noopener" title="เปิดในแท็บใหม่"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="17" r="3"></circle><path d="M9.2 14.8 18 6M12 4l8 8M14.5 3.5l6 6-5 2.5-3.5-3.5z"></path></svg></span><span class="df-grow">นัดตีแบด</span><svg class="df-ext" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></a>
+        <a class="nav-item" href="https://design-cz.web.app/badminton#money" target="_blank" rel="noopener" title="เปิดในแท็บใหม่"><span class="nav-icon"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-2 4h-2zM11 7C6 9 4 13 4 16a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5c0-3-2-7-7-9"></path><path d="M14 11.5c-.5-.6-1.2-1-2-1-1.1 0-2 .7-2 1.6s.9 1.4 2 1.6 2 .7 2 1.6-.9 1.6-2 1.6c-.8 0-1.5-.4-2-1M12 9.5v1M12 17.3v1"></path></svg></span><span class="df-grow">เรียกเก็บเงิน</span><svg class="df-ext" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></a>
       </div>
       <div class="user-panel">
-        <div class="user-info">
+        <div class="user-info nav-item df-profile-link" onclick="showPage('profile')" title="โปรไฟล์ของฉัน">
           <div class="user-avatar" id="sb-avatar">?</div>
-          <div style="flex:1; overflow:hidden;">
-            <div style="display:flex; align-items:baseline; gap:4px; overflow:hidden;">
-              <div class="user-name" id="sb-nickname"
-                style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
-              <div class="user-role-txt" id="sb-role" style="white-space:nowrap; opacity:0.7; font-size:14px;">—</div>
-            </div>
-            <div id="sb-fullname"
-              style="color:var(--text3); font-size:15px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              —</div>
+          <div class="df-user-text">
+            <div class="user-name" id="sb-nickname">—</div>
+            <div class="user-role-txt" id="sb-role">—</div>
+            <div id="sb-fullname" hidden>—</div>
           </div>
         </div>
-        <button class="logout-btn" onclick="openChangePass()"
-          style="margin-top:12px; color:var(--text2); border-color:var(--surface3);"><i class="fa-solid fa-key"
-            style="margin-right:6px; font-size:14px;"></i> เปลี่ยนรหัสผ่าน</button>
-        <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
         <div class="df-theme-switch" role="group" aria-label="ธีมการแสดงผล">
-          <button type="button" data-df-theme="light" aria-pressed="true" onclick="dfSetTheme('light')"><i class="fa-regular fa-sun"></i> สว่าง</button>
-          <button type="button" data-df-theme="dark" aria-pressed="false" onclick="dfSetTheme('dark')"><i class="fa-regular fa-moon"></i> มืด</button>
+          <button type="button" data-df-theme="light" aria-pressed="true" onclick="dfSetTheme('light')"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg> สว่าง</button>
+          <button type="button" data-df-theme="dark" aria-pressed="false" onclick="dfSetTheme('dark')"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg> มืด</button>
         </div>
+        <div class="df-version">Design Flow v3.0.0<br>อัปเดตล่าสุด 11 ต.ค. 2569</div>
       </div>
     </aside>
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -3437,6 +3404,9 @@
   <script src="api.js?v=20261011-public-invite"></script>
   <script src="team-manager.js?v=20261011-no-password"></script>
   <script src="ui-v3.js?v=20261011-v3"></script>
+  <script src="ui-v3-leave.js?v=20261011-v3"></script>
+  <script src="ui-v3-exercise.js?v=20261011-v3"></script>
+  <script src="ui-v3-team.js?v=20261011-v3"></script>
 </body>
 
 </html>

@@ -741,3 +741,83 @@ html[data-theme="dark"] .ic-hol  { --tbg: #3A2E17; --tfg: #F2C77E; }
   .main { padding-bottom: 96px !important; }
   #toast { bottom: 90px !important; }
 }
+
+/* ==========================================================================
+   v3 round 3 — design kit shared by every page (df-*)
+   ========================================================================== */
+
+/* ---------- 23. Sidebar per design --------------------------------------- */
+.df-sidebar { width: 264px; padding: 28px 18px 18px; gap: 0; }
+.df-sidebar .logo { padding: 0 8px 22px; margin: 0; border: 0; }
+.df-sidebar .logo-title { display: flex; align-items: center; gap: 12px; }
+.df-sidebar .app-brand-icon-sidebar { width: 44px; height: 44px; border-radius: 12px; }
+.df-logo-text { display: flex; flex-direction: column; line-height: 1.25; }
+.df-logo-text > span:first-child { font-size: 17px; font-weight: 700; color: var(--ds-text); }
+.df-sidebar .logo-sub { margin: 0; font-size: 12px; color: var(--ds-muted); }
+.df-sidebar .nav-section { padding: 0; margin: 0 0 18px; }
+.df-sidebar .nav-label { padding: 0 14px 6px; font-size: 12px; }
+.df-sidebar .nav-item { gap: 12px; padding: 11px 14px; min-height: 44px; font-size: 15px; border-radius: 12px; text-decoration: none; }
+.df-sidebar .nav-item .nav-icon { width: 19px; display: inline-flex; }
+.df-sidebar .nav-item .badge { margin-left: auto; }
+.df-sidebar .df-grow { flex: 1; }
+.df-sidebar .df-ext { color: var(--ds-faint); }
+.df-sidebar .user-panel { margin-top: auto; border-top: 1px solid var(--ds-line); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.df-profile-link.user-info { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; cursor: pointer; }
+.df-profile-link.nav-item.active { background: var(--ds-tint); }
+.df-user-text { display: flex; flex-direction: column; min-width: 0; }
+.df-user-text .user-name { font-size: 14px; font-weight: 600; }
+.df-user-text .user-role-txt { opacity: 1 !important; }
+.df-sidebar .df-theme-switch { margin: 0 4px; }
+.df-version { font-size: 11px; line-height: 1.4; color: var(--ds-muted); padding: 0 8px; }
+
+/* ---------- 24. Page header, cards, fields ------------------------------- */
+.df-view { display: flex; flex-direction: column; gap: 22px; }
+.df-ph { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding-right: 56px; }
+.df-ph-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.df-eyebrow { font-size: 14px; color: var(--ds-muted); }
+.df-eyebrow a { color: var(--ds-text2); }
+.df-h1 { margin: 0; font-size: 32px; font-weight: 700; line-height: 1.2; color: var(--ds-text); letter-spacing: 0; }
+.df-ph-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.df-card { background: var(--surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.df-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.df-card-head h2, .df-card h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--ds-text); }
+.df-muted { margin: 0; font-size: 13px; color: var(--ds-muted); }
+.df-lock { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ds-muted); background: var(--ds-surface2); border: 1px solid var(--ds-line); border-radius: 999px; padding: 4px 12px; }
+.df-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .df-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.df-field { background: var(--ds-surface2); border: 1px solid var(--ds-line2); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.df-field span { font-size: 13px; color: var(--ds-muted); }
+.df-field b { font-size: 16px; font-weight: 600; color: var(--ds-text); overflow-wrap: anywhere; }
+
+/* avatars, chips */
+.df-av { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; font-weight: 700; color: #1E1F3B; }
+.df-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.df-chip.pending { background: var(--ds-hol-bg); color: var(--ds-hol-fg); }
+.df-chip.pm { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-chip.ok { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-chip.no { background: var(--ds-warn-bg); color: var(--ds-warn); }
+.df-tchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; background: var(--tbg); color: var(--tfg); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.df-tchip .ic { width: 16px; height: 16px; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+
+/* buttons in v3 views */
+.df-view .btn { min-height: 44px; padding: 0 18px; font-size: 15px; }
+.df-danger { color: var(--ds-warn) !important; }
+
+/* ---------- 25. Profile --------------------------------------------------- */
+.df-profile-hero { padding: 0; overflow: hidden; gap: 0; }
+.df-profile-cover { height: 120px; background: var(--ds-tint); border-bottom: 1px solid var(--ds-line); }
+.df-profile-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 20px; padding: 0 28px 24px; margin-top: -56px; }
+.df-av-ring { box-shadow: 0 0 0 6px var(--surface), 0 0 0 9px var(--ds-tint-line); }
+.df-profile-name { flex: 1; min-width: 200px; padding-bottom: 6px; }
+.df-profile-name h2 { margin: 0; font-size: 26px; font-weight: 700; color: var(--ds-text); }
+.df-profile-name span { font-size: 15px; color: var(--ds-muted); }
+.df-profile-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-bottom: 6px; }
+
+/* solo icon tile per X boards (blue); the dashboard money card keeps the warm tile from the J board */
+.ic-solo { --tbg: #E3EEFF; --tfg: #2457B3; }
+html[data-theme="dark"] .ic-solo { --tbg: #1E2D4D; --tfg: #A9C7FF; }
+.dashboard-stat .ic-solo { --tbg: #FDE7DD; --tfg: #9A3B14; }
+html[data-theme="dark"] .dashboard-stat .ic-solo { --tbg: #3D2219; --tfg: #F5A585; }
+/* date-part boxes: Anuphan digits are wider than the old font — widen everywhere */
+.date-part[data-part="d"], .date-part[data-part="m"] { width: 2.6ch !important; min-width: 24px !important; text-align: center; }
+.date-part[data-part="y"] { width: 4.6ch !important; min-width: 42px !important; }

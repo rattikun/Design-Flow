@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Design Flow v3 — EXERCISE area styles (df-ex-*)
+   Boards: X1 ข้อมูลของฉัน · X2 ยื่นเบิก · X3 แชร์กิจกรรม · X4 Leaderboard
+   + PM approval (L2 visual language) + legacy detail modal refinements.
+   Tokens only (light/dark via html[data-theme]).
+   ========================================================================== */
+.df-ex {
+  --x-warn-fg: #9A3B14;
+  --x-warn-line: #F4D3C6;
+  --x-ink-on-text: #FFFFFF;
+  display: flex; flex-direction: column; gap: 20px; color: var(--ds-text); font-family: var(--df-font);
+}
+html[data-theme="dark"] .df-ex { --x-warn-fg: #F5A585; --x-warn-line: #5A2E1E; --x-ink-on-text: #10111C; }
+.df-ex h2 { margin: 0; color: var(--ds-text); }
+.df-ex .df-card { padding: 22px; gap: 12px; border-radius: 20px; }
+.df-ex .df-h1 { font-size: 30px; }
+.df-ex .df-eyebrow a { color: var(--ds-muted); }
+.df-ex-mut { color: var(--ds-muted); }
+.df-ex-sm { font-size: 13px; }
+.df-ex a { color: var(--ds-accent-ink); }
+
+/* exercise icon tiles follow the X boards (solo = blue) */
+html .df-ex .ic-solo { --tbg: #E3EEFF; --tfg: #2457B3; }
+html .df-ex .ic-run  { --tbg: #ECEBFF; --tfg: #4343B5; }
+html .df-ex .ic-eat  { --tbg: #FFF1DC; --tfg: #8A5A0B; }
+html[data-theme="dark"] .df-ex .ic-solo { --tbg: #1E2D4D; --tfg: #A9C7FF; }
+html[data-theme="dark"] .df-ex .ic-run  { --tbg: #262750; --tfg: #B4B3FF; }
+html[data-theme="dark"] .df-ex .ic-eat  { --tbg: #3A2E17; --tfg: #F2C77E; }
+
+/* controls */
+.df-ex-lbl { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ds-muted); }
+.df-ex-select {
+  font-family: inherit; font-size: 14px; min-height: 44px; height: auto; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--ds-line-strong); background-color: var(--ds-surface); color: var(--ds-text); width: auto; max-width: 100%;
+}
+.df-ex-select.lg { font-size: 15px; min-height: 48px; background-color: var(--ds-surface2); width: 100%; }
+.df-ex-cta {
+  font-family: inherit; display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 12px; border: 0;
+  background: var(--ds-accent); color: #FFFFFF; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 18px var(--ds-shadow);
+}
+.df-ex-cta:hover { background: var(--ds-accent-hover); }
+.df-ex-input {
+  font-family: inherit; font-size: 15px; font-weight: 400; min-height: 44px; padding: 0 12px; border-radius: 10px; box-sizing: border-box;
+  border: 1px solid var(--ds-line-strong); background: var(--ds-surface2); color: var(--ds-text); width: 100%;
+}
+.df-ex-input.lg { min-height: 48px; padding: 0 14px; border-radius: 12px; }
+textarea.df-ex-input { padding: 12px 14px; border-radius: 12px; resize: vertical; min-height: 64px; line-height: 1.5; }
+.df-ex-input::placeholder { color: var(--ds-faint); }
+.df-ex-input:focus, .df-ex-select:focus { outline: none; border-color: var(--ds-accent); box-shadow: var(--focus-ring); }
+.df-ex-ghost {
+  font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--ds-line-strong); background: var(--ds-surface); color: var(--ds-text2);
+}
+.df-ex-ghost:hover { background: var(--ds-surface2); }
+.df-ex-link { font-family: inherit; background: none; border: 0; padding: 0 4px; min-height: 36px; font-size: 14px; font-weight: 600; color: var(--ds-accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.df-ex-link.center { align-self: center; min-height: 40px; }
+.df-ex-mini { font-family: inherit; font-size: 13px; font-weight: 600; min-height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--ds-line-strong); background: var(--ds-surface); color: var(--ds-text2); cursor: pointer; }
+.df-ex-mini.warn { color: var(--ds-warn); border-color: var(--x-warn-line); }
+.df-ex-mini:hover { background: var(--ds-surface2); }
+.df-ex-bar { height: 8px; border-radius: 4px; background: var(--ds-line2); overflow: hidden; }
+.df-ex-bar-fill { height: 100%; border-radius: 4px; background: var(--ds-accent); }
+.df-ex-av { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; font-weight: 700; color: #1E1F3B; }
+.df-ex-av.out { background: var(--ds-line2); color: var(--ds-text2); }
+
+/* ---------------- X1 ข้อมูลของฉัน ---------------- */
+.df-ex-row1, .df-ex-row2 { display: flex; flex-wrap: wrap; gap: 16px; }
+.df-ex-money {
+  flex: 2 1 420px; min-width: 0; background: var(--ds-tint); border: 1px solid var(--ds-tint-line); border-radius: 20px; padding: 24px;
+  display: flex; flex-wrap: wrap; gap: 24px; align-items: center; box-sizing: border-box;
+}
+.df-ex-money-main, .df-ex-money-rate { flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.df-ex-money-rate { gap: 8px; }
+.df-ex-money .df-ex-mut:first-child { font-size: 14px; }
+.df-ex-big { font-size: 44px; font-weight: 700; line-height: 1; color: var(--ds-text); }
+.df-ex-line { font-size: 14px; color: var(--ds-text); }
+.df-ex-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-ex-pills span { font-size: 13px; padding: 5px 12px; border-radius: 999px; background: var(--ds-surface); color: var(--ds-text); }
+.df-ex-cuts { flex: 1 1 260px; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.df-ex-cut { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.df-ex-cut b { font-size: 22px; font-weight: 700; color: var(--ds-text); }
+.df-ex-qcard {
+  flex: 1 1 300px; min-width: 0; background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 22px;
+  display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;
+}
+.df-ex-qhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.df-ex-qhead h2 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.df-ex-qrow { display: flex; flex-direction: column; gap: 6px; }
+.df-ex-qtop { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--ds-text); }
+.df-ex-qtop strong { font-weight: 700; white-space: nowrap; }
+.df-ex-qnote { font-size: 13px; font-weight: 600; color: var(--ds-warn); }
+.df-ex-qnote.ok { color: var(--ds-ok); }
+.df-ex-qnote.mut { color: var(--ds-muted); font-weight: 400; }
+.df-ex-bonus { border-color: var(--ds-tint-line); gap: 10px; }
+.df-ex-bonus .df-ex-qhead h2 { min-height: 40px; }
+.df-ex-badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--ds-hol-bg); color: var(--ds-hol-fg); white-space: nowrap; }
+.df-ex-badge.ok { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-ex-bonus-t { font-size: 15px; color: var(--ds-text); }
+.df-ex-hist { gap: 12px; }
+.df-ex-hhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.df-ex-hhead .df-ex-select { min-height: 40px; padding: 0 10px; border-radius: 10px; }
+.df-ex-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 0; text-align: center; }
+.df-ex-empty b { font-size: 16px; font-weight: 600; }
+.df-ex-empty span { font-size: 14px; color: var(--ds-muted); }
+.df-ex-hlist { display: flex; flex-direction: column; }
+.df-ex-hrow {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) 84px 100px 236px; gap: 14px; align-items: center;
+  padding: 12px 4px; border-top: 1px solid var(--ds-line2); font-size: 14px;
+}
+.df-ex-hrow:first-child { border-top: 0; }
+.df-ex-datebox { width: 52px; height: 52px; border-radius: 14px; background: var(--ds-tint); color: var(--ds-accent-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.df-ex-datebox b { font-size: 18px; font-weight: 700; }
+.df-ex-datebox span { font-size: 11px; }
+.df-ex-hrow.rej .df-ex-datebox { background: var(--ds-line2); color: var(--ds-muted); }
+.df-ex-hmain { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.df-ex-htitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.df-ex-htitle .df-tchip { font-size: 12px; padding: 2px 10px 2px 6px; }
+.df-ex-hsub { font-size: 13px; color: var(--ds-muted); overflow-wrap: anywhere; }
+.df-ex-rej { font-size: 13px; color: var(--ds-warn); background: var(--ds-warn-bg); border-radius: 10px; padding: 6px 10px; }
+.df-ex-hmoney { font-size: 16px; font-weight: 700; text-align: right; }
+.df-ex-hmoney.strike { color: var(--ds-faint); text-decoration: line-through; }
+.df-ex-hstat { display: flex; justify-content: flex-start; }
+.df-ex-hact { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+
+/* ---------------- X2 ยื่นเบิก ---------------- */
+.df-ex-newgrid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.df-ex-form { flex: 2 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.df-ex-form .df-card { padding: 24px; gap: 14px; }
+.df-ex-form .df-card + .df-card { gap: 16px; }
+.df-ex-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.df-ex-type {
+  font-family: inherit; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; min-height: 96px;
+  border-radius: 14px; cursor: pointer; color: var(--ds-text); background: var(--ds-surface); border: 2px solid var(--ds-line);
+}
+.df-ex-type:hover { border-color: var(--ds-line-strong); }
+.df-ex-type.on { background: var(--ds-tint); border-color: var(--ds-accent); }
+.df-ex-type .df-tile { margin-bottom: 4px; }
+.df-ex-type-n { font-size: 16px; font-weight: 600; }
+.df-ex-type-m { font-size: 22px; font-weight: 700; }
+.df-ex-type-q { font-size: 13px; color: var(--ds-muted); }
+.df-ex-type-q.full { color: var(--ds-warn); font-weight: 600; }
+.df-ex-fields { display: flex; flex-wrap: wrap; gap: 14px; }
+.df-ex-f { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ds-text); min-width: 0; }
+.df-ex-f.grow2 { flex: 2 1 260px; }
+.df-ex-f.grow1 { flex: 1 1 180px; }
+.df-ex-req { font-weight: 400; color: var(--ds-warn); }
+.df-ex-opt { font-weight: 400; color: var(--ds-muted); }
+.df-ex-group { display: flex; flex-direction: column; gap: 10px; background: var(--ds-bg); border-radius: 14px; padding: 16px; }
+.df-ex-ghead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 15px; font-weight: 600; }
+.df-ex-gnote { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--ds-warn-bg); color: var(--x-warn-fg); }
+.df-ex-gnote.ok { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-ex-chosen { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-ex-mchip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 4px 4px 6px; border-radius: 999px; box-sizing: border-box;
+  background: var(--ds-surface); border: 2px solid var(--ds-accent);
+}
+.df-ex-mchip.me { padding-right: 14px; }
+.df-ex-mchip.out { border-style: dashed; border-color: var(--ds-line-strong); }
+.df-ex-mtxt { display: flex; flex-direction: column; line-height: 1.25; }
+.df-ex-mtxt b { font-size: 14px; font-weight: 600; }
+.df-ex-mtxt small, .df-ex-ptxt small { font-size: 11px; color: var(--ds-muted); }
+.df-ex-mx { width: 32px; height: 32px; border-radius: 50%; border: 0; background: transparent; color: var(--ds-muted); font-size: 18px; cursor: pointer; }
+.df-ex-mx:hover { background: var(--ds-line2); color: var(--ds-text); }
+.df-ex-pick { display: flex; flex-direction: column; gap: 8px; background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 12px; padding: 14px; }
+.df-ex-pick.dashed { border: 1px dashed var(--ds-line-strong); }
+.df-ex-pick-h { font-size: 14px; font-weight: 600; }
+.df-ex-pick-h span { font-weight: 400; color: var(--ds-muted); }
+.df-ex-people { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-ex-person {
+  font-family: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 14px 4px 6px; border-radius: 999px;
+  color: var(--ds-text); background: var(--ds-surface); border: 1px solid var(--ds-line-strong); cursor: pointer;
+}
+.df-ex-person:hover:not(:disabled) { border-color: var(--ds-accent); }
+.df-ex-person:disabled { background: var(--ds-surface2); border-color: var(--ds-line2); opacity: .55; cursor: not-allowed; }
+.df-ex-ptxt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.df-ex-extrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-ex-extrow .df-ex-input { flex: 2 1 160px; width: auto; }
+.df-ex-extrow .df-ex-input:first-child { flex-basis: 180px; }
+.df-ex-extadd { font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--ds-text); color: var(--x-ink-on-text); cursor: pointer; }
+.df-ex-extadd:disabled { border: 1px solid var(--ds-line-strong); background: var(--ds-bg); color: var(--ds-faint); cursor: not-allowed; }
+.df-ex-sum { flex: 1 1 300px; gap: 14px; padding: 24px; position: sticky; top: 20px; }
+.df-ex-sumbox { background: var(--ds-tint); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.df-ex-sumbig { font-size: 32px; font-weight: 700; line-height: 1.25; }
+.df-ex-sumlist { margin: 0; padding: 0 0 0 18px; font-size: 14px; line-height: 1.8; color: var(--ds-text2); }
+.df-ex-alert { border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.55; }
+.df-ex-alert.warn { background: var(--ds-hol-bg); color: var(--ds-hol-fg); }
+.df-ex-alert.err { background: var(--ds-warn-bg); color: var(--x-warn-fg); border: 1px solid var(--x-warn-line); }
+.df-ex-send { font-family: inherit; font-size: 16px; font-weight: 600; min-height: 52px; border-radius: 14px; border: 0; background: var(--ds-accent); color: #FFFFFF; cursor: pointer; box-shadow: 0 8px 18px var(--ds-shadow); }
+.df-ex-send:hover:not(:disabled) { background: var(--ds-accent-hover); }
+.df-ex-send:disabled { background: var(--ds-line-strong); color: var(--ds-muted); cursor: not-allowed; box-shadow: none; }
+.df-ex-cancel { font-family: inherit; background: none; border: 0; min-height: 44px; font-size: 14px; color: var(--ds-accent-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* the legacy form stays mounted (hidden) while this page drives it */
+#modal-ex-form.df-ex-driven { display: none !important; }
+
+/* ---------------- tabs (X3 + review) ---------------- */
+.df-ex-tabrow { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.df-ex-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-ex-tab {
+  font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px; background: var(--ds-surface); color: var(--ds-text2); border: 1px solid var(--ds-line-strong);
+}
+.df-ex-tab span { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--ds-line2); }
+.df-ex-tab.on { background: var(--ds-text); color: var(--x-ink-on-text); border-color: var(--ds-text); }
+.df-ex-tab.on span { background: rgba(255, 255, 255, .2); }
+html[data-theme="dark"] .df-ex-tab.on span { background: rgba(16, 17, 28, .14); }
+.df-ex-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ds-text2); min-height: 44px; cursor: pointer; }
+.df-ex-check input { width: 20px; height: 20px; accent-color: var(--ds-accent-ink); margin: 0; }
+.df-ex-blank { padding: 48px 24px !important; align-items: center; text-align: center; gap: 10px !important; }
+.df-ex-blank h2 { font-size: 20px; font-weight: 600; }
+.df-ex-blank p { margin: 0; font-size: 15px; color: var(--ds-muted); }
+.df-ex-blank-ic { width: 64px; height: 64px; border-radius: 20px; background: var(--ds-tint); color: var(--ds-accent); display: flex; align-items: center; justify-content: center; }
+.df-ex-blank .df-ex-ghost { color: var(--ds-accent); }
+
+/* ---------------- X3 แชร์กิจกรรม ---------------- */
+.df-ex-count { font-size: 14px; margin-bottom: -6px; }
+.df-ex-sgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.df-ex-scard { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.df-ex-shead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.df-ex-stext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.df-ex-stext h2 { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.df-ex-stext > .df-ex-mut:last-child { font-size: 14px; }
+.df-ex-sbadge { font-size: 12px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-ex-sbadge.full { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-ex-sbadge.lock { background: var(--ds-line2); color: var(--ds-muted); }
+.df-ex-sbadge.no { background: var(--ds-warn-bg); color: var(--x-warn-fg); }
+.df-ex-slots { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.df-ex-slots > .df-ex-mut { font-size: 14px; margin-left: 4px; }
+.df-ex-slot { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; background: #F8DFD3; color: #1E1F3B; box-sizing: border-box; }
+.df-ex-slot.me { background: #DAD8FF; box-shadow: 0 0 0 2px var(--ds-surface), 0 0 0 4px var(--ds-accent); }
+.df-ex-slot.out { background: var(--ds-line2); color: var(--ds-text2); }
+.df-ex-slot.empty { background: transparent; border: 2px dashed var(--ds-line-strong); color: var(--ds-faint); font-weight: 400; }
+.df-ex-snames { font-size: 13px; color: var(--ds-muted); margin-top: -6px; overflow-wrap: anywhere; }
+.df-ex-snote { font-size: 13px; color: var(--ds-text2); background: var(--ds-bg); border-radius: 10px; padding: 8px 12px; }
+.df-ex-join, .df-ex-leave, .df-ex-off {
+  font-family: inherit; font-size: 15px; font-weight: 600; min-height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+}
+.df-ex-join { border: 0; background: var(--ds-accent); color: #FFFFFF; cursor: pointer; }
+.df-ex-join:hover { background: var(--ds-accent-hover); }
+.df-ex-leave { border: 1px solid var(--x-warn-line); background: var(--ds-surface); color: var(--ds-warn); cursor: pointer; }
+.df-ex-off { border: 1px solid var(--ds-line); background: var(--ds-surface2); color: var(--ds-faint); }
+.df-ex-scard .df-ex-link.center { margin-top: -8px; font-size: 13px; }
+
+/* ---------------- X4 Leaderboard ---------------- */
+.df-ex-lbgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.df-ex-lbcard { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.df-ex-lbhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.df-ex-lbhead h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.df-ex-lbhead .df-ex-mut { white-space: nowrap; }
+.df-ex-lbrows { display: flex; flex-direction: column; max-height: 312px; overflow-y: auto; }
+.df-ex-lbrow { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--ds-line2); }
+.df-ex-lbrow.me .df-ex-lbname b { color: var(--ds-accent-ink); }
+.df-ex-rank { width: 26px; height: 26px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: var(--ds-line2); color: var(--ds-muted); }
+.df-ex-rank.r1 { background: #E8B84A; color: #1E1F3B; }
+.df-ex-rank.r2 { background: #B9C3C8; color: #1E1F3B; }
+.df-ex-rank.r3 { background: #D49A6A; color: #1E1F3B; }
+.df-ex-lbname { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.df-ex-lbname b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-ex-lbname small { font-size: 12px; color: var(--ds-muted); }
+.df-ex-lbmoney { font-size: 15px; font-weight: 700; }
+.df-ex-lbempty { padding: 28px 0; text-align: center; font-size: 14px; color: var(--ds-muted); }
+.df-ex-lbtable { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 20px 0 8px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.df-ex-lbthead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 0 20px; }
+.df-ex-lbthead h2 { font-size: 18px; font-weight: 600; }
+.df-ex-dchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-ex-dchip {
+  font-family: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+  background: var(--ds-surface); color: var(--ds-text2); border: 1px solid var(--ds-line-strong); display: inline-flex; align-items: center; gap: 6px;
+}
+.df-ex-dchip span { font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--ds-line2); }
+.df-ex-dchip.on { background: var(--ds-text); color: var(--x-ink-on-text); border-color: var(--ds-text); }
+.df-ex-dchip.on span { background: rgba(255, 255, 255, .2); }
+.df-ex-tablewrap { overflow-x: auto; }
+.df-ex-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; background: transparent; border: 0; }
+.df-ex-table thead tr { background: var(--ds-surface2); }
+.df-ex-table th { padding: 0; font-size: 13px; font-weight: 600; color: var(--ds-muted); text-align: left; background: transparent; border: 0; }
+.df-ex-table th button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 10px 16px; width: 100%; display: inline-flex; align-items: center; gap: 6px; justify-content: inherit; min-height: 40px; }
+.df-ex-table th.r { text-align: right; }
+.df-ex-table th.r button { justify-content: flex-end; }
+.df-ex-table th:first-child button { padding-left: 20px; justify-content: flex-start; }
+.df-ex-table th:last-child button { padding-right: 20px; }
+.df-ex-sort { font-size: 10px; opacity: .35; }
+.df-ex-sort.on { opacity: 1; color: var(--ds-accent-ink); }
+.df-ex-table td { padding: 10px 16px; border-top: 1px solid var(--ds-line2); color: var(--ds-text); background: transparent; text-align: left; }
+.df-ex-table td.r { text-align: right; white-space: nowrap; }
+.df-ex-table td.b { font-weight: 700; }
+.df-ex-table td:first-child { padding-left: 20px; }
+.df-ex-table td:last-child { padding-right: 20px; }
+.df-ex-table tr.me td { background: var(--ds-tint); }
+.df-ex-table tbody tr:hover td { background: var(--ds-surface2); }
+.df-ex-table tbody tr.me:hover td { background: var(--ds-tint); }
+.df-ex-who { display: flex; align-items: center; gap: 10px; }
+.df-ex-who > span:last-child { display: flex; flex-direction: column; }
+.df-ex-who b { font-weight: 600; }
+.df-ex-who small { font-size: 12px; color: var(--ds-muted); }
+.df-ex-lbfoot { padding: 4px 20px 8px; font-size: 13px; color: var(--ds-muted); }
+
+/* ---------------- PM review (L2 language) ---------------- */
+.df-ex-rules { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: var(--ds-tint); border: 1px solid var(--ds-tint-line); border-radius: 16px; padding: 14px 18px; font-size: 14px; }
+.df-ex-rules span { padding: 4px 12px; border-radius: 999px; background: var(--ds-surface); color: var(--ds-text); }
+.df-ex-rules .df-ex-rules-h { padding: 0; background: none; font-weight: 600; color: var(--ds-accent); }
+.df-ex-rstats { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--ds-muted); }
+.df-ex-rstats span { padding: 6px 12px; border-radius: 999px; background: var(--ds-surface); border: 1px solid var(--ds-line); }
+.df-ex-rstats b { color: var(--ds-text); }
+.df-ex-search { display: flex; flex-direction: column; gap: 6px; }
+.df-ex-search .df-ex-input { min-height: 46px; border-radius: 12px; background: var(--ds-surface); }
+.df-ex-search code { font-family: inherit; background: var(--ds-line2); color: var(--ds-accent-ink); padding: 1px 7px; border-radius: 6px; }
+.df-ex-rsec { display: flex; flex-direction: column; gap: 12px; }
+.df-ex-rsec > h2 { font-size: 16px; font-weight: 600; color: var(--ds-muted); display: flex; align-items: center; gap: 8px; }
+.df-ex-rsec > h2 span { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--ds-line2); }
+.df-ex-rnone { padding: 16px; text-align: center; font-size: 14px; color: var(--ds-muted); background: var(--ds-surface); border: 1px dashed var(--ds-line-strong); border-radius: 16px; }
+.df-ex-rlist { display: flex; flex-direction: column; gap: 14px; }
+.df-ex-rcard { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: 20px; padding: 22px; display: flex; flex-wrap: wrap; gap: 22px; }
+.df-ex-rleft { flex: 2 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.df-ex-rwho { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.df-ex-rname { display: flex; flex-direction: column; min-width: 0; }
+.df-ex-rname b { font-size: 16px; font-weight: 600; }
+.df-ex-rname small { font-size: 13px; color: var(--ds-muted); }
+.df-ex-rwho .df-tchip { margin-left: auto; }
+.df-ex-rboxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.df-ex-rboxes > div { background: var(--ds-bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; min-width: 0; }
+.df-ex-rboxes small { font-size: 12px; color: var(--ds-muted); }
+.df-ex-rboxes b { font-size: 16px; font-weight: 600; }
+.df-ex-ract { font-size: 14px; overflow-wrap: anywhere; }
+.df-ex-rmembers { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-ex-rmem { font-size: 13px; padding: 4px 12px; border-radius: 999px; background: var(--ds-tint); color: var(--ds-accent-ink); font-weight: 600; }
+.df-ex-rmem.out { background: var(--ds-line2); color: var(--ds-text2); font-weight: 400; }
+.df-ex-rmem small { font-size: 11px; }
+.df-ex-rproof { display: flex; gap: 10px; align-items: center; font-size: 14px; background: var(--ds-bg); border-radius: 12px; padding: 10px 12px; flex-wrap: wrap; }
+.df-ex-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ds-leave); flex: none; }
+.df-ex-dot.none { background: var(--ds-warn); }
+.df-ex-rright { flex: 1 1 200px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.df-ex-approve { font-family: inherit; font-size: 15px; font-weight: 600; min-height: 48px; border-radius: 12px; border: 0; background: var(--ds-accent); color: #FFFFFF; cursor: pointer; }
+.df-ex-approve:hover { background: var(--ds-accent-hover); }
+.df-ex-reject { font-family: inherit; font-size: 15px; font-weight: 600; min-height: 44px; border-radius: 12px; border: 1px solid var(--x-warn-line); background: var(--ds-surface); color: var(--ds-warn); cursor: pointer; }
+.df-ex-reject:hover { background: var(--ds-warn-bg); }
+.df-ex-rright .df-ex-ghost { min-height: 44px; }
+
+/* ---------------- legacy detail modal (#modal-ex-detail) refinements ---------------- */
+#modal-ex-detail .modal.exd-modal { border-radius: 20px; border: 1px solid var(--ds-line); background: var(--ds-surface); box-shadow: var(--shadow-lg); font-family: var(--df-font); }
+#modal-ex-detail .exd-title { font-size: 22px; font-weight: 700; }
+#modal-ex-detail .exd-week { font-size: 11px; font-weight: 600; border-radius: 999px; }
+#modal-ex-detail .exd-sect-title { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+#modal-ex-detail .exd-reward-a { font-size: 30px; font-weight: 700; }
+#modal-ex-detail .exd-btn { font-family: inherit; border-radius: 12px; min-height: 44px; font-weight: 600; }
+#modal-ex-detail .exd-btn-ok { background: var(--ds-accent); }
+#modal-ex-detail .exd-btn-ok:hover { background: var(--ds-accent-hover); filter: none; }
+#modal-ex-detail .exd-btn-reject, #modal-ex-detail .exd-btn-danger { background: var(--ds-surface); border: 1px solid var(--x-warn-line, #F4D3C6); color: var(--ds-warn); }
+#modal-ex-detail .exd-btn-edit { background: var(--ds-surface); border: 1px solid var(--ds-line-strong); color: var(--ds-text2); }
+#modal-ex-detail .exd-avatar { color: #1E1F3B; }
+html[data-theme="dark"] #modal-ex-detail .exd-btn-reject, html[data-theme="dark"] #modal-ex-detail .exd-btn-danger { border-color: #5A2E1E; }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 1100px) {
+  .df-ex-lbgrid { grid-template-columns: minmax(0, 1fr); }
+  .df-ex-sum { position: static; }
+}
+@media (max-width: 760px) {
+  .df-ex { gap: 16px; }
+  .df-ex .df-h1 { font-size: 24px; }
+  .df-ex .df-ph { padding-right: 0; }
+  .df-ex .df-ph-actions { width: 100%; }
+  .df-ex .df-ph-actions .df-ex-lbl { flex: 1 1 100%; }
+  .df-ex .df-ph-actions .df-ex-lbl .df-ex-select { flex: 1; min-width: 0; }
+  .df-ex .df-ph-actions .df-ex-cta { flex: 1 1 100%; justify-content: center; }
+  .df-ex .df-card, .df-ex-qcard, .df-ex-money, .df-ex-scard, .df-ex-rcard, .df-ex-lbcard { padding: 16px; }
+  .df-ex-form .df-card, .df-ex-sum { padding: 16px; }
+  .df-ex-money { flex-basis: 100%; gap: 16px; }
+  .df-ex-big { font-size: 38px; }
+  .df-ex-cuts { flex-basis: 100%; }
+  .df-ex-cut { padding: 14px; border-radius: 16px; }
+  .df-ex-cut b { font-size: 19px; }
+  .df-ex-qcard { flex-basis: 100%; }
+  .df-ex-types, .df-ex-sgrid, .df-ex-rboxes { grid-template-columns: minmax(0, 1fr); }
+  .df-ex-type { min-height: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0; align-items: center; }
+  .df-ex-type .df-tile { grid-row: span 2; margin: 0; }
+  .df-ex-type-m { grid-row: span 2; grid-column: 3; font-size: 20px; }
+  .df-ex-type-n { grid-column: 2; grid-row: 1; }
+  .df-ex-type-q { grid-column: 2; grid-row: 2; }
+  .df-ex-form, .df-ex-sum { flex-basis: 100%; }
+  .df-ex-hrow { grid-template-columns: 52px minmax(0, 1fr) auto; row-gap: 6px; column-gap: 12px; padding: 12px 0; }
+  .df-ex-hrow .df-ex-datebox { grid-row: span 3; align-self: start; }
+  .df-ex-hmain { grid-column: 2 / 4; }
+  .df-ex-hmoney { grid-column: 3; grid-row: 2; text-align: right; }
+  .df-ex-hstat { grid-column: 2; grid-row: 2; }
+  .df-ex-hact { grid-column: 2 / 4; justify-content: flex-start; }
+  .df-ex-rright { flex-basis: 100%; }
+  .df-ex-rwho .df-tchip { margin-left: 0; }
+  .df-ex-tabrow { align-items: stretch; }
+  .df-ex-lbtable { padding-top: 16px; }
+  .df-ex-lbthead { padding: 0 16px; }
+  .df-ex-extrow .df-ex-extadd { flex: 1 1 100%; }
+}
+#modal-ex-detail .exd-modal * { font-family: var(--df-font); }
+#modal-ex-detail .exd-label { letter-spacing: 0; text-transform: none; font-size: 13px; }
+#modal-ex-detail .exd-id, #modal-ex-detail .exd-dept, #modal-ex-detail .exd-dept-pill, #modal-ex-detail .exd-role-pill, #modal-ex-detail .exd-week { letter-spacing: 0; }
+#modal-ex-detail .exd-add-wrap { min-height: 44px; border-radius: 12px; padding: 0 6px 0 12px; }
+#modal-ex-detail input.exd-add-input, #modal-ex-detail .exd-add-wrap input {
+  border: 0 !important; background: transparent !important; box-shadow: none !important; min-height: 40px; height: 40px; padding: 0 4px !important; outline: none;
+}
+#modal-ex-detail .exd-btn-add { border-radius: 10px; min-height: 40px; font-weight: 600; }
+#modal-ex-detail .exd-avatar { background: var(--ds-tint) !important; color: var(--ds-accent-ink); }
+.df-ex-bonus-t strong { white-space: nowrap; }
