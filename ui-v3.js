@@ -306,9 +306,28 @@
   DFV3.hook = hook; DFV3.safe = safe; DFV3.holidays = holidays; DFV3.visibleSet = visibleSet;
   DFV3.ROLE_LABEL = { junior: 'Junior', senior: 'Senior', lead: 'Team Lead', pm: 'PM' };
   var AV_TINTS = ['#DAD8FF', '#F8DFD3', '#D6E6FF', '#F6E7C4', '#E3DDF5', '#D8EEDF', '#FBE7F6'];
-  /* initial-letter avatar; colour is stable per email */
+  /* avatar: profile photo (with the owner's chosen frame) or a coloured initial; colour is stable per email */
+  var FRAMES = { brand: 'ไล่สีแบรนด์', sparkle: 'ประกาย', plain: 'เรียบ', none: 'ไม่มีกรอบ' };
+  function frameOf(u) { var f = u && u.avatarFrame; return FRAMES[f] ? f : 'brand'; }
+  function photoOf(u) {
+    if (!u) return null;
+    var x = (u.email && userByEmail(u.email)) || u;
+    var url = String(u.avatarUrl || x.avatarUrl || '');
+    if (!/^(?:https:\/\/firebasestorage\.googleapis\.com\/|blob:|data:image\/(?:jpeg|png|webp);base64,)/.test(url)) return null;
+    return { url: url, frame: frameOf(u.avatarFrame ? u : x) };
+  }
+  function photoHtml(p, size, cls, attrs) {
+    var ring = p.frame === 'none' ? 0 : size >= 80 ? 5 : size >= 40 ? 2 : 1.5;
+    return '<span class="' + cls + ' df-av-photo f-' + p.frame + '" ' + (attrs || 'aria-hidden="true"') + ' style="width:' + size + 'px;height:' + size + 'px;--ring:' + ring + 'px">' +
+      '<img src="' + esc(p.url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"></span>';
+  }
+  DFV3.photoOf = function (u) { return photoOf(u); };
+  DFV3.photoHtml = function (p, size, cls, attrs) { return photoHtml(p, size, cls || 'df-av', attrs); };
+  DFV3.FRAMES = FRAMES;
   DFV3.avatar = function (u, size) {
     size = size || 36;
+    var p = photoOf(u);
+    if (p) return photoHtml(p, size, 'df-av');
     var key = String((u && u.email) || ''), h = 0;
     for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
     var letter = (nick(u) || (u && u.name) || '?').trim().replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase() || '?';
@@ -409,7 +428,15 @@
     var role = document.getElementById('sb-role');
     if (role) role.textContent = (DFV3.ROLE_LABEL[cu.role] || cu.role) + (cu.dept ? ' · ' + cu.dept : '');
     var av = document.getElementById('sb-avatar');
-    if (av) { av.textContent = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase(); av.style.color = ''; }
+    var me = userByEmail(cu.email) || cu, myPhoto = photoOf(me);
+    var letter = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase();
+    var paintAv = function (el) {
+      if (!el) return;
+      el.classList.toggle('df-has-photo', !!myPhoto);
+      if (myPhoto) el.innerHTML = '<img src="' + esc(myPhoto.url) + '" alt="" referrerpolicy="no-referrer">'; else el.textContent = letter;
+      el.style.color = '';
+    };
+    paintAv(av);
     // the whole "ขุนทอง" menu (นัดตีแบด, เรียกเก็บเงิน) is for PM and Team Lead only
     var khun = document.getElementById('nav-sec-khun');
     if (khun) khun.style.display = (cu.role === 'pm' || cu.role === 'lead') ? '' : 'none';
@@ -422,7 +449,7 @@
       bar.appendChild(b);
     }
     var mav = document.getElementById('df-m-avatar');
-    if (mav) mav.textContent = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase();
+    paintAv(mav);
     var team = document.getElementById('df-sb-team');
     if (team) team.textContent = cu.dept ? 'ทีม ' + cu.dept : 'ระบบจัดการทีม';
   }
@@ -440,6 +467,80 @@
   var _profileTab = 'info';
   DFV3.profileTab = function (t) { _profileTab = t === 'display' ? 'display' : 'info'; renderPage('profile'); };
   DFV3.openDisplaySettings = function () { _profileTab = 'display'; showPage('profile'); };
+
+  /* ======================= PROFILE PHOTO + FRAME =======================
+     The only writes this layer makes itself (new feature, no legacy equivalent):
+       1. uploadFileToStorage(file, { kind: 'avatar' })  -> new file under avatars/ (nothing overwritten)
+       2. api('updateMyProfile', { avatarUrl, avatarFrame }) -> gateway merges ONLY avatar_* fields of the signed-in user
+     Then the local users cache is refreshed for this user only. */
+  var PHOTO = { busy: false, msg: '', msgType: 'ok' };
+  var AVATAR_MAX = 5 * 1024 * 1024;
+  function photoMsg(text, type) { PHOTO.msg = text; PHOTO.msgType = type || 'ok'; }
+  function rerenderProfile() { try { DFV3.renderPage('profile'); } catch (e) {} try { decorateSidebar(); } catch (e) {} }
+  function applyLocal(fields) {
+    try {
+      var users = getUsers(), i = users.findIndex(function (x) { return String(x.email).toLowerCase() === String(cu.email).toLowerCase(); });
+      if (i >= 0) { Object.assign(users[i], fields); saveUsers(users); }
+    } catch (e) {}
+    try { Object.assign(cu, fields); } catch (e) {}
+  }
+  function squareJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        try {
+          var side = Math.min(img.naturalWidth, img.naturalHeight), out = Math.min(512, side);
+          var c = document.createElement('canvas'); c.width = c.height = out;
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, out, out);
+          g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, out, out);
+          c.toBlob(function (b) { URL.revokeObjectURL(url); b ? resolve(new File([b], 'avatar.jpg', { type: 'image/jpeg' })) : reject(new Error('แปลงรูปไม่สำเร็จ')); }, 'image/jpeg', 0.88);
+        } catch (e) { URL.revokeObjectURL(url); reject(e); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('อ่านรูปไม่สำเร็จ')); };
+      img.src = url;
+    });
+  }
+  function saveProfile(fields) {
+    return Promise.resolve(api('updateMyProfile', fields)).then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.error) || 'บันทึกไม่สำเร็จ');
+      applyLocal({ avatarUrl: r.avatarUrl != null ? r.avatarUrl : fields.avatarUrl, avatarFrame: r.avatarFrame || fields.avatarFrame || frameOf(cu) });
+      return r;
+    });
+  }
+  function onPhotoFile(file) {
+    if (!file || PHOTO.busy) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { photoMsg('รองรับเฉพาะรูป JPG, PNG หรือ WebP', 'err'); return rerenderProfile(); }
+    if (file.size > AVATAR_MAX) { photoMsg('รูปใหญ่เกิน 5 MB', 'err'); return rerenderProfile(); }
+    PHOTO.busy = true; photoMsg(''); rerenderProfile();
+    squareJpeg(file).then(function (jpg) { return uploadFileToStorage(jpg, { kind: 'avatar' }); }).then(function (up) {
+      if (!up || !up.ok) throw new Error((up && up.error) || 'อัปโหลดไม่สำเร็จ');
+      return saveProfile({ avatarUrl: up.url, avatarFrame: frameOf(userByEmail(cu.email) || cu) });
+    }).then(function () { photoMsg('บันทึกรูปโปรไฟล์ใหม่แล้ว', 'ok'); }, function (e) { photoMsg('⚠️ ' + (e && e.message || 'บันทึกรูปไม่สำเร็จ'), 'err'); })
+      .then(function () { PHOTO.busy = false; rerenderProfile(); refreshViews(); });
+  }
+  DFV3.pickPhoto = function () {
+    if (PHOTO.busy) return;
+    var inp = document.getElementById('df-photo-input');
+    if (!inp) {
+      inp = document.createElement('input'); inp.type = 'file'; inp.id = 'df-photo-input'; inp.accept = 'image/jpeg,image/png,image/webp'; inp.hidden = true;
+      inp.addEventListener('change', function () { var f = inp.files && inp.files[0]; inp.value = ''; onPhotoFile(f); });
+      document.body.appendChild(inp);
+    }
+    inp.click();
+  };
+  DFV3.setFrame = function (f) {
+    if (PHOTO.busy || !FRAMES[f] || frameOf(userByEmail(cu.email) || cu) === f) return;
+    PHOTO.busy = true; photoMsg(''); rerenderProfile();
+    saveProfile({ avatarFrame: f }).then(function () { photoMsg('เปลี่ยนกรอบรูปแล้ว', 'ok'); }, function (e) { photoMsg('⚠️ ' + (e && e.message || 'บันทึกไม่สำเร็จ'), 'err'); })
+      .then(function () { PHOTO.busy = false; rerenderProfile(); refreshViews(); });
+  };
+  DFV3.clearPhoto = function () {
+    if (PHOTO.busy) return;
+    PHOTO.busy = true; photoMsg(''); rerenderProfile();
+    saveProfile({ avatarUrl: '' }).then(function () { photoMsg('กลับไปใช้ตัวอักษรแล้ว', 'ok'); }, function (e) { photoMsg('⚠️ ' + (e && e.message || 'บันทึกไม่สำเร็จ'), 'err'); })
+      .then(function () { PHOTO.busy = false; rerenderProfile(); refreshViews(); });
+  };
+  function refreshViews() { /* other pages pick up the new photo on their next render */ }
 
   function renderProfile(view) {
     var u = userByEmail(cu.email) || cu;
@@ -475,13 +576,30 @@
       seg('data-df-font', 'sm', font, 'dfSetFont', A(15), 'เล็กลง', '87.5%') + seg('data-df-font', 'md', font, 'dfSetFont', A(20), 'ปกติ', '100%') + seg('data-df-font', 'lg', font, 'dfSetFont', A(25), 'ใหญ่ขึ้น', '112.5%') + '</div>' +
       '<div class="df-font-sample"><b>ตัวอย่างข้อความ</b><span>ลาพักร้อน 2 วัน · 12–13 ต.ค. · รออนุมัติจากหัวหน้าทีม</span></div></section>';
 
+    var p = photoOf(u), fr = frameOf(u), busy = PHOTO.busy;
+    var CAM = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>';
+    var inner = p ? '<img src="' + esc(p.url) + '" alt="รูปโปรไฟล์ของคุณ" referrerpolicy="no-referrer">'
+      : DFV3.avatar({ email: u.email, nickname: u.nickname, name: u.name }, 122).replace('class="df-av"', 'class="df-av df-ring-letter" role="img" aria-label="รูปโปรไฟล์ของคุณ"').replace('aria-hidden="true" ', '');
+    var frames = Object.keys(FRAMES).map(function (id) {
+      var on = fr === id;
+      return '<button type="button" role="radio" aria-checked="' + on + '" class="df-frame' + (on ? ' on' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="DFV3.setFrame(\'' + id + '\')"><span class="sw f-' + id + '" aria-hidden="true"></span>' + FRAMES[id] + '</button>';
+    }).join('');
+    var account = '<section class="df-card"><div class="df-card-head"><h2>บัญชี</h2></div><div class="df-profile-actions">' +
+      '<button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></section>';
     view.innerHTML = DFV3.header({ eyebrow: 'บัญชีของฉัน', title: 'โปรไฟล์ของฉัน' }) +
-      '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"></div>' +
-      '<div class="df-profile-row">' + DFV3.avatar(u, 120).replace('class="df-av"', 'class="df-av df-av-ring"') +
+      '<section class="df-card df-profile-hero"><div class="df-profile-cover" aria-hidden="true"><img src="team-photo.jpg?v=20261011" alt=""></div>' +
+      '<div class="df-profile-row"><div class="df-pava">' +
+      '<div class="df-ring f-' + fr + (busy ? ' is-busy' : '') + '"><span class="spark s1"></span><span class="spark s2"></span><span class="spark s3"></span><div class="inner">' + inner + '</div></div>' +
+      '<span class="df-online"><i></i>ออนไลน์</span>' +
+      '<button type="button" class="df-pcam" onclick="DFV3.pickPhoto()" aria-label="เปลี่ยนรูปโปรไฟล์"' + (busy ? ' disabled' : '') + '>' + CAM + '</button></div>' +
       '<div class="df-profile-name"><h2>' + esc(nick(u)) + '</h2><span>' + esc(u.name) + ' · ' + esc(DFV3.ROLE_LABEL[u.role] || u.role) + (u.dept ? ' · ' + esc(u.dept) : '') + '</span></div>' +
-      '<div class="df-profile-actions"><button type="button" class="btn btn-ghost" onclick="openChangePass()">เปลี่ยนรหัสผ่าน</button><button type="button" class="btn btn-ghost df-danger" onclick="doLogout()">ออกจากระบบ</button></div></div>' +
+      '<div class="df-profile-actions">' + (p ? '<button type="button" class="btn btn-ghost" onclick="DFV3.clearPhoto()"' + (busy ? ' disabled' : '') + '>ใช้ตัวอักษรแทน</button>' : '') +
+      '<button type="button" class="btn btn-primary" onclick="DFV3.pickPhoto()"' + (busy ? ' disabled' : '') + '>' + (busy ? 'กำลังบันทึก…' : 'อัปโหลดรูปใหม่') + '</button></div></div>' +
+      '<div class="df-frames"><span class="lbl">กรอบรูป</span><div role="radiogroup" aria-label="กรอบรูปโปรไฟล์" class="df-frame-list">' + frames + '</div></div>' +
+      '<p class="df-photo-hint">รองรับ JPG, PNG ไม่เกิน 5 MB · แนะนำรูปสี่เหลี่ยมจัตุรัส เห็นหน้าชัด · รูปนี้จะแสดงในปฏิทินทีม ใบลา และ Leaderboard</p>' +
+      (PHOTO.msg ? '<div role="status" class="df-photo-msg ' + PHOTO.msgType + '">' + esc(PHOTO.msg) + '</div>' : '') +
       '<div class="df-ptabs" role="tablist" aria-label="หมวดโปรไฟล์">' + tab('info', 'ข้อมูลส่วนตัว') + tab('display', 'การแสดงผล') + '</div></section>' +
-      '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display : info) + '</div>';
+      '<div id="df-ppanel" role="tabpanel" aria-labelledby="df-ptab-' + _profileTab + '" class="df-view">' + (_profileTab === 'display' ? display + account : info) + '</div>';
   }
 
   /* ======================= CALENDAR TOOLTIP =======================

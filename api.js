@@ -80,7 +80,7 @@ function readFileAsBase64(file) {
   });
 }
 
-async function uploadFileToStorage(file) {
+async function uploadFileToStorage(file, options = {}) {
   try {
     if (!file) throw new Error('ไม่พบไฟล์');
     if (file.size > DOC_UPLOAD_MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 10 MB');
@@ -90,7 +90,7 @@ async function uploadFileToStorage(file) {
     const res = await fetch(`${DESIGN_FLOW_GATEWAY_URL}/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ fileName: file.name, dataBase64 }),
+      body: JSON.stringify({ fileName: file.name, dataBase64, ...(options.kind === 'avatar' ? { kind: 'avatar' } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok || !data.url) {
@@ -327,7 +327,9 @@ function mapUserFromAPI(u) {
     locationType: u.location_type || u.locationType || 'bkk',
     active: u.active !== false,
     suspendedAt: u.suspendedAt || u.suspended_at || '',
-    userId: u.user_id || u.userId || ''
+    userId: u.user_id || u.userId || '',
+    avatarUrl: u.avatar_url || u.avatarUrl || '',
+    avatarFrame: u.avatar_frame || u.avatarFrame || ''
   };
 }
 

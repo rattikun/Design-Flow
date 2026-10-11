@@ -72,6 +72,8 @@
   function first(n) { n = String(n || '?').trim(); return /^[เแโใไ]/.test(n) ? n.charAt(1) : n.charAt(0).toUpperCase(); }
   var TINTS = ['#DAD8FF', '#F8DFD3', '#D6E6FF', '#F6E7C4', '#E3DDF5'];
   function av(name, key, size, extra) {
+    var ph = D.photoOf && /@/.test(String(key || '')) ? D.photoOf({ email: String(key) }) : null;
+    if (ph) return D.photoHtml(ph, size, 'df-ex-av' + (extra ? ' ' + extra : ''));
     key = String(key || name || ''); var h = 0;
     for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
     return '<span class="df-ex-av' + (extra ? ' ' + extra : '') + '" aria-hidden="true" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.42) + 'px;background:' + TINTS[h % TINTS.length] + '">' + esc(first(name)) + '</span>';

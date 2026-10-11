@@ -21,6 +21,7 @@
   /* initials avatar; skips Thai leading vowels (เ แ โ ใ ไ) so "เท็น" shows "ท" like the design */
   function av(u, size) {
     var h = D.avatar(u, size);
+    if (h.indexOf('df-av-photo') >= 0) return h;
     var src = String(D.nick(u) || (u && u.name) || '?').trim().replace(/^[\u0E40-\u0E44]+/, '');
     var ch = (src.charAt(0) || '?').toUpperCase();
     return h.replace(/>[^<]*<\/span>$/, '>' + esc(ch) + '</span>');
@@ -343,8 +344,9 @@
   var INV = { dept: '', link: '', copied: false, busy: false };
   function deptList() {
     var a = []; try { if (typeof _departments !== 'undefined' && Array.isArray(_departments)) a = _departments.slice(); } catch (e) {}
-    if (!a.length) a = ['UXUI', 'Media', 'Art', 'PM', 'AI Enablement'];
-    return a;
+    if (!a.length) a = ['UXUI', 'Media', 'Art'];
+    // the gateway never accepts PM as a self-registration department
+    return a.filter(function (d) { return String(d).toLowerCase() !== 'pm'; });
   }
   function invModal() {
     var m = document.getElementById('df-inv');
