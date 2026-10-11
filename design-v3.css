@@ -1021,7 +1021,9 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 @media (prefers-reduced-motion: reduce) { .df-tour-hole { transition: none; } }
 
 /* ---------- 34. UXUI workspace link ---------- */
-#nav-sec-uxui { margin-top: 8px; }
+#nav-sec-uxui .df-ws-link { margin: 0; }
 .df-ws-link { background: var(--ds-tint); color: var(--ds-accent-ink) !important; font-weight: 600; }
 .df-ws-link:hover { background: color-mix(in srgb, var(--ds-accent) 16%, var(--ds-tint)); }
 .df-ws-link .nav-icon { color: var(--ds-accent); }
+/* account block (UXUI Work Space + name + actions) stays pinned at the bottom of the sidebar */
+.df-sidebar .user-panel { position: sticky; bottom: -18px; z-index: 2; background: var(--surface); padding-bottom: 18px; margin-bottom: -18px; }
