@@ -676,6 +676,14 @@
   function install() {
     if (typeof renderDashboardCalendar === 'function') window.renderDashboardCalendar = safe(renderCalendarV3);
     installTips();
+    // documents stored in Google Drive: show Drive's own preview inside the legacy popup (view only)
+    hook('viewDocPopup', function (url) {
+      var m = /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(String(url || ''));
+      var body = document.getElementById('doc-preview-body');
+      if (!m || !body) return;
+      body.innerHTML = '<iframe src="https://drive.google.com/file/d/' + m[1] + '/preview" style="width:100%;height:75vh;border:none;border-radius:8px;" allow="autoplay" title="เอกสาร"></iframe>' +
+        '<p class="df-muted" style="margin:8px 0 0;font-size:13px">ถ้าไม่แสดง ให้กด "เปิดในแท็บใหม่" แล้วล็อกอิน Google ด้วยอีเมลที่ใช้ในระบบ</p>';
+    });
     hook('updateDashboard', renderDashExtras);
     hook('showPage', function (id) { onShowPage(id); refreshTabBar(); });
     hook('setupSidebar', decorateSidebar);

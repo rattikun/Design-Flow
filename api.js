@@ -80,7 +80,45 @@ function readFileAsBase64(file) {
   });
 }
 
+// เอกสารการลา / หลักฐาน → Google Drive ของทีม (ผ่าน Gateway) — ถ้า Drive ยังไม่พร้อม จะกลับไปใช้ที่เก็บเดิมอัตโนมัติ
+async function uploadFileToDrive(file, options = {}) {
+  const token = designFlowSessionToken();
+  if (!token) throw new Error('AUTH_REQUIRED');
+  const post = async (path, body) => {
+    const res = await fetch(`${DESIGN_FLOW_GATEWAY_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || `HTTP_${res.status}`);
+    return data;
+  };
+  const session = await post('/drive/upload-session', {
+    kind: options.kind || 'leave', mimeType: file.type, size: file.size,
+    date: options.date || '', activity: options.label || String(file.name || '').replace(/\.[^.]+$/, '').slice(0, 40),
+  });
+  const meta = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', session.uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+    if (typeof options.onProgress === 'function') xhr.upload.onprogress = e => { if (e.lengthComputable) options.onProgress(e.loaded / e.total); };
+    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) { try { resolve(JSON.parse(xhr.responseText)); } catch { reject(new Error('DRIVE_PUT_BAD_RESPONSE')); } } else reject(new Error(`DRIVE_PUT_${xhr.status}`)); };
+    xhr.onerror = () => reject(new Error('DRIVE_PUT_NETWORK'));
+    xhr.send(file);
+  });
+  const done = await post('/drive/finalize', { sessionKey: session.sessionKey, fileId: meta.id, memberEmails: options.memberEmails || [] });
+  return { ok: true, url: done.url, fileName: file.name, storage: 'drive' };
+}
+
 async function uploadFileToStorage(file, options = {}) {
+  if (options.kind !== 'avatar' && options.drive !== false) {
+    try {
+      return await uploadFileToDrive(file, { kind: 'leave' });
+    } catch (err) {
+      console.warn('[uploadFileToStorage] Drive unavailable, using storage:', err.message);
+    }
+  }
   try {
     if (!file) throw new Error('ไม่พบไฟล์');
     if (file.size > DOC_UPLOAD_MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 10 MB');

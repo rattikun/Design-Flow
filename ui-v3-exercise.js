@@ -325,8 +325,8 @@
       x.open('PUT', uploadUrl, true);
       x.setRequestHeader('Content-Type', file.type);
       x.upload.onprogress = function (e) { if (e.lengthComputable) { var p = Math.min(99, Math.floor(e.loaded / e.total * 100)); if (p !== UP.pct) { UP.pct = p; upBar(); } } };
-      x.onload = function () { UP.xhr = null; if (x.status >= 200 && x.status < 300) { try { resolve(JSON.parse(x.responseText)); } catch (e) { reject(new Error('UPLOAD_FAILED')); } } else reject(new Error('UPLOAD_FAILED')); };
-      x.onerror = function () { UP.xhr = null; reject(new Error('UPLOAD_FAILED')); };
+      x.onload = function () { UP.xhr = null; if (x.status >= 200 && x.status < 300) { try { resolve(JSON.parse(x.responseText)); } catch (e) { reject(new Error('UPLOAD_FAILED')); } } else reject(new Error('DRIVE_PUT_' + x.status)); };
+      x.onerror = function () { UP.xhr = null; reject(new Error('DRIVE_PUT_NETWORK')); };
       x.onabort = function () { UP.xhr = null; reject(new Error('ABORTED')); };
       x.send(file);
     });
@@ -339,7 +339,7 @@
     var session;
     shrinkImage(file).then(function (f) {
       file = f;
-      return gatewayPost('/drive/upload-session', { mimeType: f.type, size: f.size, date: val('ex-date'), activity: val('ex-act') });
+      return gatewayPost('/drive/upload-session', { kind: 'exercise', mimeType: f.type, size: f.size, date: val('ex-date'), activity: val('ex-act') });
     }).then(function (s) { session = s; return putFile(s.uploadUrl, file); })
       .then(function (meta) {
         UP.pct = 100; upBar();
@@ -352,7 +352,7 @@
       }, function (e) {
         var code = e && e.message;
         if (code === 'ABORTED') { UP.status = 'idle'; return; }
-        UP.status = 'error'; UP.err = UP_ERR[code] || 'อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง หรือวางลิงก์แทน';
+        UP.status = 'error'; UP.err = UP_ERR[code] || ('อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง หรือวางลิงก์แทน (รหัส: ' + (code || 'ไม่ทราบ') + ')'); console.warn('[df-ex-upload]', code);
       }).then(upRender);
   }
   window.__dfExUp = {
