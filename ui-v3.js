@@ -356,6 +356,9 @@
     if (role) role.textContent = (DFV3.ROLE_LABEL[cu.role] || cu.role) + (cu.dept ? ' · ' + cu.dept : '');
     var av = document.getElementById('sb-avatar');
     if (av) { av.textContent = (nick(cu) || cu.name || '?').replace(/^[\u0E40-\u0E44]+/, '').charAt(0).toUpperCase(); av.style.color = ''; }
+    // the whole "ขุนทอง" menu (นัดตีแบด, เรียกเก็บเงิน) is for PM and Team Lead only
+    var khun = document.getElementById('nav-sec-khun');
+    if (khun) khun.style.display = (cu.role === 'pm' || cu.role === 'lead') ? '' : 'none';
     var team = document.getElementById('df-sb-team');
     if (team) team.textContent = cu.dept ? 'ทีม ' + cu.dept : 'ระบบจัดการทีม';
   }
