@@ -989,3 +989,33 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .df-confirm-yes { border: 0; background: var(--ds-warn); color: #fff; }
 .df-confirm-yes:hover { filter: brightness(1.05); }
 #df-logout { z-index: 5000; }
+
+/* ---------- 33. Guided tour ("วิธีใช้งาน") ---------- */
+.df-help-btn svg { flex: none; }
+.df-tour-hole { position: fixed; z-index: 1300; pointer-events: none; border-radius: 16px; box-shadow: 0 0 0 4px var(--ds-accent), 0 0 0 9999px rgba(10, 10, 40, .55); transition: left .25s, top .25s, width .25s, height .25s; }
+.df-tour-hole.full { inset: 0; border-radius: 0; box-shadow: none; background: rgba(10, 10, 40, .55); transition: none; }
+.df-tour-hole[hidden], #df-tour[hidden] { display: none !important; }
+#df-tour.df-tour-welcome { position: fixed; inset: 0; z-index: 1310; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#df-tour.df-tour-stepwrap { position: fixed; right: 24px; bottom: 24px; z-index: 1310; width: 380px; max-width: calc(100% - 32px); }
+.df-tour-card { background: var(--ds-surface); color: var(--ds-text); box-shadow: 0 24px 60px rgba(10, 10, 40, .35); font-family: inherit; }
+.df-tour-card.welcome { width: 440px; max-width: 100%; border-radius: 24px; padding: 32px 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.df-tour-card.welcome img { width: 72px; height: 72px; border-radius: 20px; }
+.df-tour-card.welcome h2 { margin: 4px 0 0; font-size: 24px; font-weight: 700; }
+.df-tour-card p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ds-muted); }
+.df-tour-go { width: 100%; font-family: inherit; font-size: 16px; font-weight: 600; min-height: 52px; margin-top: 8px; border-radius: 14px; border: 0; background: var(--ds-accent); color: #fff; cursor: pointer; box-shadow: 0 8px 18px var(--ds-shadow, rgba(91, 91, 214, .28)); }
+.df-tour-skip { font-family: inherit; font-size: 14px; min-height: 44px; padding: 0 16px; border: 0; background: transparent; color: var(--ds-muted); cursor: pointer; }
+.df-tour-card.step { border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.df-tour-top { display: flex; justify-content: space-between; align-items: center; }
+.df-tour-top span { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--ds-accent-ink); }
+.df-tour-x { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--ds-line2, var(--ds-line)); color: var(--ds-text2); font-size: 18px; cursor: pointer; }
+.df-tour-card.step h2 { margin: 0; font-size: 19px; font-weight: 700; }
+.df-tour-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 6px; }
+.df-tour-dots { display: flex; gap: 6px; }
+.df-tour-dots span { width: 8px; height: 8px; border-radius: 4px; background: var(--ds-line-strong); }
+.df-tour-dots span.on { width: 22px; background: var(--ds-accent); }
+.df-tour-btns { display: flex; gap: 8px; }
+.df-tour-back, .df-tour-next { font-family: inherit; font-size: 14px; font-weight: 600; min-height: 44px; border-radius: 12px; cursor: pointer; }
+.df-tour-back { padding: 0 14px; border: 1px solid var(--ds-line-strong); background: var(--ds-surface); color: var(--ds-text2); }
+.df-tour-next { padding: 0 18px; border: 0; background: var(--ds-accent); color: #fff; }
+@media (max-width: 760px) { #df-tour.df-tour-stepwrap { right: 16px; bottom: 88px; } }
+@media (prefers-reduced-motion: reduce) { .df-tour-hole { transition: none; } }
