@@ -10,6 +10,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260902a">
   <link rel="manifest" href="site.webmanifest?v=20260902a">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;display=swap">
+  <script>/* v3 theme: UI preference only */(function(){try{var t=localStorage.getItem('df-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap"
     rel="stylesheet">
@@ -2269,6 +2271,7 @@
     }
   </style>
   <link rel="stylesheet" href="ui-refresh.css?v=20260902a">
+  <link rel="stylesheet" href="design-v3.css?v=20261011-v3">
 </head>
 
 <body>
@@ -2276,7 +2279,7 @@
   <div id="login-screen">
     <div class="login-box">
       <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="app-icon.png?v=20260902a" alt="">Design Flow</div>
-      <div class="login-sub">// ระบบจัดการทีม — กรุณาเข้าสู่ระบบ</div>
+      <div class="login-sub">ระบบจัดการทีม — กรุณาเข้าสู่ระบบ</div>
       <div class="login-err" id="login-err">อีเมลหรือรหัสผ่านไม่ถูกต้อง</div>
       <div class="form-group" style="margin-bottom:14px;">
         <label>อีเมล</label>
@@ -2303,7 +2306,7 @@
   <div id="registration-screen" style="display:none;min-height:100vh;">
     <div class="login-box registration-card">
       <div class="login-logo"><img class="app-brand-icon app-brand-icon-login" src="app-icon.png?v=20260902a" alt="">ลงทะเบียน Design Flow</div>
-      <div class="login-sub">// แบบฟอร์มสำหรับผู้ได้รับลิงก์เชิญเท่านั้น</div>
+      <div class="login-sub">แบบฟอร์มสำหรับผู้ได้รับลิงก์เชิญเท่านั้น</div>
       <div id="registration-loading" style="color:var(--text3);padding:20px 0;">กำลังตรวจสอบลิงก์...</div>
       <div id="registration-invalid" class="login-err" style="display:none;"></div>
       <div id="registration-success" class="info-box" style="display:none;">✅ ส่งข้อมูลเรียบร้อยแล้ว กรุณารอ PM อนุมัติบัญชี</div>
@@ -2425,6 +2428,10 @@
           style="margin-top:12px; color:var(--text2); border-color:var(--surface3);"><i class="fa-solid fa-key"
             style="margin-right:6px; font-size:14px;"></i> เปลี่ยนรหัสผ่าน</button>
         <button class="logout-btn" onclick="doLogout()">ออกจากระบบ</button>
+        <div class="df-theme-switch" role="group" aria-label="ธีมการแสดงผล">
+          <button type="button" data-df-theme="light" aria-pressed="true" onclick="dfSetTheme('light')"><i class="fa-regular fa-sun"></i> สว่าง</button>
+          <button type="button" data-df-theme="dark" aria-pressed="false" onclick="dfSetTheme('dark')"><i class="fa-regular fa-moon"></i> มืด</button>
+        </div>
       </div>
     </aside>
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -2480,7 +2487,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">สมาชิกทีม</div>
-            <div class="page-sub">// จัดการบัญชีผู้ใช้</div>
+            <div class="page-sub">จัดการบัญชีผู้ใช้</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-ghost" id="btn-manage-departments" onclick="openDepartmentManager()"><i class="fa-solid fa-building"></i> จัดการแผนก</button>
@@ -2520,7 +2527,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">อนุมัติการลา</div>
-            <div class="page-sub">// สำหรับหัวหน้าทีม</div>
+            <div class="page-sub">สำหรับหัวหน้าทีม</div>
           </div>
         </div>
         <div class="info-box">&#x1F4CB; ลา &le;3วัน&nbsp;→&nbsp;พิจารณาได้เลย &nbsp;|&nbsp; ลา &gt;3วัน
@@ -2533,7 +2540,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">อนุมัติการลา (PM)</div>
-            <div class="page-sub">// รายการที่ส่งต่อมา</div>
+            <div class="page-sub">รายการที่ส่งต่อมา</div>
           </div>
         </div>
         <div id="leave-pm-list"></div>
@@ -2544,7 +2551,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">ประวัติการลา</div>
-            <div class="page-sub">// ทุกรายการในระบบ</div>
+            <div class="page-sub">ทุกรายการในระบบ</div>
           </div>
         </div>
 
@@ -2603,7 +2610,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">ประวัติการลาทีม</div>
-            <div class="page-sub">// ข้อมูลการลาของสมาชิกทั้งหมด</div>
+            <div class="page-sub">ข้อมูลการลาของสมาชิกทั้งหมด</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <select id="team-hist-year" onchange="renderTeamHist()"
@@ -2659,7 +2666,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">วันลาของทีม</div>
-            <div class="page-sub">// ปี <span id="bal-year"></span></div>
+            <div class="page-sub">ปี <span id="bal-year"></span></div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <select id="bal-year-sel" onchange="renderBal()"
@@ -2833,7 +2840,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">ข้อมูลและอนุมัติออกกำลังกาย</div>
-            <div class="page-sub">// สรุปภาพรวมสำหรับ PM</div>
+            <div class="page-sub">สรุปภาพรวมสำหรับ PM</div>
           </div>
         </div>
         <div id="ex-review-container"></div>
@@ -2843,7 +2850,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">Leaderboard</div>
-            <div class="page-sub">// จัดอันดับออกกำลังกาย</div>
+            <div class="page-sub">จัดอันดับออกกำลังกาย</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <label style="font-size:14px;color:var(--text3);white-space:nowrap;">เดือน</label>
@@ -3409,6 +3416,16 @@
   <div id="birthday-toast" role="alert" aria-live="polite"></div>
   <div id="toast"></div>
 
+  <script>
+    function dfSetTheme(t) {
+      t = t === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('df-theme', t); } catch (e) {}
+      document.querySelectorAll('[data-df-theme]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-df-theme') === t)); });
+      var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'dark' ? '#10111C' : '#F5F6FB');
+    }
+    dfSetTheme(document.documentElement.getAttribute('data-theme') || 'light');
+  </script>
   <script src="api.js?v=20261011-public-invite"></script>
   <script src="team-manager.js?v=20261011-no-password"></script>
 </body>
