@@ -970,3 +970,10 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .main { overflow: visible !important; overflow-x: clip !important; }
 /* keep the floating bell clear of the stuck panel */
 .df-ex-new .df-ex-sum, .df-leave-aside { top: 76px !important; }
+
+/* ---------- 31. Sidebar account actions (profile · display · logout) ---------- */
+.df-user-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.df-ua { font-family: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; padding: 6px 4px; border-radius: 12px; border: 1px solid var(--ds-line); background: var(--surface); color: var(--ds-text2); font-size: 11px; font-weight: 600; cursor: pointer; line-height: 1.2; }
+.df-ua span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.df-ua:hover, .df-ua:focus-visible { background: var(--ds-tint); color: var(--ds-accent-ink); border-color: var(--ds-tint-line); }
+.df-ua.out:hover, .df-ua.out:focus-visible { background: var(--ds-warn-bg); color: var(--ds-warn); border-color: transparent; }
