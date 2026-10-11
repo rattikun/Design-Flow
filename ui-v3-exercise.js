@@ -745,9 +745,13 @@
         return '<span class="df-ex-xmem' + (outDept ? ' out' : '') + '">' + av(nn, m.email, 24) + esc(nn) + (outDept ? ' · นอกแผนก (' + esc(md) + ')' : '') + '</span>';
       }).join('') + '</div></div>';
     }
-    var checkHtml = '<div class="df-ex-xchecks"><span class="df-ex-xsub">ตรวจตามกติกา · ระบบเช็กให้อัตโนมัติ</span>' + checks.map(function (c) {
-      return '<div class="df-ex-xck"><span class="df-ex-xckdot' + (c[2] ? '' : ' no') + '" aria-hidden="true">' + (c[2] ? '✓' : '✕') + '</span><span class="df-ex-xcklbl">' + esc(c[0]) + '</span><span class="df-ex-xckval' + (c[2] ? '' : ' no') + '">' + esc(c[1]) + '</span></div>';
-    }).join('') + '</div>';
+    // show only the rules that fail; when everything passes, say so in one line
+    var failed = checks.filter(function (c) { return !c[2]; });
+    var checkHtml = failed.length
+      ? '<div class="df-ex-xchecks"><span class="df-ex-xsub">ไม่ผ่านกติกา ' + failed.length + ' ข้อ · จากทั้งหมด ' + checks.length + ' ข้อ</span>' + failed.map(function (c) {
+          return '<div class="df-ex-xck"><span class="df-ex-xckdot no" aria-hidden="true">✕</span><span class="df-ex-xcklbl">' + esc(c[0]) + '</span><span class="df-ex-xckval no">' + esc(c[1]) + '</span></div>';
+        }).join('') + '</div>'
+      : '<div class="df-ex-xchecks df-ex-xallok"><div class="df-ex-xck"><span class="df-ex-xckdot" aria-hidden="true">✓</span><span class="df-ex-xcklbl">ผ่านกติกาทั้งหมด ' + checks.length + ' ข้อ</span><span class="df-ex-xckval">ระบบเช็กให้อัตโนมัติ</span></div></div>';
     var id = String(e.id), foot;
     if (e.status === 'pending' && !R.rejecting) {
       R.suggest = fails.length ? (fails.some(function (c) { return c[0] === 'มีวิดีโอหลักฐาน'; }) ? 'ไม่มีวิดีโอหลักฐาน' : fails.some(function (c) { return c[0].indexOf('กลุ่มไม่เกิน 1') === 0; }) ? 'เกินโควตากลุ่มสัปดาห์นี้' : '') : '';

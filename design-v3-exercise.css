@@ -500,3 +500,6 @@ html[data-theme="dark"] .df-ex-xtab.on { background: var(--ds-line2); }
   .df-ex-xwho .df-tchip { margin: 0 0 0 64px; }
   .df-ex-xwho span { overflow-wrap: normal; }
 }
+.df-ex-xallok { background: var(--ds-ok-bg); border-color: transparent; }
+.df-ex-xallok .df-ex-xck { border-top: 0; }
+.df-ex-xallok .df-ex-xcklbl { color: var(--ds-ok); font-weight: 600; }
