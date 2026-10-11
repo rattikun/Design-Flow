@@ -533,8 +533,13 @@
     if (tourStep === 0) {
       holeEl.className = 'df-tour-hole full'; holeEl.removeAttribute('style');
       tourEl.className = 'df-tour-welcome';
-      tourEl.innerHTML = '<div class="df-tour-card welcome" role="dialog" aria-modal="true" aria-labelledby="df-tour-w">' +
-        '<img src="brand-v3.png?v=20261011" alt="" width="72" height="72">' +
+      var who = (typeof cu !== 'undefined' && cu) ? (nick(cu) || '') : '';
+      var burst = '';
+      for (var bi = 0; bi < 14; bi++) burst += '<i style="--a:' + (bi * 360 / 14) + 'deg;--d:' + (bi % 3) * 60 + 'ms;--c:' + ['#8B8BF5', '#F29AD0', '#7EC8FF', '#FFC56B', '#9DE0B5'][bi % 5] + '"></i>';
+      tourEl.innerHTML = '<div class="df-tour-fx" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span></div>' +
+        '<div class="df-tour-card welcome" role="dialog" aria-modal="true" aria-labelledby="df-tour-w">' +
+        '<div class="df-tour-logo"><span class="ring"></span><span class="burst" aria-hidden="true">' + burst + '</span><img src="brand-v3.png?v=20261011" alt="" width="72" height="72"></div>' +
+        (who ? '<span class="df-tour-hi">สวัสดี ' + esc(who) + ' 👋</span>' : '') +
         '<h2 id="df-tour-w">ยินดีต้อนรับสู่ Design Flow</h2><p>ระบบลา ออกกำลังกาย และข้อมูลทีม รวมไว้ในที่เดียว<br>ใช้เวลาแนะนำแค่ 1 นาที</p>' +
         '<button type="button" class="df-tour-go" data-t-next>เริ่มทัวร์</button>' +
         '<button type="button" class="df-tour-skip" data-t-skip>ข้ามไปก่อน · ดูได้ภายหลังที่ปุ่ม "วิธีใช้งาน"</button></div>';
