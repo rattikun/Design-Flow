@@ -156,8 +156,8 @@
       var on = type === t;
       return '<button type="button" role="radio" aria-checked="' + on + '"' + (disabled ? ' disabled aria-disabled="true"' : '') +
         ' class="df-leave-type' + (on ? ' on' : '') + (disabled ? ' off' : '') + '" onclick="DFLeave.pickType(\'' + t + '\')">' +
-        D.tile(D.TYPE_ICON[t] || 'ic-acc', 40) + '<span class="df-leave-type-name">' + esc(D.plainType(t)) + '</span>' +
-        '<span class="df-leave-type-sub' + subCls + '">' + esc(sub) + '</span></button>';
+        D.tile(D.TYPE_ICON[t] || 'ic-acc', 36) + '<span class="df-leave-type-text"><span class="df-leave-type-name">' + esc(D.plainType(t)) + '</span>' +
+        '<span class="df-leave-type-sub' + subCls + '">' + esc(sub) + '</span></span></button>';
     }
     var otherVisible = OTHER_TYPES.filter(function (t) { var o = legacyOpt(t); return o && !o.hidden; });
     if (OTHER_TYPES.indexOf(type) >= 0) S.showOther = true;

@@ -604,3 +604,56 @@ html[data-theme="dark"] .df-ex-xtab.on { background: var(--ds-line2); }
   .df-ex-sacts .df-ex-sbtn { flex: 1; }
 }
 html[data-theme="dark"] .df-ex-stabs .df-ex-xtab.on { background: var(--ds-text); color: var(--ds-surface); }
+
+/* ---------------- X2 v2 · numbered steps + cycle calendar ---------------- */
+.df-ex-step { display: flex; align-items: center; gap: 10px; }
+.df-ex-stepn { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--ds-accent); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+.df-ex-step h2 { font-size: 18px; font-weight: 600; }
+.df-ex-types2 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.df-ex-type2 { font-family: inherit; text-align: left; display: flex; align-items: center; gap: 12px; padding: 8px 12px; min-height: 60px; border-radius: 14px; cursor: pointer; color: var(--ds-text); background: var(--ds-surface); border: 2px solid var(--ds-line); min-width: 0; }
+.df-ex-type2:hover { border-color: var(--ds-line-strong); }
+.df-ex-type2.on { background: var(--ds-tint); border-color: var(--ds-accent); }
+.df-ex-type2-t { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.df-ex-type2-n { font-size: 15px; font-weight: 600; }
+.df-ex-type2-n b { font-weight: 700; color: var(--ds-accent-ink); }
+.df-ex-type2 .df-ex-type-q { font-size: 12px; }
+.df-ex-calhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.df-ex-calhead > div:first-child { display: flex; flex-direction: column; }
+.df-ex-calhead b { font-size: 16px; font-weight: 600; }
+.df-ex-calhead span { font-size: 13px; color: var(--ds-muted); }
+.df-ex-calq, .df-ex-calnav { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-ex-calnav { padding-right: 6px; margin-right: 2px; border-right: 1px solid var(--ds-line); }
+.df-ex-qd { font-family: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 12px; border-radius: 10px; cursor: pointer; background: var(--ds-surface); color: var(--ds-text2); border: 1px solid var(--ds-line-strong); }
+.df-ex-qd.on { background: var(--ds-tint); color: var(--ds-accent-ink); border-color: var(--ds-tint-line); }
+.df-ex-qd:disabled { color: var(--ds-faint); cursor: not-allowed; background: var(--ds-surface2); }
+.df-ex-calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.df-ex-calw { text-align: center; font-size: 13px; color: var(--ds-muted); }
+.df-ex-cal {
+  font-family: inherit; min-height: 48px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font-size: 15px; font-weight: 600; border: 2px solid transparent; background: var(--ds-bg); color: var(--ds-text); cursor: pointer; padding: 2px; min-width: 0;
+}
+.df-ex-cal small { font-size: 11px; font-weight: 600; line-height: 1.1; min-height: 0; }
+.df-ex-cal small:empty { display: none; }
+.df-ex-cal:hover:not(:disabled) { border-color: var(--ds-tint-line); }
+.df-ex-cal.out { background: transparent; color: var(--ds-line-strong); cursor: default; }
+.df-ex-cal.future, .df-ex-cal.locked { background: transparent; color: var(--ds-faint); cursor: not-allowed; }
+.df-ex-cal.claimed { background: var(--ds-leave-bg); color: var(--ds-leave-fg); cursor: not-allowed; }
+.df-ex-cal.today { border-color: var(--ds-line-strong); }
+.df-ex-cal.sel { background: var(--ds-accent); color: #FFFFFF; border-color: var(--ds-accent); cursor: default; }
+.df-ex-cal:disabled { opacity: 1; }
+.df-ex-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ds-muted); }
+.df-ex-legend span { display: flex; align-items: center; gap: 6px; }
+.df-ex-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-sizing: border-box; }
+.df-ex-legend i.sel { background: var(--ds-accent); }
+.df-ex-legend i.claimed { background: var(--ds-leave); }
+.df-ex-legend i.today { border: 1.5px solid var(--ds-line-strong); }
+.df-ex-wkbox { font-size: 14px; border-radius: 12px; padding: 10px 14px; background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-ex-wkbox.full { background: var(--ds-warn-bg); color: var(--x-warn-fg); }
+.df-ex-new .df-ex-sum { position: sticky; top: 16px; align-self: flex-start; }
+@media (max-width: 760px) {
+  .df-ex-types2 { grid-template-columns: minmax(0, 1fr); }
+  .df-ex-calgrid { gap: 3px; }
+  .df-ex-cal { min-height: 44px; font-size: 13px; border-radius: 8px; padding: 2px 0; }
+  .df-ex-cal small { font-size: 9px; }
+  .df-ex-new .df-ex-sum { position: static; }
+}

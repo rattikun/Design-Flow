@@ -268,7 +268,7 @@
     var m = formModal();
     if (!m || !m.classList.contains('open')) return; // legacy refused (e.g. no permission) — nothing to do
     hideFormModal(); // keep the legacy form "open" (so legacy quota checks use the chosen date) but invisible
-    _ext = { name: '', dept: '' };
+    _ext = { name: '', dept: '' }; _calMk = null;
     if (_inlineOpen && mode === 'new') { _armed = 'share'; return; }
     _armed = mode;
     if (isActive('ex-new')) D.renderPage('ex-new'); else showPage('ex-new');
@@ -277,7 +277,7 @@
   function val(id) { var el = $(id); return el ? el.value : ''; }
   window.__dfExForm = {
     type: function (t) { var s = $('ex-type'); if (!s || s.value === t) return; s.value = t; updateExType(); D.renderPage('ex-new'); },
-    date: function (ds) { selectExerciseCalendarDate(ds); D.renderPage('ex-new'); },
+    date: function (ds) { selectExerciseCalendarDate(ds); _calMk = null; D.renderPage('ex-new'); },
     text: function (id, v) { var el = $(id); if (el) el.value = v; if (id === 'ex-act') clearExErr(); },
     addSys: function (email) { var s = $('ex-sys-member'); if (!s) return; s.value = email; if (s.value !== email) return; addExSysMember(); D.renderPage('ex-new'); },
     remove: function (id) { removeExMember(id); D.renderPage('ex-new'); },
@@ -328,6 +328,64 @@
     }) : [];
   }
 
+  /* step 2 · cycle calendar — same rules as legacy renderExerciseCalendar / selectExerciseCalendarDate:
+     selectable = cycle open for submission && not after today && no other non-rejected claim (involving me) on that day. */
+  var _calMk = null;
+  window.__dfExCal = { cycle: function (mk) { _calMk = mk; D.renderPage('ex-new'); } };
+  function exCalendar(date, editing, type, Q) {
+    var t = today(), selMk = monthKey(date);
+    var openKeys = [monthKey(t)]; var c0 = cycleOf(monthKey(t)), db = new Date(c0.start); db.setDate(db.getDate() - 1);
+    if (_isExerciseCycleOpenForSubmission(monthKey(db), t)) openKeys.unshift(monthKey(db));
+    if (openKeys.indexOf(selMk) < 0) openKeys.unshift(selMk); // e.g. PM editing an approved claim of an older cycle (view only)
+    var mk = (_calMk && openKeys.indexOf(_calMk) >= 0) ? _calMk : selMk;
+    var cyc = cycleOf(mk), open = _isExerciseCycleOpenForSubmission(mk, t);
+    var claims = {};
+    getExs().filter(function (e) { return e.status !== 'rejected' && isUserInvolved(e, cu.email); }).forEach(function (e) { (claims[e.date] = claims[e.date] || []).push(e); });
+    var selectable = function (ds) {
+      if (!ds || ds > t || !_isExerciseCycleOpenForSubmission(monthKey(ds), t)) return false;
+      return !(claims[ds] || []).some(function (e) { return String(e.id) !== String(editing); });
+    };
+    var start = new Date(cyc.start); start.setDate(start.getDate() - start.getDay());
+    var MONL0 = MONL;
+    var cells = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(function (w) { return '<span class="df-ex-calw">' + w + '</span>'; });
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(start); d.setDate(start.getDate() + i);
+      if (i % 7 === 0 && d > cyc.end) break;
+      var ds = toLocalDateString(d), inC = d >= cyc.start && d <= cyc.end;
+      var mine = claims[ds] || [], blocking = mine.some(function (e) { return String(e.id) !== String(editing); });
+      var ok = inC && selectable(ds), sel = ds === date, isT = ds === t;
+      var cls = ['df-ex-cal'];
+      if (!inC) cls.push('out'); else if (ds > t) cls.push('future'); else if (!open) cls.push('locked');
+      if (blocking && inC) cls.push('claimed');
+      if (sel) cls.push('sel'); if (isT) cls.push('today');
+      var tag = blocking && inC ? 'เบิกแล้ว' : (mine.length && inC ? 'รายการนี้' : isT ? 'วันนี้' : (d.getDate() === 1 && inC ? MON[d.getMonth()] : ''));
+      var why = !inC ? 'นอกรอบ' : ds > t ? 'ยังไม่สามารถยื่นล่วงหน้าได้' : !open ? 'รอบนี้ปิดแล้ว' : blocking ? 'มีรายการยื่นแล้ว' : '';
+      var label = WD[d.getDay()] + ' ' + d.getDate() + ' ' + MONL0[d.getMonth()] + ' ' + (d.getFullYear() + 543) + (tag ? ' · ' + tag : '') + (why && !sel ? ' · เลือกไม่ได้ (' + why + ')' : '');
+      cells.push('<button type="button" class="' + cls.join(' ') + '"' + (ok && !sel ? '' : sel ? '' : ' disabled') + ' aria-pressed="' + sel + '" aria-label="' + esc(label) + '"' +
+        (why && !sel ? ' title="' + esc('เลือกไม่ได้ — ' + why) + '"' : '') + (ok ? ' onclick="__dfExForm.date(\'' + ds + '\')"' : '') + '><span>' + d.getDate() + '</span><small>' + tag + '</small></button>');
+    }
+    var y = new Date(pd(t)); y.setDate(y.getDate() - 1); var yd = toLocalDateString(y);
+    var quick = [[t, 'วันนี้'], [yd, 'เมื่อวาน']].map(function (x) {
+      var can = selectable(x[0]), on = date === x[0];
+      return '<button type="button" class="df-ex-qd' + (on ? ' on' : '') + '" aria-pressed="' + on + '"' + (can && !on ? ' onclick="__dfExForm.date(\'' + x[0] + '\')"' : '') + (can || on ? '' : ' disabled title="เลือกไม่ได้"') + '>' + x[1] + '</button>';
+    }).join('');
+    var nav = openKeys.length > 1 ? '<div class="df-ex-calnav">' + openKeys.map(function (k) {
+      return '<button type="button" class="df-ex-qd' + (k === mk ? ' on' : '') + '" onclick="__dfExCal.cycle(\'' + k + '\')">รอบ ' + MON[cycleOf(k).m - 1] + '</button>'; }).join('') + '</div>' : '';
+    var headTxt = MON[cyc.start.getMonth()] + ' – ' + MON[cyc.end.getMonth()] + ' ' + (cyc.end.getFullYear() + 543);
+    var sub = 'รอบ' + (mk === monthKey(t) ? 'นี้ ' : ' ') + dShort(cyc.start) + ' – ' + dShort(cyc.end) + (open ? ' · เลือกได้ถึงวันนี้' : ' · รอบนี้ปิดแล้ว (ดูอย่างเดียว)') +
+      (openKeys.length > 1 && open && mk !== monthKey(t) ? ' · ยื่นย้อนหลังได้ถึงวันนี้ (วันที่ 19)' : '');
+    // week status (legacy wkKey week, legacy quota counts for the chosen type)
+    var r = remaining(Q, type), full = r.n <= 0;
+    var wkTxt = 'สัปดาห์ ' + dShort(Q.ws) + ' – ' + dShort(Q.we) + ' · ';
+    var used = type === 'solo' ? Q.wkSolo : Q.wkGrp, lim = type === 'solo' ? Q.wkLimit : 1;
+    wkTxt += full ? (r.scope === 'wk' ? 'เบิก' + (type === 'solo' ? 'แบบเดี่ยว' : 'แบบกลุ่ม') + 'ครบ ' + used + (lim ? '/' + lim : '') + ' ครั้งแล้ว เลือกวันในสัปดาห์อื่น' : 'ครบโควต้า' + (type === 'solo' ? 'เดี่ยว' : 'กลุ่ม') + 'ของรอบนี้แล้ว')
+      : (r.scope === 'wk' ? 'ยังเบิกประเภทนี้ได้ ' + r.n + ' ครั้ง' : 'รอบนี้ยังเบิกประเภทนี้ได้ ' + r.n + ' ครั้ง');
+    return '<div class="df-ex-calhead"><div><b>' + headTxt + '</b><span>' + sub + '</span></div><div class="df-ex-calq">' + nav + quick + '</div></div>' +
+      '<div class="df-ex-calgrid" role="group" aria-label="ปฏิทินเลือกวันที่ทำกิจกรรม">' + cells.join('') + '</div>' +
+      '<div class="df-ex-legend"><span><i class="sel"></i>วันที่เลือก</span><span><i class="claimed"></i>เบิกแล้ว</span><span><i class="today"></i>วันนี้</span></div>' +
+      '<div class="df-ex-wkbox' + (full ? ' full' : '') + '" role="status">' + wkTxt + '</div>';
+  }
+
   function renderNew(view) {
     if (!_armed || _armed === 'share') { _armed = null; openExModal(); return; } // initialises the legacy form exactly like the old "ยื่นเบิกใหม่" button
     var editing = g('_editingExId'), isEdit = editing !== null && editing !== undefined;
@@ -337,13 +395,13 @@
     var C = cutoffs();
     var t = today();
 
-    // type cards
+    // step 1 · compact type cards
     var types = TYPES.map(function (T) {
       var on = T.id === type, r = remaining(Q, T.id);
       var noteTxt = r.n > 0 ? (r.scope === 'wk' ? 'สัปดาห์นี้' : 'รอบนี้') + 'เหลือ ' + r.n + ' ครั้ง' : (r.scope === 'wk' ? 'สัปดาห์นี้' : 'รอบนี้') + 'ครบแล้ว';
-      return '<button type="button" role="radio" aria-checked="' + on + '" class="df-ex-type' + (on ? ' on' : '') + '" onclick="__dfExForm.type(\'' + T.id + '\')">' +
-        tile(T.icon, 44) + '<span class="df-ex-type-n">' + T.name + '</span><span class="df-ex-type-m">' + money(getExerciseReward(T.id, date)) + '</span>' +
-        '<span class="df-ex-type-q' + (r.n > 0 ? '' : ' full') + '">' + noteTxt + '</span></button>';
+      return '<button type="button" role="radio" aria-checked="' + on + '" class="df-ex-type2' + (on ? ' on' : '') + '" onclick="__dfExForm.type(\'' + T.id + '\')">' + tile(T.icon, 36) +
+        '<span class="df-ex-type2-t"><span class="df-ex-type2-n">' + T.name + ' <b>' + money(getExerciseReward(T.id, date)) + '</b></span>' +
+        '<span class="df-ex-type-q' + (r.n > 0 ? '' : ' full') + '">' + noteTxt + '</span></span></button>';
     }).join('');
 
     var DO = dateOptions(date, editing), dOpts = DO.opts, dateHint = DO.hint, dupFor = DO.dupFor;
@@ -400,11 +458,11 @@
       '<button type="button" class="df-ex-cancel" onclick="__dfExForm.cancel()">ยกเลิก</button></aside>';
 
     var form = '<div class="df-ex-form">' +
-      '<section class="df-card"><h2>ประเภท</h2><div class="df-ex-types" role="radiogroup" aria-label="ประเภทการเบิก">' + types + '</div></section>' +
-      '<section class="df-card"><h2>รายละเอียด</h2><div class="df-ex-fields">' +
-      '<label class="df-ex-f grow2">กิจกรรม<input data-k="act" class="df-ex-input lg" placeholder="เช่น วิ่ง 5 กม., ว่ายน้ำ, โยคะ" value="' + esc(val('ex-act')) + '" oninput="__dfExForm.text(\'ex-act\',this.value)"></label>' +
-      '<label class="df-ex-f grow1">วันที่ทำกิจกรรม' + selectHtml(dOpts, date, 'onchange="__dfExForm.date(this.value)"', 'lg') + '</label></div>' +
-      '<span class="df-ex-mut df-ex-sm">' + dateHint + '</span>' + groupHtml +
+      '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">1</span><h2>เลือกประเภท</h2></div>' + '<div class="df-ex-types2" role="radiogroup" aria-label="ประเภทการเบิก">' + types + '</div></section>' +
+      '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">2</span><h2>เลือกวันที่ทำกิจกรรม</h2></div>' + exCalendar(date, editing, type, Q) + '</section>' +
+      '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">3</span><h2>รายละเอียดกิจกรรม</h2></div>' +
+      '<label class="df-ex-f">กิจกรรม<input data-k="act" class="df-ex-input lg" placeholder="เช่น วิ่ง 5 กม., ว่ายน้ำ, โยคะ" value="' + esc(val('ex-act')) + '" oninput="__dfExForm.text(\'ex-act\',this.value)"></label>' + groupHtml + '</section>' +
+      '<section class="df-card">' + '<div class="df-ex-step"><span class="df-ex-stepn">4</span><h2>แนบหลักฐาน</h2></div>' +
       '<label class="df-ex-f">ลิงก์วิดีโอหลักฐาน <span class="df-ex-req">* จำเป็น</span><input data-k="link" class="df-ex-input lg" type="url" placeholder="วางลิงก์ Google Drive หรือ YouTube" value="' + esc(val('ex-link')) + '" oninput="__dfExForm.text(\'ex-link\',this.value)"></label>' +
       '<span class="df-ex-mut df-ex-sm">ระบบอัปโหลดไฟล์ปิดชั่วคราว — อัปโหลดวิดีโอขึ้น Google Drive แล้ววางลิงก์แทน (ตั้งสิทธิ์ให้ทุกคนที่มีลิงก์ดูได้)</span>' +
       '<label class="df-ex-f">หมายเหตุ <span class="df-ex-opt">ไม่บังคับ</span><textarea data-k="note" class="df-ex-input" rows="2" oninput="__dfExForm.text(\'ex-note\',this.value)">' + esc(val('ex-note')) + '</textarea></label>' +
