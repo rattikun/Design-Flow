@@ -80,6 +80,8 @@
     var g = document.getElementById('dashboard-greeting');
     if (g) g.textContent = greetingWord() + ' ' + nick(cu);
 
+    renderDashHero();
+
     // card 1: vacation balance
     var vac = balanceFor('vacation');
     var vEl = document.getElementById('df-vac-left'), vQ = document.getElementById('df-vac-quota'), vN = document.getElementById('df-vac-note');
@@ -120,7 +122,7 @@
       }).map(function (r) {
         var u = userByEmail(r.email), who = r.email === cu.email ? 'คุณ' : nick(u) || r.name || '';
         var range = r.start === r.end ? '' : ' – ' + fmtShort(r.end);
-        return { date: r.start < t ? t : r.start, kind: 'leave', title: who + ' · ' + plainType(r.type),
+        return { date: r.start < t ? t : r.start, kind: 'leave', user: u || { email: r.email, name: r.name }, title: who + ' · ' + plainType(r.type),
           sub: (String(r.status).indexOf('pending') === 0 ? 'รออนุมัติ · ' : '') + num(effectiveLeaveDays(r)) + ' วัน' + range };
       });
       holidays().filter(function (h) { return h.date >= t; }).forEach(function (h) {
@@ -130,7 +132,7 @@
       upEl.innerHTML = items.slice(0, 5).map(function (it) {
         var d = new Date(it.date + 'T00:00:00');
         return '<div class="df-up-row"><div class="df-datebox ' + it.kind + '"><b>' + d.getDate() + '</b><span>' + TH_MON_S[d.getMonth()] + '</span></div>' +
-          '<div class="df-up-main"><div class="df-up-title">' + esc(it.title) + '</div><div class="df-up-sub">' + esc(it.sub) + '</div></div></div>';
+          '<div class="df-up-main"><div class="df-up-title">' + esc(it.title) + '</div><div class="df-up-sub">' + esc(it.sub) + '</div></div>' + (it.user ? DFV3.avatar(it.user, 32) : '') + '</div>';
       }).join('') || '<div class="dashboard-empty">ยังไม่มีวันลาหรือวันหยุดที่จะถึง</div>';
     }
 
@@ -142,6 +144,56 @@
     var attPanel = att && att.closest('.dashboard-panel');
     if (attPanel) attPanel.hidden = !att.querySelector('.dashboard-list-item');
   }
+  /* ---- J dashboard hero: team summary + team photo (static, no animation) ---- */
+  function renderDashHero() {
+    var stats = document.querySelector('#page-dashboard .dashboard-stats');
+    if (!stats) return;
+    var hero = document.getElementById('df-dash-hero');
+    if (!hero) {
+      hero = document.createElement('section');
+      hero.id = 'df-dash-hero'; hero.className = 'df-hero-card';
+      hero.setAttribute('aria-label', 'สรุปทีมสัปดาห์นี้');
+      stats.parentNode.insertBefore(hero, stats);
+    }
+    var t = todayStr(), isMgr = cu.role === 'pm' || cu.role === 'lead';
+    var team = (getUsers() || []).filter(function (u) { return u.active !== false && cu.dept && u.dept === cu.dept; });
+    if (!team.some(function (u) { return u.email === cu.email; })) team.unshift(cu);
+    // leave visibility stays as legacy: managers see their scope, others only themselves
+    var vis = isMgr ? visibleSet() : new Set([cu.email]);
+    var leaves = getLeaves().filter(function (r) { return r.status !== 'rejected' && (vis === null || vis.has(r.email)); });
+    var awayToday = isMgr ? team.filter(function (u) { return leaves.some(function (r) { return r.email === u.email && r.start <= t && r.end >= t; }); }) : [];
+    var pending = leaves.filter(function (r) { return String(r.status).indexOf('pending') === 0 && (isMgr || r.email === cu.email); }).length;
+
+    var title;
+    if (isMgr) title = (awayToday.length ? 'วันนี้ลา ' + awayToday.length + ' คน' : 'ทีมอยู่ครบ') + (pending ? ' · ใบลารออนุมัติ ' + pending + ' ใบ' : ' ไม่มีใบลาค้าง');
+    else title = pending ? 'ใบลาของคุณรออนุมัติ ' + pending + ' ใบ' : 'ไม่มีใบลาค้าง';
+
+    // sub line: my next leave (+ a holiday right after it), else the next holiday
+    var mine = leaves.filter(function (r) { return r.email === cu.email && r.end >= t; }).sort(function (a, b) { return a.start.localeCompare(b.start); })[0];
+    var hol = holidays().filter(function (h) { return h.date >= t; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+    var whenTxt = function (ds) {
+      var diff = Math.round((new Date(ds + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
+      return diff <= 0 ? 'วันนี้' : diff === 1 ? 'พรุ่งนี้' : fmtShort(ds);
+    };
+    var sub;
+    if (mine) {
+      var after = new Date(mine.end + 'T00:00:00'); after.setDate(after.getDate() + 1);
+      var nextDay = toLocalDateString(after), hNext = hol.filter(function (h) { return h.date === nextDay; })[0];
+      sub = whenTxt(mine.start < t ? t : mine.start) + 'คุณ' + plainType(mine.type) + (String(mine.status).indexOf('pending') === 0 ? ' (รออนุมัติ)' : '') + (hNext ? ' ต่อด้วยวันหยุด ' + fmtShort(hNext.date) : '');
+    } else sub = hol.length ? 'ยังไม่มีวันลาที่กำลังจะถึง · วันหยุดถัดไป ' + fmtShort(hol[0].date) + ' ' + (hol[0].name || '') : 'ยังไม่มีวันลาที่กำลังจะถึง';
+
+    var shown = team.slice(0, 6);
+    var faces = shown.map(function (u, i) {
+      return DFV3.avatar(u, 36).replace('aria-hidden="true"', 'title="' + esc(nick(u)) + '"').replace('style="', 'style="' + (i ? 'margin-left:-8px;' : '') + 'box-shadow:0 0 0 2px var(--ds-tint);');
+    }).join('') + (team.length > 6 ? '<span class="df-hero-more">+' + (team.length - 6) + '</span>' : '');
+    var countTxt = team.length + ' คน' + (isMgr ? (awayToday.length ? ' · ลา ' + awayToday.length : ' · อยู่ครบ') : '');
+
+    hero.innerHTML = '<div class="df-hero-text"><span class="df-hero-eyebrow">' + esc(cu.dept ? 'ทีม ' + cu.dept : 'ทีมของฉัน') + ' · สัปดาห์นี้</span>' +
+      '<h2>' + esc(title) + '</h2><p>' + esc(sub) + '</p>' +
+      '<div class="df-hero-team">' + faces + '<span class="df-hero-count">' + esc(countTxt) + '</span></div></div>' +
+      '<div class="df-hero-photo" aria-hidden="true"><img src="team-photo.jpg?v=20261011" alt="" loading="lazy"></div>';
+  }
+
   function fmtShort(ds) { var d = new Date(ds + 'T00:00:00'); return d.getDate() + ' ' + TH_MON_S[d.getMonth()]; }
 
   /* Calendar in v3 style: filled day tiles with a short tag.
@@ -154,6 +206,8 @@
     var year = _dashboardCalendarMonth.getFullYear(), month = _dashboardCalendarMonth.getMonth();
     var t = todayStr();
     label.textContent = TH_MONTHS[month] + ' ' + (year + 543);
+    var ttl = label.parentNode && label.parentNode.querySelector('.dashboard-panel-title');
+    if (ttl) ttl.textContent = (cu.role === 'pm' || cu.role === 'lead') ? 'ปฏิทินทีม' : 'ปฏิทินของฉัน';
     var hol = new Map(holidays().map(function (h) { return [h.date, h]; }));
     var isMgr = cu.role === 'pm' || cu.role === 'lead';
     var vis = isMgr ? visibleSet() : new Set([cu.email]);
