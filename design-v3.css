@@ -1019,3 +1019,9 @@ html[data-theme="dark"] .ic-approve { --tbg: #262750; --tfg: #B4B3FF; }
 .df-tour-next { padding: 0 18px; border: 0; background: var(--ds-accent); color: #fff; }
 @media (max-width: 760px) { #df-tour.df-tour-stepwrap { right: 16px; bottom: 88px; } }
 @media (prefers-reduced-motion: reduce) { .df-tour-hole { transition: none; } }
+
+/* ---------- 34. UXUI workspace link ---------- */
+#nav-sec-uxui { margin-top: -4px; }
+.df-ws-link { background: var(--ds-tint); color: var(--ds-accent-ink) !important; font-weight: 600; }
+.df-ws-link:hover { background: color-mix(in srgb, var(--ds-accent) 16%, var(--ds-tint)); }
+.df-ws-link .nav-icon { color: var(--ds-accent); }

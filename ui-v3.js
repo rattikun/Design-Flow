@@ -440,6 +440,9 @@
     // the whole "ขุนทอง" menu (นัดตีแบด, เรียกเก็บเงิน) is for PM and Team Lead only
     var khun = document.getElementById('nav-sec-khun');
     if (khun) khun.style.display = (cu.role === 'pm' || cu.role === 'lead') ? '' : 'none';
+    // "พื้นที่การทำงานของ UXUI" (Quick Panel) — UXUI department only
+    var ws = document.getElementById('nav-sec-uxui');
+    if (ws) ws.style.display = String(cu.dept || '').trim().toUpperCase() === 'UXUI' ? '' : 'none';
     // mobile top bar: avatar shortcut to the profile (theme + text size live there)
     var bar = document.querySelector('.mobile-nav-bar');
     if (bar && !document.getElementById('df-m-avatar')) {
