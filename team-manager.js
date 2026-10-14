@@ -431,6 +431,8 @@ function initIDs() {
 }
 let _lastSyncAt = 0;
 function _bgSync() {
+  // ไม่ดึงข้อมูลตอนแท็บถูกซ่อน (เปิดทิ้งไว้/สลับไปแท็บอื่น) — ประหยัดค่า Database
+  if (document.hidden) return;
   const now = Date.now();
   if (now - _lastSyncAt < 30000) return; // ไม่ sync ถี่กว่า 30 วินาที
   _lastSyncAt = now;
@@ -465,8 +467,8 @@ function launchApp() {
     renderTeamCalendar();
   });
 
-  // sync ทุก 60 วินาที
-  setInterval(_bgSync, 60000);
+  // sync ทุก 3 นาที (ระหว่างที่เปิดดูแท็บอยู่) — กลับมาที่แท็บเมื่อไหร่ sync ทันที
+  setInterval(_bgSync, 180000);
 
   // sync ทันทีที่ผู้ใช้กลับมาที่แท็บ
   document.addEventListener('visibilitychange', () => {
