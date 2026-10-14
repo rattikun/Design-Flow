@@ -23,9 +23,18 @@
     role: 'ตำแหน่ง', dept: 'แผนก', active: 'บัญชีใช้งาน', phone: 'เบอร์โทร', birthday: 'วันเกิด', start_date: 'วันเริ่มงาน',
     start: 'ตั้งแต่วันที่', end: 'ถึงวันที่', activity: 'กิจกรรม', duration_min: 'ระยะเวลา (นาที)', id: 'รหัสรายการ', refNo: 'เลขที่', reward: 'ยอดเบิก', ex_type: 'รูปแบบ', submittedAt: 'ยื่นเมื่อ', proof_link: 'ลิงก์หลักฐาน',
     startDate: 'วันเริ่ม', endDate: 'วันสิ้นสุด', date: 'วันที่', days: 'จำนวนวัน', amount: 'จำนวนเงิน', members: 'สมาชิกในกลุ่ม',
-    approvedBy: 'อนุมัติโดย', rejectedBy: 'ไม่อนุมัติโดย', leadAction: 'หัวหน้าทีม', pmAction: 'PM', location_type: 'พื้นที่',
+    approvedBy: 'อนุมัติโดย', rejectedBy: 'ไม่อนุมัติโดย', leadAction: 'ผลจากหัวหน้าทีม', pmAction: 'ผลจาก PM', location_type: 'พื้นที่',
+    docRejectReason: 'เหตุผลที่ตีกลับเอกสาร', pendingDocReview: 'รอตรวจเอกสาร', reviewedAt: 'ตรวจเมื่อ', reviewedBy: 'ตรวจโดย', docStatus: 'สถานะเอกสาร',
     avatar_url: 'รูปโปรไฟล์', avatar_frame: 'กรอบรูป', discordId: 'Discord', email: 'อีเมล', suspended_at: 'ปิดบัญชีเมื่อ'
   };
+  var ACTION_VAL = { approve: 'อนุมัติ', reject: 'ไม่อนุมัติ' };
+  function isEmpty(v) { return v === null || v === undefined || v === ''; }
+  function typeTh(label) {
+    // แปลงรหัสประเภทลา (เช่น vacation) ท้ายป้ายรายการเป็นชื่อไทย
+    return String(label || '').split(' · ').map(function (part) {
+      return (typeof LT !== 'undefined' && LT[part]) ? D.plainType(part) : part;
+    }).join(' · ');
+  }
   var STATUS = { approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ', pending: 'รออนุมัติ', pending_lead: 'รอหัวหน้าทีม', pending_pm: 'รอ PM', submitted: 'รอตรวจ', open: 'เปิดอยู่' };
   var CATS = [['all', 'ทั้งหมด'], ['leave', 'การลา'], ['exercise', 'ออกกำลังกาย'], ['member', 'สมาชิก'], ['login', 'เข้าระบบ'], ['other', 'อื่น ๆ']];
   var KIND = { create: 'สร้าง', update: 'แก้ไข', delete: 'ลบ', event: 'เหตุการณ์' };
@@ -42,15 +51,22 @@
   }
   function verb(e) {
     var st = e.changes && e.changes.status && e.changes.status.to;
+    var what = e.action === 'updateLeave' ? 'ใบลา' : 'การเบิกออกกำลังกาย';
     if ((e.action === 'updateLeave' || e.action === 'updateEx') && (st === 'approved' || st === 'rejected')) {
-      return (st === 'approved' ? 'อนุมัติ' : 'ไม่อนุมัติ') + (e.action === 'updateLeave' ? 'ใบลา' : 'การเบิกออกกำลังกาย');
+      return (st === 'approved' ? 'อนุมัติ' : 'ไม่อนุมัติ') + what;
     }
+    if (e.action === 'updateLeave' && st === 'pending_pm') {
+      var la = e.changes.leadAction && e.changes.leadAction.to;
+      if (la === 'approve' || (e.changes.status.from === 'pending_lead' && la !== 'reject')) return 'อนุมัติใบลา (หัวหน้าทีม · ส่งต่อ PM)';
+    }
+    if (e.action === 'updateLeave' && e.changes && e.changes.pendingDocReview && e.changes.pendingDocReview.to === false && !st) return 'ตรวจเอกสารใบลา';
     if (e.action === 'reviewRegistration' && e.note) return e.note;
     return VERB[e.action] || e.action;
   }
   function fmtVal(k, v) {
     if (v === null || v === undefined || v === '') return '<span class="df-au-empty">ว่าง</span>';
     if (k === 'status' && STATUS[v]) return esc(STATUS[v]);
+    if ((k === 'leadAction' || k === 'pmAction') && ACTION_VAL[v]) return esc(ACTION_VAL[v]);
     if (v === true) return 'ใช่'; if (v === false) return 'ไม่';
     if (k === 'avatar_url') return 'รูปใหม่';
     var s = String(v);
@@ -68,6 +84,7 @@
     if (e.changes) {
       Object.keys(e.changes).forEach(function (k) {
         var c = e.changes[k];
+        if (isEmpty(c.from) && isEmpty(c.to)) return; // ว่าง → ว่าง ไม่ใช่การเปลี่ยนแปลงจริง
         rows += '<tr><th>' + esc(FIELD[k] || k) + '</th><td class="df-au-from">' + fmtVal(k, c.from) + '</td><td class="df-au-arrow">→</td><td class="df-au-to">' + fmtVal(k, c.to) + '</td></tr>';
       });
       return '<table class="df-au-table"><thead><tr><th>ช่อง</th><th>ก่อน</th><th></th><th>หลัง</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -125,7 +142,7 @@
             '<button type="button" class="df-au-main"' + (hasDetail ? ' aria-expanded="' + open + '" onclick="__dfAudit.toggle(\'' + esc(e.id) + '\')"' : ' disabled') + '>' +
               '<span class="df-au-time">' + esc(timeOf(e.at)) + '</span>' + D.avatar(actorUser(e), 32) +
               '<span class="df-au-text"><b>' + esc(actorName(e)) + '</b> ' + esc(verb(e)) +
-                (e.label ? ' <span class="df-au-label">' + esc(e.label) + '</span>' : '') +
+                (e.label ? ' <span class="df-au-label">' + esc(typeTh(e.label)) + '</span>' : '') +
                 (e.note && e.action !== 'reviewRegistration' ? ' <span class="df-au-note">· ' + esc(e.note) + '</span>' : '') + '</span>' +
               '<span class="df-au-kind">' + esc(KIND[e.kind] || '') + '</span>' +
               (hasDetail && e.kind !== 'event' ? '<svg class="df-au-caret" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>' : '') +
