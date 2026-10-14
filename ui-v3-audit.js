@@ -14,7 +14,7 @@
     addUser: 'เพิ่มสมาชิก', updateUser: 'แก้ไขข้อมูลสมาชิก', deleteUser: 'ปิดบัญชีสมาชิก',
     updateMyProfile: 'เปลี่ยนรูปโปรไฟล์', updateQuotas: 'แก้โควต้าวันลา',
     reviewRegistration: 'ตรวจคำขอลงทะเบียน', createRegistrationInvite: 'สร้างลิงก์เชิญ',
-    addDepartment: 'เพิ่มแผนก', setDentalReminderDate: 'ตั้งวันแจ้งเตือนทันตกรรม',
+    addDepartment: 'เพิ่มแผนก', setDentalReminderDate: 'ระบบส่งแจ้งเตือนเอกสารลาทำฟัน (อัตโนมัติ)',
     'drive:report-config': 'ตั้งไฟล์รายงานออกกำลังกาย', 'drive:export-exercise': 'ส่งข้อมูลเข้าไฟล์รายงาน',
     'drive:finalize': 'อัปโหลดไฟล์หลักฐานเข้า Drive'
   };
@@ -142,7 +142,7 @@
             '<button type="button" class="df-au-main"' + (hasDetail ? ' aria-expanded="' + open + '" onclick="__dfAudit.toggle(\'' + esc(e.id) + '\')"' : ' disabled') + '>' +
               '<span class="df-au-time">' + esc(timeOf(e.at)) + '</span>' + D.avatar(actorUser(e), 32) +
               '<span class="df-au-text"><b>' + esc(actorName(e)) + '</b> ' + esc(verb(e)) +
-                (e.label ? ' <span class="df-au-label">' + esc(typeTh(e.label)) + '</span>' : '') +
+                (e.label && e.action !== 'setDentalReminderDate' ? ' <span class="df-au-label">' + esc(typeTh(e.label)) + '</span>' : '') +
                 (e.note && e.action !== 'reviewRegistration' ? ' <span class="df-au-note">· ' + esc(e.note) + '</span>' : '') + '</span>' +
               '<span class="df-au-kind">' + esc(KIND[e.kind] || '') + '</span>' +
               (hasDetail && e.kind !== 'event' ? '<svg class="df-au-caret" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>' : '') +
