@@ -658,6 +658,8 @@ function setupLeaveFormForRole() {
     if (cu && cu.email.toLowerCase() !== 'kuniiz.ka@gmail.com') {
       members = members.filter(u => u.email.toLowerCase() !== 'kuniiz.ka@gmail.com');
     }
+    // บัญชีที่ถูกระงับแล้ว ไม่ต้องให้เลือกยื่นลาแทน
+    members = members.filter(u => u.active !== false);
     sel.innerHTML = '<option value="">— ยื่นให้ตัวเอง —</option>' + members.map(u => '<option value="' + u.email + '">' + uName(u.email, u.name) + '</option>').join('');
     sel.onchange = () => onLeaveChange();
   }
