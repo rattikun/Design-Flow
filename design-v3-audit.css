@@ -62,3 +62,9 @@
   .df-au-table tbody th { width: 96px; }
   .df-au-count { margin-left: 0; }
 }
+/* ป้ายผลของรายการ */
+.df-au-kind.b-ok { background: var(--ds-ok-bg); color: var(--ds-ok); }
+.df-au-kind.b-no, .df-au-kind.b-del { background: var(--ds-warn-bg); color: var(--ds-warn); }
+.df-au-kind.b-new { background: var(--ds-leave-bg); color: var(--ds-leave-fg); }
+.df-au-kind.b-edit { background: var(--ds-tint); color: var(--ds-accent-ink); }
+.df-au-kind.b-info { background: var(--ds-surface2); color: var(--ds-muted); }
